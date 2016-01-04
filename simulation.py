@@ -1,6 +1,17 @@
 from __future__ import print_function, division
+from metrics import LuminosityFunction, MagCounts, ColorColor
 from abc import ABCMeta, abstractmethod
 import fitsio
+import time
+
+TZERO = None
+def tprint(info):
+    global TZERO
+    if TZERO is None:
+        TZERO = time.time()
+
+    print('[%8ds] %s' % (time.time()-TZERO,info))
+
 
 class Simulation:
     """
@@ -31,7 +42,7 @@ class Simulation:
         Fill in NBody parameters and particles
         """
 
-    def validate(self, metrics=None):
+    def validate(self, metrics=None, verbose=False):
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
@@ -43,13 +54,15 @@ class Simulation:
         #catalogs that need to be in memory at a particular
         #moment get more complicated when calculating galaxy-halo 
         #relation statistics
-
+        #self.galaxycatalog.configureMetrics(metrics)
         mappables = self.galaxycatalog.genMappable(metrics)
 
         #probably want Simulation to have map method
         #which knows how to combine different 
         #types of catalogs
-        for f in mappable:
+        for f in mappables:
+            if verbose:
+                tprint('    {0}'.format(f))
             self.galaxycatalog.map(f)
 
         self.galaxycatalog.reduce()
@@ -60,6 +73,7 @@ class GalaxyCatalog:
     """
     
     __metaclass__ = ABCMeta
+
     
     def __init__(self, filestruct, input_LF=None):
         self.filestruct = filestruct
@@ -94,26 +108,6 @@ class GalaxyCatalog:
         Reduce the information produced by the map operations
         """
 
-    def luminosityFunctionMap(self, mapunit):
-        """
-        A really simple example of what a map function should look like.
-        """
-        #should check to see if all set up operations have been performed
-        nbands = mapunit['luminosity'].shape[2]
-
-        if not hasattr(self, 'lumcounts'):
-            self.lumcounts = np.zeros((len(self.lumbins)-1, nbands))
-
-        self.lumcounts += np.histogram(lums, bins=self.lumbins)
-
-    def luminosityFunctionReduce(self):
-        """
-        Given counts in luminosity bins, generate a luminosity function
-        """
-        
-        self.luminosity_function = self.lumcounts/self.volume
-        
-
 class BCCCatalog(GalaxyCatalog):
     """
     BCC style ADDGALS catalog
@@ -124,7 +118,7 @@ class BCCCatalog(GalaxyCatalog):
         self.input_LF = input_LF
         self.filestruct = filestruct
         self.parseFileStruct(filestruct)
-        self.metrics = ['lf', 'counts/mag', 'redshift']
+        self.metrics = [LuminosityFunction(self), MagCounts(self), ColorColor(self)]
         self.fieldmap = {'luminosity':{'AMAG':['obs','truth',]},
                          'appmag':{'MAG_G':['obs'], 'MAG_R':['obs'],
                                    'MAG_I':['obs'], 'MAG_Z':['obs'],
@@ -173,14 +167,17 @@ class BCCCatalog(GalaxyCatalog):
             self.metrics = metrics
 
         for m in self.metrics:
-            if m=='lf':
+            if isinstance(m,LuminosityFunction):
                 mapkeys.append('luminosity')
-            if m=='counts/mag':
-                mapkeys.append('appmag')
-                pass
-            if m=='redshift':
-                mapkeys.append('redshift')
-        
+                if 'redshift' not in mapkeys:
+                    mapkeys.append('redshift')
+            if isinstance(m,MagCounts) | isinstance(m,ColorColor):
+                if 'appmag' not in mapkeys:
+                    mapkeys.append('appmag')
+
+                if 'redshift' not in mapkeys:
+                    mapkeys.append('redshift')
+
         #for each type of data necessary for 
         #the metrics we want to calculate,
         #determine the file type it's located
@@ -229,14 +226,16 @@ class BCCCatalog(GalaxyCatalog):
 
         mapunit = self.readMappable(mappable)
         for m in self.metrics:
-            m(mapunit)
+            m.map(mapunit)
         
     def reduce(self):
         """
         Reduce the information produced by the map operations
         """
+        for m in self.metrics:
+            m.reduce()
 
-    def readMappable(self, mappable):
+    def readMappable(self, mappable, sortbyz=True):
         """
         For each element in the mappable, read in the fi
         specified in the fields dictionary and return
@@ -249,12 +248,10 @@ class BCCCatalog(GalaxyCatalog):
         for f in mappable.keys():
 
             fieldmap = mappable[f]
-            print(fieldmap.values())
             fields = []
             for val in fieldmap.values():
                 fields.extend([val])
 
-            print(fields)
             data = fitsio.read(f, columns=fields)
             for mapkey in fieldmap.keys():
                 mapunit[mapkey] = data[fieldmap[mapkey]]
@@ -264,5 +261,12 @@ class BCCCatalog(GalaxyCatalog):
                     nf = len(fieldmap[mapkey])
                     mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
 
-        return mapunit
+        if sortbyz:
+            if 'redshift' not in fieldmap.keys():
+                raise ValueError('There is no reshift field, cannot sort by redshift!')
 
+            zidx = mapunit['redshift'].argsort()
+            for mapkey in fieldmap.keys():
+                mapunit[mapkey] = mapunit[mapkey][zidx]
+
+        return mapunit
