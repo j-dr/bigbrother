@@ -1,4 +1,5 @@
 from __future__ import print_function, division
+from collections import OrderedDict
 from metrics import LuminosityFunction, MagCounts, ColorColor
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
@@ -36,17 +37,21 @@ class Simulation:
         rmax = self.cosmo.comoving_distance(self.maxz)
         self.volume = (self.area/41253)*(4/3*np.pi)*(rmax-rmin)**3
         
-    def setGalaxyCatalog(self, catalog_type, filestruct, input_LF=None):
+    def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
+                         input_LF=None, zbins=None):
         """
         Fill in the galaxy catalog information for this simulation
         """
 
         if catalog_type == "BCC":
-            self.galaxycatalog = BCCCatalog(self, filestruct, input_LF=input_LF)
+            self.galaxycatalog = BCCCatalog(self, filestruct, input_LF=input_LF,
+                                            zbins=zbins, fieldmap=fieldmap)
         elif catalog_type == "S82Phot":
             self.galaxycatalog = S82PhotCatalog(self, None)
         elif catalog_type == "S82Spec":
             self.galaxycatalog = S82SpecCatalog(self, None)
+        elif catalog_type == "DESGold":
+            self.galaxycatalog = DESGoldCatalog(self, filestruct)
 
     def setHaloCatalog(self, catalog_type, filestruct):
         """
@@ -114,6 +119,9 @@ class GalaxyCatalog:
         if metrics!=None:
             self.metrics = metrics
 
+        if hasattr(self, 'necessaries'):
+            mapkeys.extend(self.necessaries)
+
         for m in self.metrics:
             if isinstance(m,LuminosityFunction):
                 mapkeys.append('luminosity')
@@ -126,12 +134,18 @@ class GalaxyCatalog:
                 if 'redshift' not in mapkeys:
                     mapkeys.append('redshift')
 
+
         #for each type of data necessary for 
         #the metrics we want to calculate,
         #determine the file type it's located
         #in and the field 
         for mapkey in mapkeys:
-            fileinfo = self.fieldmap[mapkey]
+            try:
+                fileinfo = self.fieldmap[mapkey]
+            except KeyError as e:
+                print('No key {0}, continuing...'.format(e))
+                continue
+
             for field in fileinfo.keys():
                 valid = False
                 filetypes = fileinfo[field]
@@ -157,6 +171,7 @@ class GalaxyCatalog:
                 if not valid:
                     raise Exception("Filetypes {0} for mapkey {1} are not available!".format(filetypes, mapkey))
                 
+        self.mapkeys = mapkeys
 
         #Create mappables out of filestruct and fieldmaps
         for i in range(len(self.filestruct[self.filetypes[0]])):
@@ -176,7 +191,6 @@ class GalaxyCatalog:
         """
 
         mapunit = {}
-
         for f in mappable.keys():
 
             fieldmap = mappable[f]
@@ -186,12 +200,12 @@ class GalaxyCatalog:
                     fields.extend(val)
                 else:
                     fields.extend([val])
-
+                    
             data = fitsio.read(f, columns=fields)
+                
             for mapkey in fieldmap.keys():
                 mapunit[mapkey] = data[fieldmap[mapkey]]
                 if hasattr(fieldmap[mapkey], '__iter__'):
-                    print(mapunit[mapkey].dtype[0])
                     dt = mapunit[mapkey].dtype[0]
                     ne = len(mapunit[mapkey])
                     nf = len(fieldmap[mapkey])
@@ -228,18 +242,29 @@ class BCCCatalog(GalaxyCatalog):
     BCC style ADDGALS catalog
     """
 
-    def __init__(self, simulation, filestruct, input_LF=None, nside=8):
+    def __init__(self, simulation, filestruct, fieldmap=None, 
+                 input_LF=None, nside=8, zbins=None):
         GalaxyCatalog.__init__(self, filestruct)
         self.sim = simulation
         self.input_LF = input_LF
         self.filestruct = filestruct
         self.parseFileStruct(filestruct)
-        self.metrics = [LuminosityFunction(self.sim), MagCounts(self.sim), ColorColor(self.sim)]
-        self.fieldmap = {'luminosity':{'AMAG':['truth',]},
-                         'appmag':{'MAG_G':['obs'], 'MAG_R':['obs'],
-                                   'MAG_I':['obs'], 'MAG_Z':['obs'],
-                                   'MAG_Y':['obs']},
-                         'redshift':{'Z':['truth']}}
+        self.metrics = [LuminosityFunction(self.sim, zbins=zbins), 
+                        MagCounts(self.sim, zbins=zbins), 
+                        ColorColor(self.sim, zbins=zbins)]
+        if fieldmap==None:
+            self.fieldmap = {'luminosity':OrderedDict([('AMAG',['truth'])]),
+                             'appmag':OrderedDict([('MAG_G',['obs']), ('MAG_R',['obs']),
+                                                   ('MAG_I',['obs']), ('MAG_Z',['obs']),
+                                                   ('MAG_Y',['obs'])]),
+                             'redshift':OrderedDict([('Z',['truth'])])}
+            self.hasz = True
+        else:
+            self.fieldmap = fieldmap
+            if 'redshift' in fieldmap.keys():
+                self.sortbyz = True
+            else:
+                self.sortbyz = False
         
 
     def parseFileStruct(self, filestruct):
@@ -275,7 +300,7 @@ class BCCCatalog(GalaxyCatalog):
         Do some operations on a mappable unit of the catalog
         """
 
-        mapunit = self.readFITSMappable(mappable)
+        mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
         for m in self.metrics:
             m.map(mapunit)
         
@@ -299,8 +324,8 @@ class S82SpecCatalog(GalaxyCatalog):
         self.input_LF = input_LF
         self.parseFileStruct(None)
         self.metrics = [LuminosityFunction(self.sim)]
-        self.fieldmap = {'luminosity':{'AMAG':['spec']},
-                         'redshift':{'Z':['spec']}}
+        self.fieldmap = {'luminosity':OrderedDict([('AMAG',['spec'])]),
+                         'redshift':OrderedDict([('Z',['spec'])])}
         
 
     def parseFileStruct(self, filestruct):
@@ -338,9 +363,9 @@ class S82PhotCatalog(GalaxyCatalog):
         self.input_LF = input_LF
         self.parseFileStruct(None)
         self.metrics = [MagCounts(self.sim), ColorColor(self.sim)]
-        self.fieldmap = {'appmag':{'G':['phot'], 'R':['phot'],
-                                   'I':['phot'], 'Z':['phot']},
-                         'redshift':{'PHOTOZCC2':['phot']}}
+        self.fieldmap = {'appmag':OrderedDict([('G',['phot']), ('R',['phot']),
+                                   ('I',['phot']), ('Z',['phot'])]),
+                         'redshift':OrderedDict([('PHOTOZCC2',['phot'])])}
 
     def parseFileStruct(self, filestruct):
         """
@@ -367,4 +392,80 @@ class S82PhotCatalog(GalaxyCatalog):
             m.reduce()
 
 
-    
+class DESGoldCatalog(GalaxyCatalog):
+    """
+    DES Gold catalog in the style of Y1A1. 
+    """
+
+    def __init__(self, simulation, filestruct, nside=8):
+        GalaxyCatalog.__init__(self, filestruct)
+        self.necessaries = ['modest']
+        self.sim = simulation
+        self.parseFileStruct(filestruct)
+        self.metrics = [MagCounts(self.sim, zbins=None), 
+                        ColorColor(self.sim, zbins=None)] 
+        self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']), 
+                                               ('FLUX_AUTO_R',['auto']),
+                                               ('FLUX_AUTO_I',['auto']), 
+                                               ('FLUX_AUTO_Z',['auto'])]),
+                         'modest':OrderedDict([('MODEST_CLASS',['basic'])])}
+
+    def parseFileStruct(self, filestruct):
+
+        self.filestruct = filestruct
+        filetypes = self.filestruct.keys()
+        self.filetypes = filetypes        
+
+        if len(filestruct.keys())>1:
+            opix =  np.array([int(t.split('_')[-2].split('pix')[-1]) for t
+                              in self.filestruct[filetypes[0]]])
+            oidx = opix.argsort()
+
+            for ft in filetypes:
+                assert(len(filestruct[ft])==len(filestruct[filetypes[0]]))
+                pix = np.array([int(t.split('_')[-2].split('pix')[-1]) for t
+                    in self.filestruct[ft]])
+                idx = pix.argsort()
+                assert((pix[idx]==opix[oidx]).all())
+                
+                if len(idx)==1:
+                    self.filestruct[ft] = [self.filestruct[ft][idx]]
+                else:
+                    self.filestruct[ft] = self.filestruct[ft][idx]
+
+
+    def map(self, mappable):
+        """                                                                                    Do some operations on a mappable unit of the catalog                                   """
+
+        mapunit = self.readFITSMappable(mappable, sortbyz=False)
+        mapunit = self.unitConversion(mapunit)
+        mapunit = self.filterModest(mapunit)
+
+        for m in self.metrics:
+            m.map(mapunit)
+
+    def unitConversion(self, mapunit):
+
+        for mapkey in mapunit.keys():
+            if mapkey=='appmag':
+                mapunit[mapkey] = 30.0 - 2.5*np.log10(mapunit[mapkey])
+
+        return mapunit
+
+    def filterModest(self, mapunit):
+
+        midx = mapunit['modest']==1
+
+        for mapkey in mapunit.keys():
+            mapunit[mapkey] = mapunit[mapkey][midx]
+
+        return mapunit
+        
+
+    def reduce(self):
+        """                                                                                                                                                                          
+        Reduce the information produced by the map operations                                                                                                                        
+        """
+        for m in self.metrics:
+            m.reduce()
+

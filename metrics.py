@@ -71,7 +71,7 @@ class LuminosityFunction(Metric):
         """
         self.luminosity_function = self.lumcounts/self.sim.volume
 
-    def visualize(self, plotname=None, usebands=None, f=None, ax=None, marker='d'):
+    def visualize(self, plotname=None, usebands=None, f=None, ax=None, **kwargs):
         """
         Plot the calculated luminosity function.
         """
@@ -83,7 +83,7 @@ class LuminosityFunction(Metric):
 
         if f==None:
             f, ax = plt.subplots(len(usebands), len(self.zbins)-1,
-                                 sharex=True, sharey=True)
+                                 sharex=True, sharey=True, figsize=(8,8))
             newaxes = True
         else:
             newaxes = False
@@ -91,7 +91,8 @@ class LuminosityFunction(Metric):
 
         for i, b in enumerate(usebands):
             for j in range(len(self.zbins)-1):
-                ax[j*self.nbands+i].semilogy(mlums, self.luminosity_function[:,b,j], marker)
+                ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
+                                             **kwargs)
         
         if newaxes:
             sax = f.add_subplot(111)
@@ -109,35 +110,46 @@ class LuminosityFunction(Metric):
         return f, ax
         
 
-    def compare(self, othermetric, plotname=None, usebands=None):
-        
+    def compare(self, othermetrics, plotname=None, usebands=None, **kwargs):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
         if usebands!=None:
-            assert(len(usebands[0])==len(usebands[1]))
-            f, ax = self.visualize(usebands=usebands[0])
-            f, ax = othermetric.visualize(usebands=usebands[1],
-                                          f=f, ax=ax, marker='s')
+            if not hasattr(usebands[0], '__iter__'):
+                usebands = [usebands]*len(tocompare)
+            else:
+                assert(len(usebands)==len(tocompare))
         else:
-            f, ax = self.visualize(usebands=usebands)
-            f, ax = othermetric.visualize(usebands=usebands,
-                                          f=f, ax=ax, marker='s')
+            usebands = [None]*len(tocompare)
+        
+        for i, m in enumerate(tocompare):
+            if usebands[i]!=None:
+                assert(len(usebands[0])==len(usebands[i]))
+            if i==0:
+                f, ax = m.visualize(usebands=usebands[i], **kwargs)
+            else:
+                f, ax = m.visualize(usebands=usebands[i],
+                                    f=f, ax=ax, **kwargs)
 
         if plotname!=None:
             plt.savefig(plotname)
-    
 
+        return f, ax
+    
 
 class MagCounts(Metric):
     """
     Compute count per magnitude in redshift bins
     """
 
-    def __init__(self, simulation, zbins=None, magbins=None):
+    def __init__(self, simulation, zbins=[0.0, 0.2],  magbins=None):
         Metric.__init__(self,simulation)
 
+        self.zbins = zbins
         if zbins==None:
-            self.zbins = [0.0, 0.2]
+            self.nzbins = 1
         else:
-            self.zbins = zbins
+            self.nzbins = len(zbins)-1
 
         if magbins==None:
             self.magbins = np.linspace(10, 30, 60)
@@ -149,20 +161,25 @@ class MagCounts(Metric):
 
         if not hasattr(self, 'magcounts'):
             self.magcounts = np.zeros((len(self.magbins)-1, 
-                                       self.nbands, len(self.zbins)-1))
+                                       self.nbands, self.nzbins))
             
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+        if self.zbins!=None:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+                for j in range(self.nbands):
+                    c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j], 
+                                        bins=self.magbins)
+                    self.magcounts[:,j,i] += c
+        else:
             for j in range(self.nbands):
-                c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j], 
-                                    bins=self.magbins)
-                self.magcounts[:,j,i] += c
+                c, e = np.histogram(mapunit['appmag'][:,j], bins=self.magbins)
+                self.magcounts[:,j,0] += c
 
     def reduce(self):
         self.magcounts = self.magcounts/self.sim.area
 
-    def visualize(self, plotname=None, f=None, ax=None, usebands=None, marker='d'):
+    def visualize(self, plotname=None, f=None, ax=None, usebands=None, **kwargs):
         mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
                           for i in range(len(self.magbins)-1)])
 
@@ -170,15 +187,29 @@ class MagCounts(Metric):
             usebands = range(self.nbands)
 
         if f==None:
-            f, ax = plt.subplots(len(usebands), len(self.zbins)-1,
-                                 sharex=True, sharey=True)
+            f, ax = plt.subplots(len(usebands), self.nzbins,
+                                 sharex=True, sharey=True,
+                                 figsize=(8,8))
             newaxes = True
         else:
             newaxes = False
 
         for i, b in enumerate(usebands):
-            for j in range(len(self.zbins)-1):
-                ax[j*self.nbands+i].semilogy(mmags, self.magcounts[:,b,j], marker)
+            for j in range(self.nzbins):
+                ax[i][j].semilogy(mmags, self.magcounts[:,b,j], 
+                                             **kwargs)
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$m\, [Mags]$')
+            sax.set_ylabel(r'$n\, [deg^{-2}]$')
+ 
+
 
         if plotname!=None:
             plt.savefig(plotname)
@@ -186,33 +217,43 @@ class MagCounts(Metric):
         return f, ax
 
 
-    def compare(self, othermetric, plotname=None, usebands=None):
+    def compare(self, othermetrics, plotname=None, usebands=None, **kwargs):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
         if usebands!=None:
-            print('0')
-            assert(len(usebands[0])==len(usebands[1]))
-            print('1')
-            f, ax = self.visualize(usebands=usebands[0])
-            print('2')
-            f, ax = othermetric.visualize(usebands=usebands[1],
-                                          f=f, ax=ax, marker='s')
+            if not hasattr(usebands[0], '__iter__'):
+                usebands = [usebands]*len(tocompare)
+            else:
+                assert(len(usebands)==len(tocompare))
         else:
-            f, ax = self.visualize(usebands=usebands)
-            f, ax = othermetric.visualize(usebands=usebands,
-                                          f=f, ax=ax, marker='s')
+            usebands = [None]*len(tocompare)
+        
+        for i, m in enumerate(tocompare):
+            if usebands[i]!=None:
+                assert(len(usebands[0])==len(usebands[i]))
+            if i==0:
+                f, ax = m.visualize(usebands=usebands[i], **kwargs)
+            else:
+                f, ax = m.visualize(usebands=usebands[i],
+                                    f=f, ax=ax, **kwargs)
 
         if plotname!=None:
             plt.savefig(plotname)
 
+        return f, ax
+
 
 class ColorColor(Metric):
     
-    def __init__(self, simulation, zbins=None, magbins=None):
+    def __init__(self, simulation, zbins=[0.0, 0.2], magbins=None):
         Metric.__init__(self, simulation)
         
+        self.zbins = zbins
         if zbins==None:
-            self.zbins = [0.0, 0.2]
+            self.nzbins = 1
         else:
-            self.zbins = zbins
+            self.nzbins = len(zbins)-1
 
         if magbins==None:
             self.magbins = np.linspace(10, 30, 60)
@@ -225,25 +266,36 @@ class ColorColor(Metric):
         if not hasattr(self, 'cc'):
             self.cc = np.zeros((len(self.magbins)-1, len(self.magbins)-1, 
                                 self.nbands*(self.nbands-1)/2,
-                                len(self.zbins)-1))
-            
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+                                self.nzbins))
+
+        if self.zbins!=None:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+                for j in range(self.nbands):
+                    for k in range(self.nbands):
+                        if k<=j: continue
+                        ind = k*(k-1)/2+j-1
+                        c, e0, e1 = np.histogram2d(mapunit['appmag'][zlidx:zhidx,j], 
+                                                   mapunit['appmag'][zlidx:zhidx,k], 
+                                                   bins=[self.magbins,self.magbins])
+                        self.cc[:,:,ind,i] += c
+        else:
             for j in range(self.nbands):
                 for k in range(self.nbands):
                     if k<=j: continue
                     ind = k*(k-1)/2+j-1
-                    c, e0, e1 = np.histogram2d(mapunit['appmag'][zlidx:zhidx,j], 
-                                               mapunit['appmag'][zlidx:zhidx,k], 
+                    c, e0, e1 = np.histogram2d(mapunit['appmag'][:,j], 
+                                               mapunit['appmag'][:,k], 
                                                bins=[self.magbins,self.magbins])
-                    self.cc[:,:,ind,i] += c
+                    self.cc[:,:,ind,0] += c
+
 
     
     def reduce(self):
         self.cc = self.cc/self.sim.area
 
-    def visualize(self, plotname=None, f=None, ax=None, usecolors=None):
+    def visualize(self, plotname=None, f=None, ax=None, usecolors=None, **kwargs):
         mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
                           for i in range(len(self.magbins)-1)])
 
@@ -251,28 +303,29 @@ class ColorColor(Metric):
             usecolors = range(self.cc.shape[2])
 
         if f==None:
-            f, ax = plt.subplots(len(self.zbins)-1, len(usecolors),
-                                 sharex=True, sharey=True)
+            f, ax = plt.subplots(self.nzbins, len(usecolors),
+                                 sharex=True, sharey=True, figsize=(8,8))
             newaxes = True
         else:
             newaxes = False
 
         for i in usecolors:
-            for j in range(len(self.zbins)-1):
-                ax[j*self.nbands+i].pcolormesh(mmags, mmags, self.cc[:,:,i,j])
+            for j in range(self.nzbins):
+                ax[j*self.nbands+i].pcolormesh(mmags, mmags, self.cc[:,:,i,j],
+                                               **kwargs)
 
         return f, ax
 
-    def compare(self, othermetric, plotname=None, usecolors=None):
+    def compare(self, othermetric, plotname=None, usecolors=None, **kwargs):
         if usebands!=None:
             assert(len(usecolors[0])==len(usecolors[1]))
-            f, ax = self.visualize(usecolors=usecolors[0])
+            f, ax = self.visualize(usecolors=usecolors[0], **kwargs)
             f, ax = othermetric.visualize(usecolors=usecolors[1],
-                                          f=f, ax=ax)
+                                          f=f, ax=ax, **kwargs)
         else:
-            f, ax = self.visualize(usecolors=usecolors)
+            f, ax = self.visualize(usecolors=usecolors, **kwargs)
             f, ax = othermetric.visualize(usecolors=usecolors,
-                                          f=f, ax=ax)
+                                          f=f, ax=ax, **kwargs)
 
         if plotname!=None:
             plt.savefig(plotname)
