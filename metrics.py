@@ -44,6 +44,8 @@ class LuminosityFunction(Metric):
             self.lumbins = np.linspace(-25, -11, 30)
         else:
             self.lumbins = lumbins
+
+        self.mapkeys = ['luminosity', 'redshift']
         
     def map(self, mapunit):
         """
@@ -69,7 +71,8 @@ class LuminosityFunction(Metric):
         """
         Given counts in luminosity bins, generate a luminosity function
         """
-        self.luminosity_function = self.lumcounts/self.sim.volume
+        area = self.sim.galaxycatalog.getArea()
+        self.luminosity_function = self.lumcounts/self.sim.calculate_volume(area)
 
     def visualize(self, plotname=None, usebands=None, f=None, ax=None, **kwargs):
         """
@@ -89,10 +92,16 @@ class LuminosityFunction(Metric):
             newaxes = False
 
 
-        for i, b in enumerate(usebands):
-            for j in range(len(self.zbins)-1):
-                ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
-                                             **kwargs)
+        if len(zbins)-1>1:
+            for i, b in enumerate(usebands):
+                for j in range(len(self.zbins)-1):
+                    ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
+                                      **kwargs)
+        else:
+            for i, b in enumerate(usebands):
+                ax[i].semilogy(mlums, self.luminosity_function[:,b,j], 
+                               **kwargs)
+            
         
         if newaxes:
             sax = f.add_subplot(111)
@@ -156,6 +165,8 @@ class MagCounts(Metric):
         else:
             self.magbins = magbins
 
+        self.mapkeys = ['appmag', 'redshift']
+
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
 
@@ -177,7 +188,8 @@ class MagCounts(Metric):
                 self.magcounts[:,j,0] += c
 
     def reduce(self):
-        self.magcounts = self.magcounts/self.sim.area
+        area = self.sim.galaxycatalog.getArea()
+        self.magcounts = self.magcounts/area
 
     def visualize(self, plotname=None, f=None, ax=None, usebands=None, **kwargs):
         mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
@@ -194,10 +206,17 @@ class MagCounts(Metric):
         else:
             newaxes = False
 
-        for i, b in enumerate(usebands):
-            for j in range(self.nzbins):
-                ax[i][j].semilogy(mmags, self.magcounts[:,b,j], 
-                                             **kwargs)
+        if self.nzbins>1:
+            for i, b in enumerate(usebands):
+                for j in range(self.nzbins):
+                    ax[i][j].semilogy(mmags, self.magcounts[:,b,j], 
+                                      **kwargs)
+        else:
+            for i, b in enumerate(usebands):
+                for j in range(self.nzbins):
+                    ax[i].semilogy(mmags, self.magcounts[:,b,j], 
+                                   **kwargs)
+
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -260,6 +279,8 @@ class ColorColor(Metric):
         else:
             self.magbins = magbins
 
+        self.mapkeys = ['appmag', 'redshift']
+
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
 
@@ -293,7 +314,8 @@ class ColorColor(Metric):
 
     
     def reduce(self):
-        self.cc = self.cc/self.sim.area
+        area = self.sim.galaxycatalog.getArea()
+        self.cc = self.cc/area
 
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None, **kwargs):
         mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 

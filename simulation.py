@@ -4,6 +4,7 @@ from metrics import LuminosityFunction, MagCounts, ColorColor
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 import numpy as np
+import healpy as hp
 import fitsio
 import time
 
@@ -21,7 +22,7 @@ class Simulation:
     A class which owns all the other catalog data 
     """
     
-    def __init__(self, omega_m, omega_l, h, minz, maxz, area):
+    def __init__(self, omega_m, omega_l, h, minz, maxz, area=0.0):
         
         self.omega_m = omega_m
         self.omega_l = omega_l
@@ -30,28 +31,32 @@ class Simulation:
         self.minz = minz
         self.maxz = maxz
         self.area = area
-        self.calculate_volume()
+        self.calculate_volume(area)
 
-    def calculate_volume(self):
+
+    def calculate_volume(self,area):
         rmin = self.cosmo.comoving_distance(self.minz)
         rmax = self.cosmo.comoving_distance(self.maxz)
         self.volume = (self.area/41253)*(4/3*np.pi)*(rmax-rmin)**3
         
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
-                         input_LF=None, zbins=None):
+                         input_LF=None, zbins=None, maskfile=None,
+                         goodpix=None):
         """
         Fill in the galaxy catalog information for this simulation
         """
 
         if catalog_type == "BCC":
             self.galaxycatalog = BCCCatalog(self, filestruct, input_LF=input_LF,
-                                            zbins=zbins, fieldmap=fieldmap)
+                                            zbins=zbins, fieldmap=fieldmap,
+                                            maskfile=maskfile, goodpix=goodpix)
         elif catalog_type == "S82Phot":
             self.galaxycatalog = S82PhotCatalog(self, None)
         elif catalog_type == "S82Spec":
             self.galaxycatalog = S82SpecCatalog(self, None)
         elif catalog_type == "DESGold":
-            self.galaxycatalog = DESGoldCatalog(self, filestruct)
+            self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile,
+                                                goodpix=goodpix)
 
     def setHaloCatalog(self, catalog_type, filestruct):
         """
@@ -87,6 +92,7 @@ class Simulation:
             self.galaxycatalog.map(f)
 
         self.galaxycatalog.reduce()
+
         
 class GalaxyCatalog:
     """
@@ -96,8 +102,12 @@ class GalaxyCatalog:
     __metaclass__ = ABCMeta
 
     
-    def __init__(self, filestruct, input_LF=None):
+    def __init__(self, filestruct, maskfile=None, goodpix=1):
         self.filestruct = filestruct
+        self.maskfile = maskfile
+        self.mask = None
+        self.area = 0.0
+        self.goodpix = goodpix
 
     @abstractmethod
     def parseFileStruct(self, filestruct):
@@ -123,17 +133,9 @@ class GalaxyCatalog:
             mapkeys.extend(self.necessaries)
 
         for m in self.metrics:
-            if isinstance(m,LuminosityFunction):
-                mapkeys.append('luminosity')
-                if 'redshift' not in mapkeys:
-                    mapkeys.append('redshift')
-            if isinstance(m,MagCounts) | isinstance(m,ColorColor):
-                if 'appmag' not in mapkeys:
-                    mapkeys.append('appmag')
+            mapkeys.extend(m.mapkeys)
 
-                if 'redshift' not in mapkeys:
-                    mapkeys.append('redshift')
-
+        mapkeys = np.unique(mapkeys)
 
         #for each type of data necessary for 
         #the metrics we want to calculate,
@@ -237,14 +239,47 @@ class GalaxyCatalog:
     def setFieldMap(self, fieldmap):
         self.fieldmap = fieldmap
 
+    def calculateArea(self, pixels, nside):
+        """
+        Calculate the area in the given pixels provided a mask
+        that is pixelated with an nside greater than that of 
+        the catalog
+        """
+
+        area = np.zeros(len(pixels))
+        if self.mask==None:
+            self.mask, self.maskhdr = hp.read_map(self.maskfile,h=True)
+            self.maskhdr = dict(self.maskhdr)
+        
+        #our map should be finer than our file pixelation
+        assert(nside<self.maskhdr['NSIDE']) 
+
+        udmap = hp.ud_grade(np.arange(12*nside**2),self.maskhdr['NSIDE'])
+        pixarea = hp.nside2pixarea(self.maskhdr['NSIDE'],degrees=True)
+        
+        for i,p in enumerate(pixels):
+            pm, = np.where(udmap==p)
+            area[i] = pixarea*len(udmap[pm][udmap[pm]>=self.goodpix])
+            
+        return area
+
+    def getArea(self):
+        
+        if self.mask==None:
+            return self.sim.area
+        else:
+            return self.area
+
+
 class BCCCatalog(GalaxyCatalog):
     """
     BCC style ADDGALS catalog
     """
 
     def __init__(self, simulation, filestruct, fieldmap=None, 
-                 input_LF=None, nside=8, zbins=None):
-        GalaxyCatalog.__init__(self, filestruct)
+                 input_LF=None, nside=8, zbins=None, maskfile=None,
+                 goodpix=1):
+        GalaxyCatalog.__init__(self, filestruct, maskfile=maskfile, goodpix=goodpix)
         self.sim = simulation
         self.input_LF = input_LF
         self.filestruct = filestruct
@@ -252,6 +287,8 @@ class BCCCatalog(GalaxyCatalog):
         self.metrics = [LuminosityFunction(self.sim, zbins=zbins), 
                         MagCounts(self.sim, zbins=zbins), 
                         ColorColor(self.sim, zbins=zbins)]
+        self.nside = nside
+
         if fieldmap==None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['truth'])]),
                              'appmag':OrderedDict([('MAG_G',['obs']), ('MAG_R',['obs']),
@@ -294,6 +331,17 @@ class BCCCatalog(GalaxyCatalog):
                     self.filestruct[ft] = [self.filestruct[ft][idx]]
                 else:
                     self.filestruct[ft] = self.filestruct[ft][idx]
+
+    def pixelVal(self,mappable):
+        """
+        Get the healpix cell value of this mappble using the fact
+        that BCC files contain their healpix values
+        """
+        fts = mappable.keys()
+        f1 = fts[0]
+        pix = int(f1.split('.')[-2])
+        
+        return pix
         
     def map(self, mappable):
         """
@@ -301,6 +349,12 @@ class BCCCatalog(GalaxyCatalog):
         """
 
         mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
+
+        if self.maskfile!=None:
+            pix = self.pixelVal(mappable)
+            a = self.calculateArea([pix],self.nside)
+            self.area += a[0]
+
         for m in self.metrics:
             m.map(mapunit)
         
@@ -397,11 +451,12 @@ class DESGoldCatalog(GalaxyCatalog):
     DES Gold catalog in the style of Y1A1. 
     """
 
-    def __init__(self, simulation, filestruct, nside=8):
-        GalaxyCatalog.__init__(self, filestruct)
+    def __init__(self, simulation, filestruct, nside=8, maskfile=None, goodpix=1):
+        GalaxyCatalog.__init__(self, filestruct,maskfile=maskfile,goodpix=goodpix)
         self.necessaries = ['modest']
         self.sim = simulation
         self.parseFileStruct(filestruct)
+        self.nside = nside
         self.metrics = [MagCounts(self.sim, zbins=None), 
                         ColorColor(self.sim, zbins=None)] 
         self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']), 
@@ -433,6 +488,17 @@ class DESGoldCatalog(GalaxyCatalog):
                 else:
                     self.filestruct[ft] = self.filestruct[ft][idx]
 
+    def pixelVal(self,mappable):
+        """
+        Get the healpix cell value of this mappble using the fact
+        that BCC files contain their healpix values
+        """
+        fts = mappable.keys()
+        f1 = fts[0]
+        pix = int(f1.split('_')[-2].split('pix')[-1])
+        
+        return pix
+
 
     def map(self, mappable):
         """                                                                                    Do some operations on a mappable unit of the catalog                                   """
@@ -440,6 +506,11 @@ class DESGoldCatalog(GalaxyCatalog):
         mapunit = self.readFITSMappable(mappable, sortbyz=False)
         mapunit = self.unitConversion(mapunit)
         mapunit = self.filterModest(mapunit)
+
+        if self.maskfile!=None:
+            pix = self.pixelVal(mappable)
+            a = self.calculateArea([pix],self.nside)
+            self.area += a[0]
 
         for m in self.metrics:
             m.map(mapunit)
