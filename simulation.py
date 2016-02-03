@@ -41,7 +41,7 @@ class Simulation:
         
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
                          input_LF=None, zbins=None, maskfile=None,
-                         goodpix=None):
+                         goodpix=1):
         """
         Fill in the galaxy catalog information for this simulation
         """
@@ -256,10 +256,13 @@ class GalaxyCatalog:
 
         udmap = hp.ud_grade(np.arange(12*nside**2),self.maskhdr['NSIDE'])
         pixarea = hp.nside2pixarea(self.maskhdr['NSIDE'],degrees=True)
-        
         for i,p in enumerate(pixels):
             pm, = np.where(udmap==p)
-            area[i] = pixarea*len(udmap[pm][udmap[pm]>=self.goodpix])
+            print('ngood: {0}'.format(len(self.mask[pm][self.mask[pm]>=self.goodpix])))
+            print('nold: {0}'.format(len(udmap[pm][udmap[pm]>=self.goodpix])))
+            print('mask: {0}'.format(self.mask))
+            print('goodpix: {0}'.format(self.goodpix))
+            area[i] = pixarea*len(self.mask[pm][self.mask[pm]>=self.goodpix])
             
         return area
 
