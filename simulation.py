@@ -31,13 +31,14 @@ class Simulation:
         self.minz = minz
         self.maxz = maxz
         self.area = area
-        self.calculate_volume(area)
+        self.volume = self.calculate_volume(area,self.minz,self.maxz)
 
 
-    def calculate_volume(self,area):
-        rmin = self.cosmo.comoving_distance(self.minz)
-        rmax = self.cosmo.comoving_distance(self.maxz)
-        self.volume = (self.area/41253)*(4/3*np.pi)*(rmax-rmin)**3
+    def calculate_volume(self,area,minz,maxz):
+        rmin = self.cosmo.comoving_distance(minz)
+        rmax = self.cosmo.comoving_distance(maxz)
+        return (self.area/41253)*(4/3*np.pi)*(rmax-rmin)**3
+        
         
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
                          input_LF=None, zbins=None, maskfile=None,

@@ -40,6 +40,8 @@ class LuminosityFunction(Metric):
         else:
             self.zbins = zbins
 
+        self.nzbins = len(self.zbins)-1
+
         if lumbins==None:
             self.lumbins = np.linspace(-25, -11, 30)
         else:
@@ -72,7 +74,11 @@ class LuminosityFunction(Metric):
         Given counts in luminosity bins, generate a luminosity function
         """
         area = self.sim.galaxycatalog.getArea()
-        self.luminosity_function = self.lumcounts/self.sim.calculate_volume(area)
+        self.luminosity_function = self.lumcounts
+
+        for i in range(self.nzbins):
+            vol = self.sim.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+            self.luminosity_function[:,:,i] /= vol
 
     def visualize(self, plotname=None, usebands=None, f=None, ax=None, **kwargs):
         """
@@ -92,7 +98,7 @@ class LuminosityFunction(Metric):
             newaxes = False
 
 
-        if len(zbins)-1>1:
+        if self.nzbins>1:
             for i, b in enumerate(usebands):
                 for j in range(len(self.zbins)-1):
                     ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
@@ -352,3 +358,88 @@ class ColorColor(Metric):
         if plotname!=None:
             plt.savefig(plotname)
 
+class AnalyticLuminosityFunction(LuminosityFunction):
+
+    def __init__(self, *args, **kwargs):
+        
+        if 'nbands' in kwargs:
+            self.nbands = kwargs.pop('nbands')
+        else:
+            self.nbands = 5
+
+        LuminosityFunction.__init__(self,*args,**kwargs)
+
+
+    def generateNumberDensity(self,par,form='SchechterAmag'):
+        """
+        Evaluate an analytic form of a luminosity function
+        given an array of parameters.
+        
+        inputs:
+        par -- An array of parameters. If one dimensional,
+               assumes the same parameters for all z bins
+               and bands. If two dimensional, tries to use
+               rows as parameters for different z bins, assumes
+               same parameters for all bands.
+        form -- The form of the luminosity function. If
+                string, must be one of the LFs that are implemented
+                otherwise should be a function whose first argument
+                is an array of luminosities, and whose second argument
+                is a one dimensional array of parameters.
+        """
+        self.lummean = (self.lumbins[1:]+self.lumbins[:-1])/2
+        self.luminosity_function = np.zeros((len(self.lummean), self.nbands,
+                                             self.nzbins))
+
+        for i in range(self.nzbins):
+            for j in range(self.nbands):
+                if len(par.shape)==1:
+                    p = par
+                elif ((len(par.shape)==2) and (par.shape[0]==self.nzbins)):
+                    p = par[i,:]
+                elif ((len(par.shape)==3) and (par.shape[0]==self.nzbins)
+                      and (par.shape[2]==self.nbands)):
+                    p = par[i,j,:]
+                else:
+                    raise(ValueError("Shape of parameters incompatible with number of z bins"))
+                if form=='SchechterAmag':
+                    self.luminosity_function[:,j,i] = self.schechterFunctionAmag(self.lummean, p)
+                elif form=='doubleSchecterFunctionAmag':
+                    self.luminosity_function[:,j,i] = self.doubleSchechterFunctionAmag(self.lummean, p)
+
+                elif hasattr(form, '__call__'):
+                    try:
+                        self.luminosity_function[:,j,i] = form(self.lummean, p)
+                    except:
+                        raise(TypeError("Functional form is not in the correct format"))
+
+                else:
+                    raise(NotImplementedError("Luminosity form {0} is not implemented".format(form)))
+
+    def schechterFunctionAmag(self,m,p):
+        """
+        Single Schechter function appropriate for absolute magnitudes.
+        
+        inputs:
+        m -- An array of magnitudes.
+        p -- Schechter function parameters. Order 
+             should be phi^{star}, M^{star}, \alpha
+        """
+        phi = 0.4 * np.log(10) * p[0] * np.exp(-10 ** (0.4 * (p[1]-m))) \
+                               * 10 **(0.4*(p[1]-m)*(p[2]+1))
+        return phi
+
+    def doubleSchechterFunctionAmag(self,m,p):
+        """
+        Single Schechter function appropriate for absolute magnitudes.
+        
+        inputs:
+        m -- An array of magnitudes.
+        p -- Schechter function parameters. Order 
+             should be phi^{star}_{1}, M^{star}, \alpha_{1}, 
+             phi^{star}_{2}, \alpha_{2}
+        """
+        phi = 0.4 * np.log(10) * (p[0] * 10 ** (0.4 * (p[2] + 1) * (p[1] - m)) \
+                                  + p[3] * 10 ** (0.4 * (p[4] + 1) * (p[1] - m))) \
+                                * np.exp(-10 ** (0.4 * (p[1] - m)))
+        return phi
