@@ -35,9 +35,9 @@ class Simulation:
 
 
     def calculate_volume(self,area,minz,maxz):
-        rmin = self.cosmo.comoving_distance(minz)
-        rmax = self.cosmo.comoving_distance(maxz)
-        return (self.area/41253)*(4/3*np.pi)*(rmax-rmin)**3
+        rmin = self.cosmo.comoving_distance(minz)*self.h
+        rmax = self.cosmo.comoving_distance(maxz)*self.h
+        return (self.area/41253)*(4/3*np.pi)*(rmax**3-rmin**3)
         
         
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,

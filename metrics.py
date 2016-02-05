@@ -39,6 +39,7 @@ class LuminosityFunction(Metric):
             self.zbins = [0.0, 0.2]
         else:
             self.zbins = zbins
+            self.zbins = np.array(self.zbins)
 
         self.nzbins = len(self.zbins)-1
 
@@ -84,8 +85,12 @@ class LuminosityFunction(Metric):
         """
         Plot the calculated luminosity function.
         """
-        mlums = np.array([(self.lumbins[i]+self.lumbins[i+1])/2 
-                          for i in range(len(self.lumbins)-1)])
+        if hasattr(self, 'lummean'):
+            mlums = self.lummean
+        else:
+            mlums = np.array([(self.lumbins[i]+self.lumbins[i+1])/2 
+                              for i in range(len(self.lumbins)-1)])
+
 
         if usebands==None:
             usebands = range(self.nbands)
@@ -165,6 +170,7 @@ class MagCounts(Metric):
             self.nzbins = 1
         else:
             self.nzbins = len(zbins)-1
+            self.zbins = np.array(self.zbins)
 
         if magbins==None:
             self.magbins = np.linspace(10, 30, 60)
@@ -198,8 +204,12 @@ class MagCounts(Metric):
         self.magcounts = self.magcounts/area
 
     def visualize(self, plotname=None, f=None, ax=None, usebands=None, **kwargs):
-        mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
-                          for i in range(len(self.magbins)-1)])
+
+        if hasattr(self, 'magmean'):
+            mmags = self.magmean
+        else:
+            mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
+                              for i in range(len(self.magbins)-1)])
 
         if usebands==None:
             usebands = range(self.nbands)
@@ -279,6 +289,7 @@ class ColorColor(Metric):
             self.nzbins = 1
         else:
             self.nzbins = len(zbins)-1
+            self.zbins = np.array(self.zbins)
 
         if magbins==None:
             self.magbins = np.linspace(10, 30, 60)
@@ -324,8 +335,12 @@ class ColorColor(Metric):
         self.cc = self.cc/area
 
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None, **kwargs):
-        mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
-                          for i in range(len(self.magbins)-1)])
+
+        if hasattr(self, 'magmean'):
+            mmags = self.magmean
+        else:
+            mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
+                              for i in range(len(self.magbins)-1)])
 
         if usecolors==None:
             usecolors = range(self.cc.shape[2])
@@ -370,7 +385,47 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         LuminosityFunction.__init__(self,*args,**kwargs)
 
 
-    def generateNumberDensity(self,par,form='SchechterAmag'):
+    def genDSGParams(self, z, evol='faber', Q=-0.866):
+        params = np.zeros(8)
+        phistar = 10 ** (-1.79574 + (-0.266409 * z))
+        mstar = -20.44
+        mstar0 = -20.310
+
+        params[0] = 0.0156  #phistar1
+        params[1] = -0.166  #alpha1
+        params[2] = 0.00671 #phistar2
+        params[3] = -1.523  #alpha2
+        params[4] = -19.88  #mstar
+        params[5] = 3.08e-5 #phistar3
+        params[6] = -21.72  #M_hi
+        params[7] = 0.484   #sigma_hi
+
+        phistar_rat = phistar/params[0]
+        mr_shift = mstar - mstar0
+        params[0] *= phistar_rat
+        params[2] *= phistar_rat
+        params[5] *= phistar_rat
+        params[4] += mr_shift
+        params[6] += mr_shift
+
+        if evol=='faber':
+            params[4] += Q * (np.log10(z)+1)
+            params[6] += Q * (np.log10(z)+1)
+
+        return params
+
+    def genBCCParams(self, evol='faber'):
+        
+        zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
+        par = np.zeros((len(zmeans), 8))
+
+        for i, z in enumerate(zmeans):
+            par[i,:] = self.genDSGParams(z, evol=evol)
+
+        return par
+            
+
+    def calcNumberDensity(self,par,form='SchechterAmag'):
         """
         Evaluate an analytic form of a luminosity function
         given an array of parameters.
@@ -406,6 +461,8 @@ class AnalyticLuminosityFunction(LuminosityFunction):
                     self.luminosity_function[:,j,i] = self.schechterFunctionAmag(self.lummean, p)
                 elif form=='doubleSchecterFunctionAmag':
                     self.luminosity_function[:,j,i] = self.doubleSchechterFunctionAmag(self.lummean, p)
+                elif form=='doubleSchechterGaussian':
+                    self.luminosity_function[:,j,i] = self.doubleSchechterGaussian(self.lummean, p)
 
                 elif hasattr(form, '__call__'):
                     try:
@@ -443,3 +500,79 @@ class AnalyticLuminosityFunction(LuminosityFunction):
                                   + p[3] * 10 ** (0.4 * (p[4] + 1) * (p[1] - m))) \
                                 * np.exp(-10 ** (0.4 * (p[1] - m)))
         return phi
+
+    def doubleSchechterGaussian(self,m,p):
+
+        phi = 0.4 * np.log(10) * np.exp(-10**(-0.4 * (m - p[4]))) * \
+            (p[0] * 10 ** (-0.4 * (m - p[4])*(p[1]+1)) + \
+            p[2] * 10 ** (-0.4 * (m - p[4])*(p[3]+1))) + \
+            p[5] / np.sqrt(2 * np.pi * p[7] ** 2) * \
+            np.exp(-(m - p[6]) ** 2 / (2 * p[7] ** 2))
+
+        return phi
+
+class TabulatedLuminosityFunction(LuminosityFunction):
+
+    def __init__(self, *args, **kwargs):
+        
+        if 'fname' in kwargs:
+            self.fname = kwargs.pop('fname')
+        else:
+            raise(ValueError("Please supply a path to the tabulated luminosity function using the fname kwarg!"))
+
+        if 'nbands' in kwargs:
+            self.nbands = kwargs.pop('fname')
+        else:
+            self.nbands = 5
+
+        LuminosityFunction.__init__(self,*args,**kwargs)
+
+    def loadLuminosityFunction(self):
+        
+
+        if len(self.fname)==1:
+            tab = np.loadtxt(self.fname[0])
+            self.luminosity_function = np.zeros((tab.shape[0], self.nbands, self.nzbins))
+            if len(tab.shape)==2:
+                self.lummean = tab[:,0]
+                print(tab.shape)
+                if tab.shape[1]==2:
+                    for i in range(self.nzbins):
+                        for j in range(self.nbands):
+                            self.luminosity_function[:,j,i] = tab[:,1]
+                else:
+                    assert((tab.shape[1]-1)==self.nzbins)
+                    for i in range(self.nzbins):
+                        for j in range(self.nbands):
+                            self.luminosity_function[:,j,i] = tab[:,i+1]
+
+            elif len(tab.shape)==3:
+                self.lummean = tab[:,0,0]
+                self.luminosity_function[:,:,:] = tab[:,1:,:]
+        else:
+            if len(self.fname.shape)==1:
+                assert(self.fname.shape[0]==self.nzbins)
+                for i in range(len(self.fname)):
+                    lf = np.loadtxt(self.fname[i])
+                    if i==0:
+                        self.lummean = lf[:,0]
+                        self.luminosity_function = np.zeros((len(self.lummean), self.nbands, self.nzbins))
+                    else:
+                        assert((lf[:,0]==self.lummean).all())
+                    
+                    for j in range(self.nbands):
+                        self.luminosity_function[:,j,i] = lf[:,1]
+
+            elif len(self.fname.shape)==2:
+                for i in range(self.fname.shape[0]):
+                    for j in range(self.fname.shape[1]):
+                        lf = np.loadtxt(self.fname[i,j])
+                        if (i==0) & (j==0):
+                            self.lummean = lf[:,0]
+                            self.luminosity_function = np.zeros((len(self.lummean), self.nbands, self.nzbins))
+                        else:
+                            assert(self.lummean==lf[:,0])
+                        
+                        self.luminosity_function[:,j,i] = lf[:,1]
+
+        
