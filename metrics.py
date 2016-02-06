@@ -3,6 +3,8 @@ from abc import ABCMeta, abstractmethod
 if __name__=='__main__':
     import matplotlib as mpl
     mpl.use('Agg')
+import matplotlib.gridspec as gridspec
+from scipy.interpolate import InterpolatedUnivariateSpline
 import matplotlib.pylab as plt
 import numpy as np
 
@@ -81,7 +83,9 @@ class LuminosityFunction(Metric):
             vol = self.sim.calculate_volume(area, self.zbins[i], self.zbins[i+1])
             self.luminosity_function[:,:,i] /= vol
 
-    def visualize(self, plotname=None, usebands=None, f=None, ax=None, **kwargs):
+    def visualize(self, plotname=None, usebands=None, fracdev=True, ref_lf=None, 
+                  ref_ml=None, xlim=None, ylim=None, fylim=None, f=None, ax=None,
+                  **kwargs):
         """
         Plot the calculated luminosity function.
         """
@@ -91,28 +95,84 @@ class LuminosityFunction(Metric):
             mlums = np.array([(self.lumbins[i]+self.lumbins[i+1])/2 
                               for i in range(len(self.lumbins)-1)])
 
-
         if usebands==None:
             usebands = range(self.nbands)
+        
+        print(fracdev)
+        print(len(ref_ml))
+        print(len(mlums))
+
+
+        if fracdev & (len(ref_ml)!=len(mlums)):
+            rls = ref_lf.shape
+            li = mlums.searchsorted(ref_ml[0])
+            hi = mlums.searchsorted(ref_ml[-1])
+            iref_lf = np.zeros((hi-li, rls[1], rls[2]))
+            for i in range(rls[1]):
+                for j in range(rls[2]):
+                    spl = InterpolatedUnivariateSpline(ref_ml, ref_lf[:,i,j])
+                    iref_lf[:,i,j] = spl(mlums[li:hi])
+
+            ref_lf = iref_lf
+        else:
+            li = 0
+            hi = len(mlums)
+                    
 
         if f==None:
-            f, ax = plt.subplots(len(usebands), len(self.zbins)-1,
-                                 sharex=True, sharey=True, figsize=(8,8))
+            if fracdev==False:
+                f, ax = plt.subplots(len(usebands), len(self.zbins)-1,
+                                     sharex=True, sharey=True, figsize=(8,8))
+            else:
+                assert(ref_lf!=None)
+                gs = gridspec.GridSpec(len(usebands)*2, self.nzbins)
+                f = plt.figure()
+                ax = []
+                for r in range(len(usebands)):
+                    ax.append([])
+                    ax.append([])
+                    for c in range(self.nzbins):
+                        if (r==0) & (c==0):
+                            ax[2*r].append(f.add_subplot(gs[2*r,c]))
+                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0]))
+                        else:
+                            ax[2*r].append(f.add_subplot(gs[2*r,c]))
+                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0], 
+                                                           sharey=ax[1][0]))
             newaxes = True
         else:
             newaxes = False
 
-
         if self.nzbins>1:
             for i, b in enumerate(usebands):
                 for j in range(len(self.zbins)-1):
-                    ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
-                                      **kwargs)
+                    if fracdev==False:
+                        ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
+                                          **kwargs)
+                    else:
+                        ax[2*i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
+                                          **kwargs)
+                        ax[2*i+1][j].plot(mlums, 
+                                          (self.luminosity_function[li:hi,b,j]-ref_lf[:,b,j])\
+                                              /ref_lf[:,b,j], **kwargs)
+                        if (i==0) & (j==0):
+                            if xlim!=None:
+                                ax[0][0].set_xlim(xlim)
+                            if ylim!=None:
+                                ax[0][0].set_ylim(ylim)
+                            if fylim!=None:
+                                ax[1][0].set_ylim(fylim)
+
         else:
             for i, b in enumerate(usebands):
-                ax[i].semilogy(mlums, self.luminosity_function[:,b,j], 
-                               **kwargs)
-            
+                if fracdev==False:
+                    ax[i].semilogy(mlums, self.luminosity_function[:,b,0], 
+                                   **kwargs)
+                else:
+                    ax[0][i].semilogy(mlums, self.luminosity_function[:,b,0], 
+                                        **kwargs)
+                    ax[1][i].plot(mlums, (self.luminosity_function[li:hi,b,0]-ref_lf[:,b,0])\
+                                      /ref_lf[:,b,0], **kwargs)
         
         if newaxes:
             sax = f.add_subplot(111)
@@ -130,7 +190,8 @@ class LuminosityFunction(Metric):
         return f, ax
         
 
-    def compare(self, othermetrics, plotname=None, usebands=None, **kwargs):
+    def compare(self, othermetrics, plotname=None, usebands=None, fracdev=True, xlim=None,
+                ylim=None, fylim=None, labels=None, **kwargs):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
@@ -141,16 +202,38 @@ class LuminosityFunction(Metric):
                 assert(len(usebands)==len(tocompare))
         else:
             usebands = [None]*len(tocompare)
-        
+
+        if fracdev:
+            if hasattr(self, 'lummean'):
+                ref_ml = self.lummean
+            else:
+                ref_ml =  np.array([(self.lumbins[i]+self.lumbins[i+1])/2 
+                                    for i in range(len(self.lumbins)-1)])
+
+        if labels==None:
+            labels = [None]*len(tocompare)
+
         for i, m in enumerate(tocompare):
             if usebands[i]!=None:
                 assert(len(usebands[0])==len(usebands[i]))
             if i==0:
-                f, ax = m.visualize(usebands=usebands[i], **kwargs)
+                if fracdev:
+                    f, ax = m.visualize(usebands=usebands[i], fracdev=True, ref_ml=ref_ml,
+                                        ref_lf=self.luminosity_function, xlim=xlim,
+                                        ylim=ylim, fylim=fylim, label=labels[i],**kwargs)
+                else:
+                    f, ax = m.visualize(usebands=usebands[i], xlim=xlim, ylim=ylim, 
+                                        fracdev=False, fylim=fylim,label=labels[i],**kwargs)
             else:
-                f, ax = m.visualize(usebands=usebands[i],
-                                    f=f, ax=ax, **kwargs)
-
+                if fracdev:
+                    f, ax = m.visualize(usebands=usebands[i], fracdev=True, ref_ml=ref_ml,
+                                        ref_lf=tocompare[0].luminosity_function, 
+                                        xlim=xlim, ylim=ylim, fylim=fylim,
+                                        f=f, ax=ax, label=labels[i], **kwargs)
+                else:
+                    f, ax = m.visualize(usebands=usebands[i], xlim=xlim, ylim=ylim,
+                                        fylim=fylim, f=f, ax=ax, fracdev=False,
+                                        label=labels[i], **kwargs)
         if plotname!=None:
             plt.savefig(plotname)
 
@@ -409,12 +492,15 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         params[6] += mr_shift
 
         if evol=='faber':
-            params[4] += Q * (np.log10(z)+1)
-            params[6] += Q * (np.log10(z)+1)
+            params[4] += Q * (np.log10(z) + 1)
+            params[6] += Q * (np.log10(z) + 1)
+        elif evol=='a':
+            params[4] += Q * (1. / (1 + z) - 1. / 1.1)
+            params[6] += Q * (1. / (1 + z) - 1. / 1.1)
 
         return params
 
-    def genBCCParams(self, evol='faber'):
+    def genBCCParams(self, evol='faber', Q=-0.866):
         
         zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
         par = np.zeros((len(zmeans), 8))
@@ -535,7 +621,6 @@ class TabulatedLuminosityFunction(LuminosityFunction):
             self.luminosity_function = np.zeros((tab.shape[0], self.nbands, self.nzbins))
             if len(tab.shape)==2:
                 self.lummean = tab[:,0]
-                print(tab.shape)
                 if tab.shape[1]==2:
                     for i in range(self.nzbins):
                         for j in range(self.nbands):
@@ -575,4 +660,3 @@ class TabulatedLuminosityFunction(LuminosityFunction):
                         
                         self.luminosity_function[:,j,i] = lf[:,1]
 
-        
