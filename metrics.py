@@ -1,12 +1,15 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
+from scipy.interpolate import InterpolatedUnivariateSpline
+from copy import copy
 if __name__=='__main__':
     import matplotlib as mpl
     mpl.use('Agg')
 import matplotlib.gridspec as gridspec
-from scipy.interpolate import InterpolatedUnivariateSpline
+
 import matplotlib.pylab as plt
 import numpy as np
+import treecorr
 
 
 class Metric(object):
@@ -34,7 +37,7 @@ class Metric(object):
 
 class LuminosityFunction(Metric):
     
-    def __init__(self, simulation, zbins=None, lumbins=None):
+    def __init__(self, simulation, central_only=False, zbins=None, lumbins=None):
         Metric.__init__(self, simulation)
 
         if zbins==None:
@@ -50,7 +53,11 @@ class LuminosityFunction(Metric):
         else:
             self.lumbins = lumbins
 
-        self.mapkeys = ['luminosity', 'redshift']
+        self.central_only = central_only
+        if central_only:
+            self.mapkeys = ['luminosity', 'redshift', 'central']
+        else:
+            self.mapkeys = ['luminosity', 'redshift']
         
     def map(self, mapunit):
         """
@@ -58,17 +65,24 @@ class LuminosityFunction(Metric):
         """
 
         self.nbands = mapunit['luminosity'].shape[1]
+        mu = {}
+
+        if self.central_only:
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][mapunit['central']==1]
+        else:
+            mu = mapunit
 
         if not hasattr(self, 'lumcounts'):
             self.lumcounts = np.zeros((len(self.lumbins)-1, self.nbands, 
                                        len(self.zbins)-1))
             
         for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+            zlidx = mu['redshift'].searchsorted(self.zbins[i])
+            zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
             for j in range(self.nbands):
-                c, e = np.histogram(mapunit['luminosity'][zlidx:zhidx,j], 
+                c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j], 
                                     bins=self.lumbins)
                 self.lumcounts[:,j,i] += c
 
@@ -98,11 +112,6 @@ class LuminosityFunction(Metric):
         if usebands==None:
             usebands = range(self.nbands)
         
-        print(fracdev)
-        print(len(ref_ml))
-        print(len(mlums))
-
-
         if fracdev & (len(ref_ml)!=len(mlums)):
             rls = ref_lf.shape
             li = mlums.searchsorted(ref_ml[0])
@@ -238,7 +247,134 @@ class LuminosityFunction(Metric):
             plt.savefig(plotname)
 
         return f, ax
-    
+
+
+class LcenMvir(Metric):
+
+    def __init__(self, simulation, zbins=None, massbins=None):
+        Metric.__init__(self, simulation)
+
+        if zbins==None:
+            self.zbins = [0.0, 0.2]
+        else:
+            self.zbins = zbins
+            self.zbins = np.array(self.zbins)
+
+        self.nzbins = len(self.zbins)-1
+
+        if massbins==None:
+            self.massbins = np.logspace(12, 15, 20)
+        else:
+            self.massbins = massbins
+
+        self.mapkeys = ['luminosity', 'redshift', 'central', 'mvir']
+
+        
+    def map(self, mapunit):
+
+        self.nbands = mapunit['luminosity'].shape[1]
+
+        mu = {}
+
+        for k in mapunit.keys():
+            mu[k] = mapunit[k][mapunit['central']==1]
+
+
+        if not hasattr(self, 'lumcounts'):
+            self.totlum = np.zeros((len(self.massbins)-1, self.nbands, 
+                                    len(self.zbins)-1))
+            self.bincount = np.zeros((len(self.massbins)-1, self.nbands,
+                                      len(self.zbins)-1))
+            
+        for i, z in enumerate(self.zbins[:-1]):
+            zlidx = mu['redshift'].searchsorted(self.zbins[i])
+            zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
+            mb = np.digitize(mu['mvir'][zlidx:zhidx], bins=self.massbins)
+
+            for j in range(len(self.massbins)-1):
+                blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
+                self.bincount[j,:,i] += len(blum)
+                self.totlum[j,:,i] += np.sum(blum, axis=0)
+
+
+    def reduce(self):
+
+        self.lcen_mvir = self.totlum/self.bincount
+
+
+    def visualize(self, plotname=None, f=None, ax=None, usebands=None, **kwargs):
+
+        if hasattr(self, 'massmean'):
+            mmass = self.massmean
+        else:
+            mmass = np.array([(self.massbins[i]+self.massbins[i+1])/2 
+                              for i in range(len(self.massbins)-1)])
+
+        if usebands==None:
+            usebands = range(self.nbands)
+
+        if f==None:
+            f, ax = plt.subplots(len(usebands), self.nzbins,
+                                 sharex=True, sharey=True,
+                                 figsize=(8,8))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if self.nzbins>1:
+            for i, b in enumerate(usebands):
+                for j in range(self.nzbins):
+                    ax[i][j].semilogx(mmass, self.lcen_mvir[:,b,j], 
+                                      **kwargs)
+        else:
+            for i, b in enumerate(usebands):
+                for j in range(self.nzbins):
+                    ax[i].semilogx(mmass, self.lcen_mvir[:,b,j], 
+                                   **kwargs)
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$M_{vir}\, [M_{sun}]$')
+            sax.set_ylabel(r'$L_{cen}\, [mag]$')
+
+        if plotname!=None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
+    def compare(self, othermetrics, plotname=None, usebands=None, **kwargs):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usebands!=None:
+            if not hasattr(usebands[0], '__iter__'):
+                usebands = [usebands]*len(tocompare)
+            else:
+                assert(len(usebands)==len(tocompare))
+        else:
+            usebands = [None]*len(tocompare)
+        
+        for i, m in enumerate(tocompare):
+            if usebands[i]!=None:
+                assert(len(usebands[0])==len(usebands[i]))
+            if i==0:
+                f, ax = m.visualize(usebands=usebands[i], **kwargs)
+            else:
+                f, ax = m.visualize(usebands=usebands[i],
+                                    f=f, ax=ax, **kwargs)
+
+        if plotname!=None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
 
 class MagCounts(Metric):
     """
@@ -437,20 +573,20 @@ class ColorColor(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[j*self.nbands+i].pcolormesh(mmags, mmags, self.cc[:,:,i,j],
-                                               **kwargs)
+                ax[j][i].pcolormesh(mmags, mmags, self.cc[:,:,i,j],
+                                    **kwargs)
 
         return f, ax
 
     def compare(self, othermetric, plotname=None, usecolors=None, **kwargs):
-        if usebands!=None:
+        if usecolors!=None:
             assert(len(usecolors[0])==len(usecolors[1]))
             f, ax = self.visualize(usecolors=usecolors[0], **kwargs)
             f, ax = othermetric.visualize(usecolors=usecolors[1],
                                           f=f, ax=ax, **kwargs)
         else:
             f, ax = self.visualize(usecolors=usecolors, **kwargs)
-            f, ax = othermetric.visualize(usecolors=usecolors,
+            f, ax = othermetric[0].visualize(usecolors=usecolors,
                                           f=f, ax=ax, **kwargs)
 
         if plotname!=None:
@@ -509,7 +645,24 @@ class AnalyticLuminosityFunction(LuminosityFunction):
             par[i,:] = self.genDSGParams(z, evol=evol)
 
         return par
+
+    def evolveDSGParams(self, p, Q, evol='faber'):
+
+        zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
+
+        par = np.zeros((len(zmeans), 8))
+
+        for i, z in enumerate(zmeans):
+            par[i,:] = copy(p)
             
+            if evol=='faber':
+                par[i,4] += Q * (np.log10(z) + 1)
+                par[i,6] += Q * (np.log10(z) + 1)
+            else:
+                par[i,4] += Q * (1. / (1 + z) - 1. / 1.1)
+                par[i,6] += Q * (1. / (1 + z) - 1. / 1.1)
+
+        return par
 
     def calcNumberDensity(self,par,form='SchechterAmag'):
         """
@@ -659,4 +812,27 @@ class TabulatedLuminosityFunction(LuminosityFunction):
                             assert(self.lummean==lf[:,0])
                         
                         self.luminosity_function[:,j,i] = lf[:,1]
+
+
+class AngularCorrelationFunction(Metric):
+
+    def __init__(self, simulation, zbins=None, lumbins=None):
+        Metric.__init__(self, simulation)
+
+        if zbins==None:
+            self.zbins = [0.0, 0.2]
+        else:
+            self.zbins = zbins
+            self.zbins = np.array(self.zbins)
+
+        self.nzbins = len(self.zbins)-1
+
+        if lumbins==None:
+            self.lumbins = np.linspace(-25, -11, 30)
+        else:
+            self.lumbins = lumbins
+
+        self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
+        
+        
 
