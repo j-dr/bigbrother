@@ -178,10 +178,19 @@ class LuminosityFunction(Metric):
                     ax[i].semilogy(mlums, self.luminosity_function[:,b,0], 
                                    **kwargs)
                 else:
-                    ax[0][i].semilogy(mlums, self.luminosity_function[:,b,0], 
+                    ax[2*i][0].semilogy(mlums, self.luminosity_function[:,b,0], 
                                         **kwargs)
-                    ax[1][i].plot(mlums, (self.luminosity_function[li:hi,b,0]-ref_lf[:,b,0])\
+                    ax[2*i+1][0].plot(mlums, (self.luminosity_function[li:hi,b,0]-ref_lf[:,b,0])\
                                       /ref_lf[:,b,0], **kwargs)
+
+                    if (i==0):
+                        if xlim!=None:
+                            ax[0][0].set_xlim(xlim)
+                        if ylim!=None:
+                            ax[0][0].set_ylim(ylim)
+                        if fylim!=None:
+                            ax[1][0].set_ylim(fylim)
+
         
         if newaxes:
             sax = f.add_subplot(111)

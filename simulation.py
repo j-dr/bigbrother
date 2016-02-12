@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 from collections import OrderedDict
-from metrics import LuminosityFunction, MagCounts, ColorColor
+from metrics import LuminosityFunction, MagCounts, ColorColor, LcenMvir
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 import numpy as np
@@ -23,7 +23,25 @@ class Simulation:
     """
     
     def __init__(self, omega_m, omega_l, h, minz, maxz, area=0.0):
+        """
+        Initialize a simulation object
         
+        Arguments
+        ---------
+        omega_m : float
+            Matter density parameter now
+        omega_l : float
+            Lambda density parameter now
+        h : float
+            Dimensionless hubble constant
+        minz : float
+            Minimum redshift
+        maxz : float
+            Maximum redshift
+        area : float, optional
+            The area spanned by this simulation
+        """
+
         self.omega_m = omega_m
         self.omega_l = omega_l
         self.h = h
@@ -290,7 +308,9 @@ class BCCCatalog(GalaxyCatalog):
         self.parseFileStruct(filestruct)
         self.metrics = [LuminosityFunction(self.sim, zbins=zbins), 
                         MagCounts(self.sim, zbins=zbins), 
-                        ColorColor(self.sim, zbins=zbins)]
+                        ColorColor(self.sim, zbins=zbins),
+                        LuminosityFunction(self.sim, zbins=zbins, central_only=True),
+                        LcenMvir(self.sim, zbins=zbins)]
         self.nside = nside
 
         if fieldmap==None:
