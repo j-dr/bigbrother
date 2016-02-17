@@ -13,10 +13,17 @@ import treecorr
 
 
 class Metric(object):
-
+    """
+    An abstract class which all other metric classes should descend from. All metrics
+    must define the methods that are declared as abstractmethod here. 
+    """
     __metaclass__ = ABCMeta
 
     def __init__(self, simulation):
+        """
+        Simple init method. At the very least, init methods for subclasses
+        should take a simulation object as an argument.
+        """
         self.sim = simulation
 
     @abstractmethod
@@ -36,8 +43,31 @@ class Metric(object):
         pass
 
 class LuminosityFunction(Metric):
-    
+    """
+    A generic luminosity function class. More specific types of luminosity
+    functions inherit this class.
+    """
+
     def __init__(self, simulation, central_only=False, zbins=None, lumbins=None):
+        """
+        Initialize a LuminosityFunction object. Note, all metrics should define
+        an attribute called mapkeys which specifies the types of data that they
+        expect.
+
+        Arguments
+        ---------
+        simulation : Simulation
+            The simulation object that this metric is associated with.
+        central_only : bool, optional
+            Whether the LF should be measured for only central galaxies.
+            Defaults to false
+        zbins : array-like
+            An 1-d array containing the edges of the redshift bins to 
+            measure the LF in.
+        lumbins : array-like
+            A 1-d array containing the edges of the luminosity bins to 
+            measure the LF in.
+        """
         Metric.__init__(self, simulation)
 
         if zbins==None:
@@ -61,26 +91,37 @@ class LuminosityFunction(Metric):
         
     def map(self, mapunit):
         """
-        A simple example of what a map function should look like.
+        A simple example of what a map function should look like. 
+        Map functions always take mapunits as input.
         """
 
+        #The number of bands to measure the LF for
         self.nbands = mapunit['luminosity'].shape[1]
-        mu = {}
 
+        #If only measuring for centrals, get the appropriate
+        #rows of the mapunit
+
+        mu = {}
         if self.central_only:
             for k in mapunit.keys():
                 mu[k] = mapunit[k][mapunit['central']==1]
         else:
             mu = mapunit
 
+        #Want to count galaxies in bins of luminosity for 
+        #self.nbands different bands in self.nzbins
+        #redshift bins
         if not hasattr(self, 'lumcounts'):
             self.lumcounts = np.zeros((len(self.lumbins)-1, self.nbands, 
-                                       len(self.zbins)-1))
-            
+                                       self.nzbins))
+
+        #Assume redshifts are provided, and that the 
+        #mapunit is sorted in terms of them
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
             zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
+            #Count galaxies in bins of luminosity
             for j in range(self.nbands):
                 c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j], 
                                     bins=self.lumbins)
@@ -88,7 +129,11 @@ class LuminosityFunction(Metric):
 
     def reduce(self):
         """
-        Given counts in luminosity bins, generate a luminosity function
+        Given counts in luminosity bins, generate a luminosity function.
+        This will be called after all the mapunits are mapped by the map
+        method. This turns total counts of galaxies into densities as appropriate
+        for a luminosity function. The LF is then saved as an attribute of the
+        LuminosityFunction object.
         """
         area = self.sim.galaxycatalog.getArea()
         self.luminosity_function = self.lumcounts
@@ -102,6 +147,42 @@ class LuminosityFunction(Metric):
                   **kwargs):
         """
         Plot the calculated luminosity function.
+        
+        Arguments
+        ---------
+        plotname : string, optional
+            If provided, the plot will be saved to a file by this name.
+        usebands : array-like, optional
+            The indices of the bands to plot. Default is to use all the 
+            bands the LF was measured in.
+        fracdev : bool, optional
+            Whether or not to plot fractional deviation of this luminosity
+            function from the reference luminosity function provided in
+            ref_lf. 
+        ref_lf : 3-d array-like, optional
+            If fracdev is set to True, this is the LF that will be compared.
+            If must have the same number of bands and z bins, but the 
+            luminosity bins may differ.
+        ref_ml : 1-d array-like, optional
+            The mean luminosities of the bins in which ref_lf is measured.
+            If ref_lf is measured in a different number of luminosity bins
+            than this LF, interpolation is performed in order to compare at 
+            the same mean luminosities.
+        xlim : array-like, optional
+            A list [xmin, xmax], the range of luminosities to
+            plot the LF for.
+        ylim: array-like, optional
+            A list [ymin, ymax], the range of densities to plot
+            the LF for.
+        fylim : array-like, optional
+            A list [fymin, fymax]. If fracdev is True, plot the 
+            fractional deviations over this range.
+        f : Figure, optional
+           A figure object. If provided the LF will be ploted using this 
+           figure.
+        ax : array of Axes, optional
+           An array of Axes objects. If provided, the luminosity functions
+           will be plotted on these axes. 
         """
         if hasattr(self, 'lummean'):
             mlums = self.lummean
@@ -111,7 +192,10 @@ class LuminosityFunction(Metric):
 
         if usebands==None:
             usebands = range(self.nbands)
-        
+
+        #If want to plot fractional deviations, and ref_lf
+        #uses different LF bins, interpolate ref_lf to 
+        #luminosities given at mlums. Don't extrapolate!
         if fracdev & (len(ref_ml)!=len(mlums)):
             rls = ref_lf.shape
             li = mlums.searchsorted(ref_ml[0])
@@ -126,12 +210,15 @@ class LuminosityFunction(Metric):
         else:
             li = 0
             hi = len(mlums)
-                    
 
+        #if no figure provided, set up figure and axes
         if f==None:
             if fracdev==False:
                 f, ax = plt.subplots(len(usebands), len(self.zbins)-1,
                                      sharex=True, sharey=True, figsize=(8,8))
+            #if want fractional deviations, need to make twice as 
+            #many rows of axes. Every other row contains fractional
+            #deviations from the row above it.
             else:
                 assert(ref_lf!=None)
                 gs = gridspec.GridSpec(len(usebands)*2, self.nzbins)
@@ -154,7 +241,7 @@ class LuminosityFunction(Metric):
 
         if self.nzbins>1:
             for i, b in enumerate(usebands):
-                for j in range(len(self.zbins)-1):
+                for j in range(self.nzbins):
                     if fracdev==False:
                         l1 = ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
                                           **kwargs)
@@ -191,7 +278,7 @@ class LuminosityFunction(Metric):
                         if fylim!=None:
                             ax[1][0].set_ylim(fylim)
 
-        
+        #if we just created the axes, add labels
         if newaxes:
             sax = f.add_subplot(111)
             sax.spines['top'].set_color('none')
@@ -210,6 +297,19 @@ class LuminosityFunction(Metric):
 
     def compare(self, othermetrics, plotname=None, usebands=None, fracdev=True, xlim=None,
                 ylim=None, fylim=None, labels=None, **kwargs):
+        """
+        Compare a list of other luminosity functions
+
+        Arguments
+        ---------
+        othermetrics -- array-like of LuminosityFunctions
+            An array of luminosity functions to compare to this one.
+        labels -- array-like, optional
+           An array containing labels for each LuminosityFunction in 
+           othermetrics. Defualt to no labels.
+        See visualize for other argument documentation
+        """
+
         tocompare = [self]
         tocompare.extend(othermetrics)
 
@@ -267,7 +367,9 @@ class LuminosityFunction(Metric):
 
 
 class LcenMvir(Metric):
-
+    """
+    Central galaxy luminosity - halo virial mass relation.
+    """
     def __init__(self, simulation, zbins=None, massbins=None):
         Metric.__init__(self, simulation)
 
@@ -395,7 +497,7 @@ class LcenMvir(Metric):
 
 class MagCounts(Metric):
     """
-    Compute count per magnitude in redshift bins
+    Galaxy counts per magnitude.
     """
 
     def __init__(self, simulation, zbins=[0.0, 0.2],  magbins=None):
@@ -516,7 +618,9 @@ class MagCounts(Metric):
 
 
 class ColorColor(Metric):
-    
+    """
+    Color-color diagram.
+    """
     def __init__(self, simulation, zbins=[0.0, 0.2], magbins=None):
         Metric.__init__(self, simulation)
         
@@ -610,6 +714,10 @@ class ColorColor(Metric):
             plt.savefig(plotname)
 
 class AnalyticLuminosityFunction(LuminosityFunction):
+    """
+    Class for generating luminosity functions from 
+    fitting functions.
+    """
 
     def __init__(self, *args, **kwargs):
         
@@ -622,6 +730,10 @@ class AnalyticLuminosityFunction(LuminosityFunction):
 
 
     def genDSGParams(self, z, evol='faber', Q=-0.866):
+        """
+        Generate the double schechter function plus gaussian
+        parameters used for Buzzard_v1.1
+        """
         params = np.zeros(8)
         phistar = 10 ** (-1.79574 + (-0.266409 * z))
         mstar = -20.44
@@ -654,7 +766,18 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         return params
 
     def genBCCParams(self, evol='faber', Q=-0.866):
+        """
+        Generate the parameters for the Buzzard_v1.1 
+        luminosity function at specified redshifts assuming
+        an evolution model.
         
+        Arguments
+        ---------
+        evol : str
+            The evolution model to use
+        Q : float
+            M* evolution parameter
+        """
         zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
         par = np.zeros((len(zmeans), 8))
 
@@ -664,7 +787,22 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         return par
 
     def evolveDSGParams(self, p, Q, Pe=None, evol='faber'):
+        """
+        Evolve double schechter function plus gaussian parameters
+        in redshift according to supplied Q and Pe values.
 
+        Arguments
+        ---------
+        p : array-like
+            An array of parameters measured at z0 (where z0
+            depends on which type of evolution chosen)
+        Q : float
+            M* evolution parameter
+        Pe : float, optional
+            phi* evolution parameter
+        evol : str, optional
+            Evolution model
+        """
         zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
 
         par = np.zeros((len(zmeans), 8))
@@ -689,6 +827,24 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         return par
 
     def evolveSFParams(self, p, Q, Pe, evol='z', z0=0.0):
+        """
+        Evolve double schechter function plus gaussian parameters
+        in redshift according to supplied Q and Pe values.
+
+        Arguments
+        ---------
+        p : array-like
+            An array of parameters measured at z0 (where z0
+            depends on which type of evolution chosen)
+        Q : float
+            M* evolution parameter
+        Pe : float
+            phi* evolution parameter
+        evol : str, optional
+            Evolution model
+        z0 : float
+            The redshift about which evolution is determined.
+        """
         
         zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
         par = np.zeros((len(zmeans), 3))
@@ -798,7 +954,14 @@ class AnalyticLuminosityFunction(LuminosityFunction):
 
 
     def doubleSchechterGaussian(self,m,p):
-
+        """
+        Sum of a double schechter function and a gaussian.
+        m -- magnitudes at which to calculate the number density
+        p -- Function parameters. Order 
+             should be phi^{star}_{1}, M^{star}, \alpha_{1}, 
+             phi^{star}_{2}, M^{star}, \alpha_{2}, \phi_{gauss},
+             \M_{gauss}, \sigma_{gauss}
+        """
         phi = 0.4 * np.log(10) * np.exp(-10**(-0.4 * (m - p[4]))) * \
             (p[0] * 10 ** (-0.4 * (m - p[4])*(p[1]+1)) + \
             p[2] * 10 ** (-0.4 * (m - p[4])*(p[3]+1))) + \
@@ -808,6 +971,9 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         return phi
 
 class TabulatedLuminosityFunction(LuminosityFunction):
+    """
+    Handle tabulated Luminosity Functions.
+    """
 
     def __init__(self, *args, **kwargs):
         
@@ -824,7 +990,12 @@ class TabulatedLuminosityFunction(LuminosityFunction):
         LuminosityFunction.__init__(self,*args,**kwargs)
 
     def loadLuminosityFunction(self):
-        
+        """
+        Read in the LF from self.fname. If self.fname is a list
+        assumes that LFs in list correspond to zbins specified.
+        If self.fname not a list, if more than 2 columns assumes
+        first column is luminosities, second column is.
+        """
 
         if len(self.fname)==1:
             tab = np.loadtxt(self.fname[0])
