@@ -156,10 +156,10 @@ class LuminosityFunction(Metric):
             for i, b in enumerate(usebands):
                 for j in range(len(self.zbins)-1):
                     if fracdev==False:
-                        ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
+                        l1 = ax[i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
                                           **kwargs)
                     else:
-                        ax[2*i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
+                        l1 = ax[2*i][j].semilogy(mlums, self.luminosity_function[:,b,j], 
                                           **kwargs)
                         ax[2*i+1][j].plot(mlums, 
                                           (self.luminosity_function[li:hi,b,j]-ref_lf[:,b,j])\
@@ -175,10 +175,10 @@ class LuminosityFunction(Metric):
         else:
             for i, b in enumerate(usebands):
                 if fracdev==False:
-                    ax[i].semilogy(mlums, self.luminosity_function[:,b,0], 
+                    l1 = ax[i].semilogy(mlums, self.luminosity_function[:,b,0], 
                                    **kwargs)
                 else:
-                    ax[2*i][0].semilogy(mlums, self.luminosity_function[:,b,0], 
+                    l1 = ax[2*i][0].semilogy(mlums, self.luminosity_function[:,b,0], 
                                         **kwargs)
                     ax[2*i+1][0].plot(mlums, (self.luminosity_function[li:hi,b,0]-ref_lf[:,b,0])\
                                       /ref_lf[:,b,0], **kwargs)
@@ -205,7 +205,7 @@ class LuminosityFunction(Metric):
         if plotname!=None:
             plt.savefig(plotname)
 
-        return f, ax
+        return f, ax, l1
         
 
     def compare(self, othermetrics, plotname=None, usebands=None, fracdev=True, xlim=None,
@@ -230,28 +230,36 @@ class LuminosityFunction(Metric):
 
         if labels==None:
             labels = [None]*len(tocompare)
+        
+        lines = []
 
         for i, m in enumerate(tocompare):
             if usebands[i]!=None:
                 assert(len(usebands[0])==len(usebands[i]))
             if i==0:
                 if fracdev:
-                    f, ax = m.visualize(usebands=usebands[i], fracdev=True, ref_ml=ref_ml,
+                    f, ax, l = m.visualize(usebands=usebands[i], fracdev=True, ref_ml=ref_ml,
                                         ref_lf=self.luminosity_function, xlim=xlim,
                                         ylim=ylim, fylim=fylim, label=labels[i],**kwargs)
+
                 else:
-                    f, ax = m.visualize(usebands=usebands[i], xlim=xlim, ylim=ylim, 
+                    f, ax, l = m.visualize(usebands=usebands[i], xlim=xlim, ylim=ylim, 
                                         fracdev=False, fylim=fylim,label=labels[i],**kwargs)
             else:
                 if fracdev:
-                    f, ax = m.visualize(usebands=usebands[i], fracdev=True, ref_ml=ref_ml,
+                    f, ax, l = m.visualize(usebands=usebands[i], fracdev=True, ref_ml=ref_ml,
                                         ref_lf=tocompare[0].luminosity_function, 
                                         xlim=xlim, ylim=ylim, fylim=fylim,
                                         f=f, ax=ax, label=labels[i], **kwargs)
                 else:
-                    f, ax = m.visualize(usebands=usebands[i], xlim=xlim, ylim=ylim,
+                    f, ax, l = m.visualize(usebands=usebands[i], xlim=xlim, ylim=ylim,
                                         fylim=fylim, f=f, ax=ax, fracdev=False,
                                         label=labels[i], **kwargs)
+            lines.append(l[0])
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
         if plotname!=None:
             plt.savefig(plotname)
 
@@ -655,7 +663,7 @@ class AnalyticLuminosityFunction(LuminosityFunction):
 
         return par
 
-    def evolveDSGParams(self, p, Q, evol='faber'):
+    def evolveDSGParams(self, p, Q, Pe=None, evol='faber'):
 
         zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
 
@@ -667,11 +675,31 @@ class AnalyticLuminosityFunction(LuminosityFunction):
             if evol=='faber':
                 par[i,4] += Q * (np.log10(z) + 1)
                 par[i,6] += Q * (np.log10(z) + 1)
+            elif evol=='z':
+                par[i,4] += Q * (z - 0.1)
+                par[i,6] += Q * (z - 0.1)
+                if Pe!=None:
+                    par[i,0] *= 1 + Pe * (z - 0.3)
+                    par[i,2] *= 1 + Pe * (z - 0.3)
+                    par[i,5] *= 1 + Pe * (z - 0.3)
             else:
                 par[i,4] += Q * (1. / (1 + z) - 1. / 1.1)
                 par[i,6] += Q * (1. / (1 + z) - 1. / 1.1)
 
         return par
+
+    def evolveSFParams(self, p, Q, Pe, evol='z', z0=0.0):
+        
+        zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
+        par = np.zeros((len(zmeans), 3))
+
+        for i, z in enumerate(zmeans):
+            par[i,:] = copy(p)
+            par[i,0] *= 10 ** (0.4 * Pe * (z - z0))
+            par[i,1] -= Q * (z - z0)
+
+        return par
+        
 
     def calcNumberDensity(self,par,form='SchechterAmag'):
         """
@@ -709,6 +737,8 @@ class AnalyticLuminosityFunction(LuminosityFunction):
                     self.luminosity_function[:,j,i] = self.schechterFunctionAmag(self.lummean, p)
                 elif form=='doubleSchecterFunctionAmag':
                     self.luminosity_function[:,j,i] = self.doubleSchechterFunctionAmag(self.lummean, p)
+                elif form=='doubleSchecterFunctionVarMS':
+                    self.luminosity_function[:,j,i] = self.doubleSchechterFunctionVarMS(self.lummean, p)
                 elif form=='doubleSchechterGaussian':
                     self.luminosity_function[:,j,i] = self.doubleSchechterGaussian(self.lummean, p)
 
@@ -736,7 +766,7 @@ class AnalyticLuminosityFunction(LuminosityFunction):
 
     def doubleSchechterFunctionAmag(self,m,p):
         """
-        Single Schechter function appropriate for absolute magnitudes.
+        Double Schechter function appropriate for absolute magnitudes.
         
         inputs:
         m -- An array of magnitudes.
@@ -748,6 +778,24 @@ class AnalyticLuminosityFunction(LuminosityFunction):
                                   + p[3] * 10 ** (0.4 * (p[4] + 1) * (p[1] - m))) \
                                 * np.exp(-10 ** (0.4 * (p[1] - m)))
         return phi
+
+    def doubleSchechterFunctionVarMS(self,m,p):
+        """
+        Double Schechter with two m_star values
+        appropriate for absolute magnitudes.
+        
+        inputs:
+        m -- An array of magnitudes.
+        p -- Schechter function parameters. Order 
+             should be phi^{star}_{1}, M^{star}_1, \alpha_{1}, 
+             phi^{star}_{2}, M^{star}_2, \alpha_{2}
+        """
+        phi = 0.4 * np.log(10) * (p[0] * 10 ** (0.4 * (p[2] + 1) * (p[1] - m)) \
+                                  * np.exp(-10 ** (0.4 * (p[1] - m)))
+                                  + p[3] * 10 ** (0.4 * (p[5] + 1) * (p[4] - m)) \
+                                  * np.exp(-10 ** (0.4 * (p[4] - m))))
+        return phi
+
 
     def doubleSchechterGaussian(self,m,p):
 
