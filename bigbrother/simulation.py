@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 from collections import OrderedDict
-from metrics import LuminosityFunction, MagCounts, ColorColor, LcenMvir
+from metrics import LuminosityFunction, MagCounts, ColorColor, LcenMvir, ColorMagnitude
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 import numpy as np
@@ -55,7 +55,7 @@ class Simulation:
     def calculate_volume(self,area,minz,maxz):
         rmin = self.cosmo.comoving_distance(minz)*self.h
         rmax = self.cosmo.comoving_distance(maxz)*self.h
-        return (self.area/41253)*(4/3*np.pi)*(rmax**3-rmin**3)
+        return (area/41253)*(4/3*np.pi)*(rmax**3-rmin**3)
         
         
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
@@ -113,9 +113,9 @@ class Simulation:
         self.galaxycatalog.reduce()
 
         
-class GalaxyCatalog:
+class ObjectCatalog:
     """
-    Base class for galaxy catalogs
+    Base class for catalog type
     """
     
     __metaclass__ = ABCMeta
@@ -123,6 +123,7 @@ class GalaxyCatalog:
     
     def __init__(self, filestruct, maskfile=None, goodpix=1):
         self.filestruct = filestruct
+        self.parseFileStruct(filestruct)
         self.maskfile = maskfile
         self.mask = None
         self.area = 0.0
@@ -249,14 +250,118 @@ class GalaxyCatalog:
         Do some operations on a mappable unit of the catalog
         """
         
-    @abstractmethod
     def reduce(self):
         """
         Reduce the information produced by the map operations
         """
+        for m in self.metrics:
+            m.reduce()
 
     def setFieldMap(self, fieldmap):
         self.fieldmap = fieldmap
+
+
+class HaloCatalog(ObjectCatalog):
+    """
+    Base class for halo catalogs
+    """
+    
+    __metaclass__ = ABCMeta
+
+    def __init__(self, filestruct, maskfile=None, goodpix=1):
+        self.filestruct = filestruct
+        self.maskfile = maskfile
+        self.mask = None
+        self.area = 0.0
+        self.goodpix = goodpix
+
+
+class BCCHaloCatalog(HaloCatalog):
+    """
+    Class to handle BCC Halo catalogs
+    """
+
+    def __init__(self, simulation, filestruct, fieldmap=None, 
+                 nside=8, zbins=None, maskfile=None,
+                 goodpix=1):
+        GalaxyCatalog.__init__(self, filestruct, maskfile=maskfile, goodpix=goodpix)
+        self.sim = simulation
+        self.metrics = [MassFunction(self.sim, zbins=zbins, def='mvir'),
+                        N19Mass(self.sim, zbins=zbins)]
+
+        self.nside = nside
+
+        if fieldmap==None:
+            self.fieldmap = {'mvir':OrderedDict([('MVIR',['hlist'])]),
+                             'n19':OrderedDict([('N19', ['hlist'])]),
+                             'redshift':OrderedDict([('Z',['truth'])])}
+            self.hasz = True
+        else:
+            self.fieldmap = fieldmap
+            if 'redshift' in fieldmap.keys():
+                self.sortbyz = True
+            else:
+                self.sortbyz = False
+
+    def parseFileStruct(self, filestruct):
+        """
+        Given a filestruct object, namely a list of truth 
+        and/or obs files, map fields in these files 
+        to generalized observables which our map functions
+        know how to deal with
+        """
+        self.filestruct = filestruct
+        filetypes = self.filestruct.keys()
+        self.filetypes = filetypes        
+
+        if len(filestruct.keys())>1:
+            opix =  np.array([int(t.split('/')[-1].split('.')[-2]) for t
+                              in self.filestruct[filetypes[0]]])
+            oidx = opix.argsort()
+
+            for ft in filetypes:
+                assert(len(filestruct[ft])==len(filestruct[filetypes[0]]))
+                pix = np.array([int(t.split('/')[-1].split('.')[-2]) for t
+                    in self.filestruct[ft]])
+                idx = pix.argsort()
+                assert(pix[idx]==opix[oidx])
+                
+                if len(idx)==1:
+                    self.filestruct[ft] = [self.filestruct[ft][idx]]
+                else:
+                    self.filestruct[ft] = self.filestruct[ft][idx]
+
+    def pixelVal(self,mappable):
+        """
+        Get the healpix cell value of this mappble using the fact
+        that BCC files contain their healpix values
+        """
+        fts = mappable.keys()
+        f1 = fts[0]
+        pix = int(f1.split('.')[-2])
+        
+        return pix
+        
+    def map(self, mappable):
+        """
+        Do some operations on a mappable unit of the catalog
+        """
+
+        mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
+
+        for m in self.metrics:
+            m.map(mapunit)
+
+
+
+
+
+class GalaxyCatalog(ObjectCatalog):
+    """
+    Base class for galaxy catalogs
+    """
+    
+    __metaclass__ = ABCMeta
 
     def calculateArea(self, pixels, nside):
         """
@@ -304,13 +409,12 @@ class BCCCatalog(GalaxyCatalog):
         GalaxyCatalog.__init__(self, filestruct, maskfile=maskfile, goodpix=goodpix)
         self.sim = simulation
         self.input_LF = input_LF
-        self.filestruct = filestruct
-        self.parseFileStruct(filestruct)
         self.metrics = [LuminosityFunction(self.sim, zbins=zbins), 
                         MagCounts(self.sim, zbins=zbins), 
-                        ColorColor(self.sim, zbins=zbins),
                         LuminosityFunction(self.sim, zbins=zbins, central_only=True),
-                        LcenMvir(self.sim, zbins=zbins)]
+                        LcenMvir(self.sim, zbins=zbins),
+                        ColorMagnitude(self.sim, zbins=zbins),
+                        ColorMagnitude(self.sim, zbins=zbins, central_only=True)]
         self.nside = nside
 
         if fieldmap==None:
@@ -382,13 +486,6 @@ class BCCCatalog(GalaxyCatalog):
         for m in self.metrics:
             m.map(mapunit)
         
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
-
 
 
 class S82SpecCatalog(GalaxyCatalog):
@@ -525,7 +622,9 @@ class DESGoldCatalog(GalaxyCatalog):
 
 
     def map(self, mappable):
-        """                                                                                    Do some operations on a mappable unit of the catalog                                   """
+        """
+        Do some operations on a mappable unit of the catalog
+        """
 
         mapunit = self.readFITSMappable(mappable, sortbyz=False)
         mapunit = self.unitConversion(mapunit)
