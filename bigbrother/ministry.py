@@ -97,6 +97,195 @@ class Ministry:
                                               fieldmap=fieldmap, maskfile=maskfile, 
                                               goodpix=goodpix)
 
+    def getMetricDependencies(self, metric):
+        
+        fieldmap = {}
+        valid = {}
+        for ctype in metric.catalog_type:
+            if not hasattr(self, ctype):
+                raise ValueError("This Ministry does not have"
+                                 "a catalog of type {0} as required"
+                                 "by {1}".format(ctype, metric.__class__.__name__))
+            else:
+                cat = getattr(self, ctype)
+
+            #go through metric dependencies, checking if 
+            #this catalog satisfies them. If it does, create 
+            #the map from the metric dependency to the catalog
+            #fields as specified by the catalog's field map
+
+            for mapkey in metric.mapkeys:
+                if mapkey not in valid.keys():
+                    valid[mapkey] = False
+
+                if mapkey in cat.fieldmap.keys():
+                    fileinfo = cat.fieldmap[mapkey]
+                else:
+                    continue
+
+                for field in fileinfo.keys():
+                    filetypes = fileinfo[field]
+                    for ft in filetypes:
+                        if ft in cat.filetypes:
+                            #if already have one field
+                            #make a list of fields
+                            if ft not in fieldmap.keys():
+                                fieldmap[ft] = {}
+                            if mapkey in fieldmap[ft].keys():
+                                if hasattr(fieldmap[ft][mapkey],'__iter__'):
+                                    fieldmap[ft][mapkey].append(field)
+                                else:
+                                    fieldmap[ft][mapkey] = [fieldmap[ft][mapkey],field]
+                            else:
+                                fieldmap[ft][mapkey] = field
+                                
+                            valid[mapkey] = True
+
+        notavail = []
+        for key in valid.keys():
+            if not valid[key]:
+                notavail.append(key)
+        
+        if len(notavail)>0:
+            raise Exception("Mapkeys {0} are not available!".format(notavail))
+
+        return fieldmap
+
+
+    def compFieldMaps(self, fm1, fm2):
+        
+        ft1 = set(fm1.keys())
+        ft2 = set(fm2.keys())
+
+        if ft1.issubset(ft2):
+            temp = ft1
+            ft1  = ft2
+            ft2  = temp
+        elif not ft2.issubset(ft1):
+            return False
+
+        for ft in ft2:
+            mk1 = set(fm1[ft].keys())
+            mk2 = set(fm2[ft].keys())
+
+            if mk1.issubset(mk2) or mk1.issubset(mk2):
+                imk = mk1.intersection(mk2)
+                for k in imk:
+                    if fm1[ft][k]!=fm2[ft][k]:
+                        return False
+
+            elif len(mk1.union(mk2))==(max(len(mk1),len(mk2))+1):
+                imk = mk1.intersection(mk2)
+                for k in imk:
+                    if fm1[ft][k]!=fm2[ft][k]:
+                        return False
+
+            else:
+                return False
+
+        return True
+        
+
+    def genMetricGroups(self, fieldmaps):
+        
+        fms = set(fieldmaps)
+        graph = {f:fms.difference(f) for f in fms}
+        
+        #while merges are still necessary, keep going
+        while True:
+            nomerge = True
+            merge = []
+            #iterate through nodes, figuring out 
+            #which nodes to merge
+            for node in graph:
+                for edge in graph[node]:
+                    if self.compFieldMaps(node, edge):
+                        merge.append([node,edge])
+                        nomerge=False
+
+            if nomerge:
+                break
+            else:
+                nfm = []
+                for m in merge:
+                    fms = fms.difference(m)
+                    nfm.append(self.combineFieldMaps(m))
+                    
+                fms = fms.union(set(nfm))
+                graph = {f:fms.difference(f) for f in fms}
+
+        return fms
+
+        
+    def genMappable(self, metrics):
+        """
+        Given a set of metrics, generate a list of mappables
+        which can be fed into map functions
+        """
+        mappables = []
+        mapkeys = []
+        fieldmap = {}
+        usedfiletypes = []
+
+        if metrics!=None:
+            self.metrics = metrics
+
+        if hasattr(self, 'necessaries'):
+            mapkeys.extend(self.necessaries)
+
+        for m in self.metrics:
+            mapkeys.extend(m.mapkeys)
+
+        mapkeys = np.unique(mapkeys)
+
+        #for each type of data necessary for 
+        #the metrics we want to calculate,
+        #determine the file type it's located
+        #in and the field 
+        for mapkey in mapkeys:
+            try:
+                fileinfo = self.fieldmap[mapkey]
+            except KeyError as e:
+                print('No key {0}, continuing...'.format(e))
+                continue
+
+            for field in fileinfo.keys():
+                valid = False
+                filetypes = fileinfo[field]
+                for ft in filetypes:
+                    if ft in self.filetypes:
+                        #if already have one field
+                        #make a list of fields
+                        if ft not in fieldmap.keys():
+                            fieldmap[ft] = {}
+                        if mapkey in fieldmap[ft].keys():
+                            if hasattr(fieldmap[ft][mapkey],'__iter__'):
+                                fieldmap[ft][mapkey].append(field)
+                            else:
+                                fieldmap[ft][mapkey] = [fieldmap[ft][mapkey],field]
+                        else:
+                            fieldmap[ft][mapkey] = field
+
+                        valid = True
+                        if ft not in usedfiletypes:
+                            usedfiletypes.append(ft)
+                        break
+
+                if not valid:
+                    raise Exception("Filetypes {0} for mapkey {1} are not available!".format(filetypes, mapkey))
+                
+        self.mapkeys = mapkeys
+
+        #Create mappables out of filestruct and fieldmaps
+        for i in range(len(self.filestruct[self.filetypes[0]])):
+            mappable = {}
+            for ft in usedfiletypes:
+                mappable[self.filestruct[ft][i]] = fieldmap[ft]
+            mappables.append(mappable)
+
+        return mappables
+
+
 
     def validate(self, metrics=None, verbose=False):
         """
