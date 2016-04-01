@@ -1,7 +1,7 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
-from .galaxy import GalaxyCatlog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
+from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
 from .halo import HaloCatalog, BCCHaloCatalog
 import numpy as np
 import healpy as hp
@@ -23,7 +23,7 @@ class Ministry:
     A class which owns all the other catalog data 
     """
     
-    def __init__(self, omega_m, omega_l, h, minz, maxz, area=0.0
+    def __init__(self, omega_m, omega_l, h, minz, maxz, area=0.0,
                  boxsize=None):
         """
         Initialize a ministry object
