@@ -1,0 +1,47 @@
+Buzzard_v1.2  :
+  Cosmology  :
+    OmegaM  : 0.3
+    OmegaL  : 0.7
+    h       : 0.7
+    zmin    : 0.0
+    zmax    : 2.0
+    area    : 161.13 #three pixels
+  GalaxyCatalog :
+    zbins  :  [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    filestruct  :
+      truth  :  /lustre/ki/pfs/jderose/l-addgals/catalogs/Buzzard_v1.2/Catalog_v1.2b/Buzzard*fits #either glob or file containing all files
+    fieldmap  :
+      luminosity  :
+        AMAG  :  [truth]
+      appmag  :
+        OMAG  :  [truth]
+      redshift  :
+        Z     :  [truth]
+  HaloCatalog :
+    zbins  :  [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    filestruct  :
+      truth  :  /lustre/ki/pfs/jderose/l-addgals/catalogs/Buzzard_v1.2/Catalog_v1.2b/Buzzard_halos*fits #either glob or file containing all files
+    fieldmap  :
+      mass  :
+        M200b  :  [truth]
+      redshift  :
+        Z     :  [truth]
+      pos_x  :
+        HALOPX  : [truth]
+      pos_y  : 
+        HALOPY  : [truth] 
+      pos_z  :
+        HALOPZ  : [truth]
+
+	
+Y1A1Redm  :
+  Cosmology  :
+    OmegaM  : 0.3
+    OmegaL  : 0.7
+    h       : 0.7
+    zmin    : 0.0
+    zmax    : 2.0
+    area    : 0.0 #three pixels
+  GalaxyCatalog :
+    zbins  :  [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+  
