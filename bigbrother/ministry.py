@@ -185,11 +185,11 @@ class Ministry:
 
         return True
         
-
-    def genMetricGroups(self, fieldmaps):
+    def genMetricGroups(self, metrics, fieldmaps):
         
-        fms = set(fieldmaps)
+        fms = set(zip(fieldmaps, metrics))
         graph = {f:fms.difference(f) for f in fms}
+        
         
         #while merges are still necessary, keep going
         while True:
@@ -197,94 +197,79 @@ class Ministry:
             merge = []
             #iterate through nodes, figuring out 
             #which nodes to merge
-            for node in graph:
+            for i, node in enumerate(graph):
                 for edge in graph[node]:
-                    if self.compFieldMaps(node, edge):
+                    if self.compFieldMaps(node[0], edge[0]):
                         merge.append([node,edge])
                         nomerge=False
-
             if nomerge:
                 break
             else:
                 nfm = []
+                merged = []
                 for m in merge:
-                    fms = fms.difference(m)
-                    nfm.append(self.combineFieldMaps(m))
+                    #check to avoid duplication
+                    if m not in merged:
+                        fms = fms.difference(set(m))
+                        nfm.append(self.combineFieldMaps(*m))
+                        merged.append(m)
                     
                 fms = fms.union(set(nfm))
                 graph = {f:fms.difference(f) for f in fms}
 
         return fms
 
+    def combineFieldMaps(fm1, fm2):
+        """
+        Combine field maps associated with two different metrics.
+        The field maps must be compatible in the sense that 
+        comparing them using compFieldMaps returns True
+        """
+        #make sure compatible
+        m1 = fm1[1]
+        m2 = fm2[1]
+        fm1 = fm1[0]
+        fm2 = fm2[0]
+
+        if not self.compFieldMaps(fm1, fm2):
+            raise ValueError("Field maps are not compatible!")
+
+        cfm = {}
+        ft1 = set(fm1.keys())
+        ft2 = set(fm2.keys())
+
+        if ft1.issubset(ft2):
+            temp = ft1
+            ft1  = ft2
+            ft2  = temp
+
+        for ft in ft2:
+            mk1 = set(fm1[ft].keys())
+            mk2 = set(fm2[ft].keys())
+            cfm[ft] = mk1.union(mk2)
+
+        return [cfm, [m1, m2]]
+
         
-    def genMappable(self, metrics):
+    def genMetricGroups(self, metrics):
         """
         Given a set of metrics, generate a list of mappables
         which can be fed into map functions
         """
         mappables = []
-        mapkeys = []
-        fieldmap = {}
-        usedfiletypes = []
 
-        if metrics!=None:
-            self.metrics = metrics
+        mfieldmaps = [self.getMetricDependencies(m) for m in metrics]
+        mgroups = self.genMetricGroups(metrics, mfieldmaps)
+        self.metric_groups = mgroups
 
-        if hasattr(self, 'necessaries'):
-            mapkeys.extend(self.necessaries)
-
-        for m in self.metrics:
-            mapkeys.extend(m.mapkeys)
-
-        mapkeys = np.unique(mapkeys)
-
-        #for each type of data necessary for 
-        #the metrics we want to calculate,
-        #determine the file type it's located
-        #in and the field 
-        for mapkey in mapkeys:
-            try:
-                fileinfo = self.fieldmap[mapkey]
-            except KeyError as e:
-                print('No key {0}, continuing...'.format(e))
-                continue
-
-            for field in fileinfo.keys():
-                valid = False
-                filetypes = fileinfo[field]
-                for ft in filetypes:
-                    if ft in self.filetypes:
-                        #if already have one field
-                        #make a list of fields
-                        if ft not in fieldmap.keys():
-                            fieldmap[ft] = {}
-                        if mapkey in fieldmap[ft].keys():
-                            if hasattr(fieldmap[ft][mapkey],'__iter__'):
-                                fieldmap[ft][mapkey].append(field)
-                            else:
-                                fieldmap[ft][mapkey] = [fieldmap[ft][mapkey],field]
-                        else:
-                            fieldmap[ft][mapkey] = field
-
-                        valid = True
-                        if ft not in usedfiletypes:
-                            usedfiletypes.append(ft)
-                        break
-
-                if not valid:
-                    raise Exception("Filetypes {0} for mapkey {1} are not available!".format(filetypes, mapkey))
-                
-        self.mapkeys = mapkeys
-
-        #Create mappables out of filestruct and fieldmaps
-        for i in range(len(self.filestruct[self.filetypes[0]])):
-            mappable = {}
-            for ft in usedfiletypes:
-                mappable[self.filestruct[ft][i]] = fieldmap[ft]
-            mappables.append(mappable)
-
-        return mappables
-
+    def associateFileStructs(self):
+        """
+        Given files structures for different catalogs,
+        use some rule to be determined to group sets
+        of files from the different catalogs
+        """
+        pass
+        
 
 
     def validate(self, metrics=None, verbose=False):
@@ -294,20 +279,14 @@ class Ministry:
         which are reduced at the end of the iteration into observables 
         that we care about
         """
+        self.genMetricGroups()
+        for mg in self.metric_groups:
+            ms = mg[0]
+            fm = mg[1]
+            for mappable in self.genMappables(fm):
+                for m in ms:
+                    m.map(mappable)
 
-        #For now, just focus on galaxy observables
-        #catalogs that need to be in memory at a particular
-        #moment get more complicated when calculating galaxy-halo 
-        #relation statistics
-        #self.galaxycatalog.configureMetrics(metrics)
-        mappables = self.galaxycatalog.genMappable(metrics)
+            for m in ms:
+                m.reduce()
 
-        #probably want Ministry to have map method
-        #which knows how to combine different 
-        #types of catalogs
-        for f in mappables:
-            if verbose:
-                tprint('    {0}'.format(f))
-            self.galaxycatalog.map(f)
-
-        self.galaxycatalog.reduce()
