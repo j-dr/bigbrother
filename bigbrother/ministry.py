@@ -85,9 +85,11 @@ class Ministry:
         elif catalog_type == "S82Spec":
             self.galaxycatalog = S82SpecCatalog(self, None)
         elif catalog_type == "DESGold":
-            self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile,                                                goodpix=goodpix)
+            self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile, 
+                                                goodpix=goodpix)
 
-    def setHaloCatalog(self, catalog_type, filestruct):
+    def setHaloCatalog(self, catalog_type, filestruct, fieldmap=None,
+                       zbins=None, maskfile=None, goodpix=1):
         """
         Fill in the halo catalog information
         """
@@ -190,7 +192,6 @@ class Ministry:
         fms = set(zip(fieldmaps, metrics))
         graph = {f:fms.difference(f) for f in fms}
         
-        
         #while merges are still necessary, keep going
         while True:
             nomerge = True
@@ -262,6 +263,7 @@ class Ministry:
         mgroups = self.genMetricGroups(metrics, mfieldmaps)
         self.metric_groups = mgroups
 
+
     def associateFileStructs(self):
         """
         Given files structures for different catalogs,
@@ -269,6 +271,14 @@ class Ministry:
         of files from the different catalogs
         """
         pass
+
+
+    def genMappables(self, fieldmap):
+        """
+        Given a field map, generate a mappble which can be 
+        passed to a metric
+        """
+        
         
 
 

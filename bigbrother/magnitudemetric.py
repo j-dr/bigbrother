@@ -199,7 +199,7 @@ class MagCounts(MagnitudeMetric):
         self.y = self.magcounts
 
         
-class LcenMvir(Metric):
+class LcenMass(Metric):
     """
     Central galaxy luminosity - halo virial mass relation.
     """
@@ -219,7 +219,7 @@ class LcenMvir(Metric):
         else:
             self.massbins = massbins
 
-        self.mapkeys = ['luminosity', 'redshift', 'central', 'mvir']
+        self.mapkeys = ['luminosity', 'redshift', 'central', 'mass']
 
         
     def map(self, mapunit):
@@ -241,7 +241,7 @@ class LcenMvir(Metric):
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
             zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
-            mb = np.digitize(mu['mvir'][zlidx:zhidx], bins=self.massbins)
+            mb = np.digitize(mu['mass'][zlidx:zhidx], bins=self.massbins)
 
             for j in range(len(self.massbins)-1):
                 blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
@@ -251,7 +251,7 @@ class LcenMvir(Metric):
 
     def reduce(self):
 
-        self.lcen_mvir = self.totlum/self.bincount
+        self.lcen_mass = self.totlum/self.bincount
 
 
     def visualize(self, plotname=None, f=None, ax=None, usebands=None, **kwargs):
@@ -276,12 +276,12 @@ class LcenMvir(Metric):
         if self.nzbins>1:
             for i, b in enumerate(usebands):
                 for j in range(self.nzbins):
-                    ax[i][j].semilogx(mmass, self.lcen_mvir[:,b,j], 
+                    ax[i][j].semilogx(mmass, self.lcen_mass[:,b,j], 
                                       **kwargs)
         else:
             for i, b in enumerate(usebands):
                 for j in range(self.nzbins):
-                    ax[i].semilogx(mmass, self.lcen_mvir[:,b,j], 
+                    ax[i].semilogx(mmass, self.lcen_mass[:,b,j], 
                                    **kwargs)
 
         if newaxes:
@@ -291,7 +291,7 @@ class LcenMvir(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$M_{vir}\, [M_{sun}]$')
+            sax.set_xlabel(r'$M\, [M_{sun}]$')
             sax.set_ylabel(r'$L_{cen}\, [mag]$')
 
         if plotname!=None:
