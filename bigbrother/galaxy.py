@@ -1,7 +1,7 @@
 from __future__ import print_function, division
 from collections import OrderedDict
 from .basecatalog import BaseCatalog
-from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMvir, ColorMagnitude
+from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 import numpy as np
@@ -68,7 +68,7 @@ class BCCCatalog(GalaxyCatalog):
         self.metrics = [LuminosityFunction(self.ministry, zbins=zbins), 
                         MagCounts(self.ministry, zbins=zbins), 
                         LuminosityFunction(self.ministry, zbins=zbins, central_only=True),
-                        LcenMvir(self.ministry, zbins=zbins),
+                        LcenMass(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins, central_only=True)]
         self.nside = nside
@@ -130,7 +130,6 @@ class BCCCatalog(GalaxyCatalog):
         """
         Do some operations on a mappable unit of the catalog
         """
-
         mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
 
         if self.maskfile!=None:

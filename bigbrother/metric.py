@@ -15,12 +15,13 @@ class Metric(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, ministry):
+    def __init__(self, ministry, catalog_type=None):
         """
         Simple init method. At the very least, init methods for subclasses
         should take a ministry object as an argument.
         """
         self.ministry = ministry
+        self.catalog_type = catalog_type
 
     @abstractmethod
     def map(self, mapunit):
@@ -41,11 +42,11 @@ class Metric(object):
 class GMetric(Metric):
     """
     A generic metric class that deals with measurements made over
-    multiple measurements of similar quantities, i.e. mags in
+    multiple similar quantities, i.e. mags in
     different bands or mass functions using various mass definitions
     """
 
-    def __init__(self, ministry, zbins=None, xbins=None):
+    def __init__(self, ministry, zbins=None, xbins=None, catalog_type=None):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -62,7 +63,7 @@ class GMetric(Metric):
             A 1-d array containing the edges of the magnitude bins to 
             measure the metric in.
         """
-        Metric.__init__(self, ministry)
+        Metric.__init__(self, ministry, catalog_type=catalog_type)
 
         if zbins is None:
             self.zbins = zbins

@@ -13,7 +13,8 @@ class MassMetric(GMetric):
     Restruct GMetric to magnitudes
     """
     
-    def __init__(self, ministry, zbins=None, massbins=None):
+    def __init__(self, ministry, zbins=None, massbins=None,
+                 catalog_type=None):
         """
         Initialize a MassMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -32,20 +33,23 @@ class MassMetric(GMetric):
         """
 
         if massbins is None:
-            xbins = np.linspace(10, 16, 40)
+            massbins = np.linspace(10, 16, 40)
 
-        self.massbins = xbins
+        self.massbins = massbins
 
-        GMetric.__init__(self, ministry, zbins=zbins, xbins=xbins)
+        GMetric.__init__(self, ministry, zbins=zbins, xbins=massbins,
+                         catalog_type=catalog_type)
 
 class MassFunction(MassMetric):
 
-    def __init__(self, ministry, zbins=None, massbins=None, lightcone=True):
+    def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
+                 catalog_type=['halocatalog']):
 
         if massbins is None:
             massbins = np.linspace(10, 16, 40)
 
-        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins)
+        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
+                            catalog_type=catalog_type)
 
         if lightcone:
             self.mapkeys = ['mass', 'redshift']
@@ -100,12 +104,14 @@ class MassFunction(MassMetric):
 
 class SimpleHOD(MassMetric):
 
-    def __init__(self, ministry, zbins=None, massbins=None, lightcone=True):
+    def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
+                 catalog_type=['halocatalog']):
 
         if massbins is None:
             massbins = np.linspace(10, 16, 40)
 
-        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins)
+        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
+                            catalog_type=catalog_type)
 
         if lightcone:
             self.mapkeys = ['mass', 'occ', 'redshift']
@@ -167,4 +173,20 @@ class SimpleHOD(MassMetric):
 
 class N19Mass(MassMetric):
 
-    pass
+    def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
+                 catalog_type=['halocatalog']):
+
+        if massbins is None:
+            massbins = np.linspace(10, 16, 40)
+
+        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
+                            catalog_type=catalog_type)
+
+        self.mapkeys = ['mass', 'n19']
+
+    def map(self, mapunit):
+        pass
+
+    def reduce(self):
+        pass
+

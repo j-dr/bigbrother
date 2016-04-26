@@ -11,7 +11,8 @@ import numpy as np
 class AngularCorrelationFunction(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, mintheta=1e-2,
-                 maxtheta=1, nabins=15, subjack=False):
+                 maxtheta=1, nabins=15, subjack=False,
+                 catalog_type=['galaxycatalog']):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.

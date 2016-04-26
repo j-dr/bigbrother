@@ -1,4 +1,5 @@
 from __future__ import print_function, division
+from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
@@ -155,10 +156,13 @@ class Ministry:
 
 
     def compFieldMaps(self, fm1, fm2):
-        
+
+        #get file types required
         ft1 = set(fm1.keys())
         ft2 = set(fm2.keys())
 
+        #if first set is subset of second, switch order
+        #if disjoint, not compatible
         if ft1.issubset(ft2):
             temp = ft1
             ft1  = ft2
@@ -166,16 +170,21 @@ class Ministry:
         elif not ft2.issubset(ft1):
             return False
 
+        #iterate over filetypes in intersection
         for ft in ft2:
             mk1 = set(fm1[ft].keys())
             mk2 = set(fm2[ft].keys())
 
-            if mk1.issubset(mk2) or mk1.issubset(mk2):
+            #check if sets of keys contained in one another
+            if mk1.issubset(mk2) or mk2.issubset(mk1):
                 imk = mk1.intersection(mk2)
+                #if fields that keys map to don't correspond
+                #fms are not compatible
                 for k in imk:
                     if fm1[ft][k]!=fm2[ft][k]:
                         return False
 
+            #if only one addional element, also check for compatibility
             elif len(mk1.union(mk2))==(max(len(mk1),len(mk2))+1):
                 imk = mk1.intersection(mk2)
                 for k in imk:
@@ -187,40 +196,54 @@ class Ministry:
 
         return True
         
-    def genMetricGroups(self, metrics, fieldmaps):
+    def genMetricGroups(self, metrics):
         
-        fms = set(zip(fieldmaps, metrics))
-        graph = {f:fms.difference(f) for f in fms}
+        fieldmaps = [self.getMetricDependencies(m) for m in metrics]
+        fms = zip(fieldmaps, metrics)
+        nodes = range(len(fms))
+        snodes = set(nodes)
+        graph = {f:snodes.difference(set([f])) for f in snodes}
         
-        #while merges are still necessary, keep going
-        while True:
-            nomerge = True
-            merge = []
+        i = 0
+        while i < len(nodes)-1:
             #iterate through nodes, figuring out 
             #which nodes to merge
-            for i, node in enumerate(graph):
-                for edge in graph[node]:
-                    if self.compFieldMaps(node[0], edge[0]):
-                        merge.append([node,edge])
-                        nomerge=False
-            if nomerge:
-                break
-            else:
-                nfm = []
-                merged = []
-                for m in merge:
-                    #check to avoid duplication
-                    if m not in merged:
-                        fms = fms.difference(set(m))
-                        nfm.append(self.combineFieldMaps(*m))
-                        merged.append(m)
+            node = nodes[i]
+            nomerge = True
+            for edge in graph[node]:
+                if self.compFieldMaps(fms[node][0], fms[edge][0]):
+                    nomerge=False
+                    print('Merging nodes {0} and {1}'.format(node, edge))
+                    m = [node, edge]
+                    mg0 = fms[node]
+                    mg1 = fms[edge]
                     
-                fms = fms.union(set(nfm))
-                graph = {f:fms.difference(f) for f in fms}
+                    #store new metric group in nfm to be added
+                    #to graph later
+                    nfm = self.combineFieldMaps(mg0, mg1)
+                    print(nfm)
+                    
+                    #pop the one with the lower index first so 
+                    #we know where the second element is afterwards
+                    fms.pop(min(m))
+                    nodes.pop(min(m))
+                    fms.pop(max(m)-1)
+                    nodes.pop(max(m)-1)
+                    
+                    fms.append(nfm)
+                    
+                    #reconstruct graph with merged nodes 
+                    nodes = range(len(fms))
+                    snodes = set(nodes)
+                    graph = {f:snodes.difference(set([f])) for f in snodes}
+                    break
 
-        return fms
+            if nomerge:
+                i+=1
 
-    def combineFieldMaps(fm1, fm2):
+        self.metric_groups = fms
+
+    def combineFieldMaps(self, fm1, fm2):
         """
         Combine field maps associated with two different metrics.
         The field maps must be compatible in the sense that 
@@ -247,30 +270,26 @@ class Ministry:
         for ft in ft2:
             mk1 = set(fm1[ft].keys())
             mk2 = set(fm2[ft].keys())
-            cfm[ft] = mk1.union(mk2)
+            umk = mk1.union(mk2)
+            f = []
+            for k in umk:
+                try:
+                    f.append(fm1[ft][k])
+                except:
+                    f.append(fm2[ft][k])
+
+            cfm[ft] = OrderedDict(zip(umk, f))
 
         return [cfm, [m1, m2]]
 
         
-    def genMetricGroups(self, metrics):
-        """
-        Given a set of metrics, generate a list of mappables
-        which can be fed into map functions
-        """
-        mappables = []
-
-        mfieldmaps = [self.getMetricDependencies(m) for m in metrics]
-        mgroups = self.genMetricGroups(metrics, mfieldmaps)
-        self.metric_groups = mgroups
-
-
-    def associateFileStructs(self):
+    def associateFileStructs(self, mgroup):
         """
         Given files structures for different catalogs,
         use some rule to be determined to group sets
         of files from the different catalogs
         """
-        pass
+        
 
 
     def genMappables(self, fieldmap):

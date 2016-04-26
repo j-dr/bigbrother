@@ -13,7 +13,8 @@ class MagnitudeMetric(GMetric):
     Restruct GMetric to magnitudes
     """
     
-    def __init__(self, ministry, zbins=None, magbins=None):
+    def __init__(self, ministry, zbins=None, magbins=None, 
+                 catalog_type=None):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -36,7 +37,8 @@ class MagnitudeMetric(GMetric):
 
         self.magbins = magbins
 
-        GMetric.__init__(self, ministry, zbins=zbins, xbins=magbins)
+        GMetric.__init__(self, ministry, zbins=zbins, xbins=magbins,
+                         catalog_type=catalog_type)
 
 
 class LuminosityFunction(MagnitudeMetric):
@@ -45,7 +47,9 @@ class LuminosityFunction(MagnitudeMetric):
     functions inherit this class.
     """
 
-    def __init__(self, ministry, central_only=False, zbins=None, magbins=None):
+    def __init__(self, ministry, central_only=False, zbins=None, magbins=None,
+                 catalog_type=['galaxycatalog']):
+
         """
         Initialize a LuminosityFunction object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -72,7 +76,8 @@ class LuminosityFunction(MagnitudeMetric):
         if magbins is None:
             magbins = np.linspace(-25, -11, 30)
 
-        MagnitudeMetric.__init__(self, ministry, zbins=zbins, magbins=magbins)
+        MagnitudeMetric.__init__(self, ministry, zbins=zbins, magbins=magbins,
+                                 catalog_type=catalog_type)
 
         self.central_only = central_only
         if central_only:
@@ -141,7 +146,7 @@ class LuminosityFunction(MagnitudeMetric):
         Integrate the luminosity function between
         lmin and lmax at a particular redshift.
         """
-
+        
         if not hasattr(self, 'lummean'):
             self.magmean = np.array([(self.magbins[i]+self.magbins[i+1])/2 
                                      for i in range(len(self.magbins)-1)])
@@ -164,12 +169,14 @@ class MagCounts(MagnitudeMetric):
     Galaxy counts per magnitude.
     """
 
-    def __init__(self, ministry, zbins=[0.0, 0.2],  magbins=None):
+    def __init__(self, ministry, zbins=[0.0, 0.2],  magbins=None, 
+                 catalog_type=['galaxycatalog']):
 
         if magbins is None:
             magbins = np.linspace(10, 30, 60)
 
-        MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins)
+        MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins,
+                                 catalog_type=catalog_type)
 
         self.mapkeys = ['appmag', 'redshift']
 
@@ -203,8 +210,9 @@ class LcenMass(Metric):
     """
     Central galaxy luminosity - halo virial mass relation.
     """
-    def __init__(self, ministry, zbins=None, massbins=None):
-        Metric.__init__(self, ministry)
+    def __init__(self, ministry, zbins=None, massbins=None, 
+                 catalog_type=['galaxycatalog']):
+        Metric.__init__(self, ministry, catalog_type=catalog_type)
 
         if zbins is None:
             self.zbins = [0.0, 0.2]
@@ -331,8 +339,8 @@ class ColorColor(Metric):
     """
     Color-color diagram.
     """
-    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None):
-        Metric.__init__(self, ministry)
+    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, catalog_type=['galaxycatalog']):
+        Metric.__init__(self, ministry, catalog_type=catalog_type)
         
         self.zbins = zbins
         if zbins is None:
@@ -430,9 +438,10 @@ class ColorMagnitude(Metric):
     Color-magnitude diagram.
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, 
-                 cbins=None, central_only=False, logscale=False):
+                 cbins=None, central_only=False, logscale=False,
+                 catalog_type=['galaxycatalog']):
 
-        Metric.__init__(self, ministry)
+        Metric.__init__(self, ministry, catalog_type=catalog_type)
         
         self.zbins = zbins
         if zbins is None:
