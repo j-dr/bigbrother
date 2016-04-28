@@ -39,6 +39,7 @@ class AngularCorrelationFunction(Metric):
         self.nabins = 15
 
         self.subjack = subjack
+        self.aschema = 'galaxygalaxy'
 
         if self.subjack:
             raise NotImplementedError

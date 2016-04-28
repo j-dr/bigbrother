@@ -1,5 +1,7 @@
 from __future__ import print_function
+from .metric import Metric, GMetric
 import numpy as np
+import healpy as hp
 
 
 def sortHpixFileStruct(filestruct):
@@ -22,3 +24,30 @@ def sortHpixFileStruct(filestruct):
                 filestruct[ft] = filestruct[ft][idx]
     
     return filestruct
+
+class PixMetric(Metric):
+
+    def __init__(self, ministry, nside)
+        """
+        Initialize a PixMetric object. Note, all metrics should define
+        an attribute called mapkeys which specifies the types of data that they
+        expect.
+
+        Arguments
+        ---------
+        ministry : Ministry
+            The ministry object that this metric is associated with.
+        """
+        Metric.__init__(self, ministry)
+
+        self.nside
+
+        self.mapkeys = ['polar_ang', 'azim_ang']
+        self.aschema = 'singleonly'
+
+        
+    def map(self, mapunit):
+        
+        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
+        
+        return pix

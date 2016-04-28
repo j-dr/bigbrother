@@ -54,7 +54,6 @@ class GalaxyCatalog(BaseCatalog):
         else:
             return self.area
 
-
 class BCCCatalog(GalaxyCatalog):
     """
     BCC style ADDGALS catalog

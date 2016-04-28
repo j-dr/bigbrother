@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
+from .helpers import PixMetric
 from astropy.cosmology import FlatLambdaCDM
 import numpy as np
 import healpy as hp
@@ -28,7 +29,27 @@ class BaseCatalog:
         Given a filestruct object, create map from parameters 
         we require to filepaths for easy access
         """
+
+    def getFilePixels(self, nside):
+        """
+        Get the healpix cells occupied by galaxies 
+        in each file. Assumes files have already been
+        sorted correctly by parseFileStruct
+        """
+        fpix = []
         
+        pmetric = PixMetric(self.ministry, nside)
+        mg = self.ministry.genMetricGroups([pmetric])
+        ms = mg[0][1]
+        fm = mg[0][0]
+
+        for mappable in self.ministry.genMappable(fm):
+            mapunit = self.ministry.readMappable(mappable)
+            mapunit = self.convert(mapunit, self.unitmap['polar_ang'])
+            fpix.append(pmetric(mapunit))
+
+        return fpix
+            
 
     def genMappable(self, metrics):
         """

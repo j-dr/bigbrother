@@ -36,6 +36,7 @@ class MagnitudeMetric(GMetric):
             magbins = np.linspace(-25,-15, 40)
 
         self.magbins = magbins
+        self.aschema = 'galaxyonly'
 
         GMetric.__init__(self, ministry, zbins=zbins, xbins=magbins,
                          catalog_type=catalog_type)
@@ -84,6 +85,8 @@ class LuminosityFunction(MagnitudeMetric):
             self.mapkeys = ['luminosity', 'redshift', 'central']
         else:
             self.mapkeys = ['luminosity', 'redshift']
+
+        self.aschema = 'galaxyonly'
         
     def map(self, mapunit):
         """
@@ -179,6 +182,7 @@ class MagCounts(MagnitudeMetric):
                                  catalog_type=catalog_type)
 
         self.mapkeys = ['appmag', 'redshift']
+        self.aschema = 'galaxyonly'
 
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
@@ -228,6 +232,7 @@ class LcenMass(Metric):
             self.massbins = massbins
 
         self.mapkeys = ['luminosity', 'redshift', 'central', 'mass']
+        self.aschema = 'galaxyonly'
 
         
     def map(self, mapunit):
@@ -355,6 +360,7 @@ class ColorColor(Metric):
             self.magbins = magbins
 
         self.mapkeys = ['appmag', 'redshift']
+        self.aschema = 'galaxyonly'
 
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
@@ -470,6 +476,8 @@ class ColorMagnitude(Metric):
             self.mapkeys = ['appmag', 'redshift', 'central']
         else:
             self.mapkeys = ['appmag', 'redshift']
+
+        self.aschema = 'galaxyonly'
 
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]

@@ -37,6 +37,7 @@ class MassMetric(GMetric):
 
         self.massbins = massbins
 
+
         GMetric.__init__(self, ministry, zbins=zbins, xbins=massbins,
                          catalog_type=catalog_type)
 
@@ -50,6 +51,8 @@ class MassFunction(MassMetric):
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type)
+
+        self.aschema = 'haloonly'
 
         if lightcone:
             self.mapkeys = ['mass', 'redshift']
@@ -112,6 +115,8 @@ class SimpleHOD(MassMetric):
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type)
+
+        self.aschema = 'haloonly'
 
         if lightcone:
             self.mapkeys = ['mass', 'occ', 'redshift']
@@ -183,6 +188,7 @@ class N19Mass(MassMetric):
                             catalog_type=catalog_type)
 
         self.mapkeys = ['mass', 'n19']
+        self.aschema = 'haloonly'
 
     def map(self, mapunit):
         pass

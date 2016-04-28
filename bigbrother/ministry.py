@@ -195,6 +195,28 @@ class Ministry:
                 return False
 
         return True
+
+    def compAssoc(self, mg0, mg1):
+        """
+        Check if metric groups have compatible file
+        association schemas
+        """
+        print(mg0)
+        print(mg1)
+        if hasattr(mg0, '__iter__'):
+            m0 = mg0[0]
+        else:
+            m0 = mg0
+            
+        if hasattr(mg1, '__iter__'):
+            m1 = mg1[0]
+        else:
+            m1 = mg1
+
+        if m0.aschema == m1.aschema:
+            return True
+        else:
+            return False
         
     def genMetricGroups(self, metrics):
         
@@ -211,7 +233,7 @@ class Ministry:
             node = nodes[i]
             nomerge = True
             for edge in graph[node]:
-                if self.compFieldMaps(fms[node][0], fms[edge][0]):
+                if self.compFieldMaps(fms[node][0], fms[edge][0]) &  self.compAssoc(fms[node][1], fms[edge][1]):
                     nomerge=False
                     print('Merging nodes {0} and {1}'.format(node, edge))
                     m = [node, edge]
@@ -241,7 +263,7 @@ class Ministry:
             if nomerge:
                 i+=1
 
-        self.metric_groups = fms
+        return fms
 
     def combineFieldMaps(self, fm1, fm2):
         """
@@ -280,26 +302,134 @@ class Ministry:
 
             cfm[ft] = OrderedDict(zip(umk, f))
 
-        return [cfm, [m1, m2]]
+        if hasattr(m1,'__iter__'):
+            m1.extend(list(m2))
+            m = m1
+        elif hasattr(m2,'__iter__'):
+            m2.extend(list(m1))
+            m = m2
+        else:
+            m = [m1,m2]
 
-        
-    def associateFileStructs(self, mgroup):
-        """
-        Given files structures for different catalogs,
-        use some rule to be determined to group sets
-        of files from the different catalogs
-        """
-        
+        return [cfm, m]
 
 
-    def genMappables(self, fieldmap):
+    def singleTypeMappable(self, fieldmap, fs):
         """
-        Given a field map, generate a mappble which can be 
-        passed to a metric
+        If only working with one type of catalog,
+        can assume that the length of all file types
+        in file struct are the same
         """
-        
-        
 
+        filetypes = fieldmap.keys()
+        mappables = []
+
+        #Create mappables out of filestruct and fieldmaps
+        for i in range(len(fs[filetypes[0]])):
+            mappable = {}
+            for ft in filetypes:
+                mappable[fs[ft][i]] = fieldmap[ft]
+            mappables.append(mappable)
+
+        return mappables
+         
+    def galaxyGalaxyMappable(self, fieldmap):
+
+        raise NotImplementedError
+
+    def haloHaloMappable(self, fieldmap):
+
+        raise NotImplementedError
+
+    def haloGalaxyMappable(self, fieldmap, nside=8):
+
+        #combine file structures for halo 
+        #and galaxy catalogs
+        fs  = self.galaxycatalog.filestruct
+        hfs = self.halocatalog.filestruct
+        fs.update(hfs)
+        
+        filetypes = fieldmap.keys()
+
+        #get a filetype need for halo catalog
+        for f in ft:
+            if f[0]=='h':
+                hkey = f
+
+        gfpix = self.galaxycatalog.getFilePixels(nside)
+        hfpix = self.halocatalog.getFilePixels(nside)
+
+        filetypes = fieldmap.keys()
+        mappables = []
+
+        #Create mappables out of filestruct and fieldmaps
+        for i in range(len(hfs[hkey])):
+            mappable = {}
+            for ft in filetypes:
+                if ft[0]=='h':
+                    mappable[ft] = hfs[ft][i]
+                elif ft[0]=='g':
+                    gidx = self.getIntersection('halogalaxy',hfpix[i], gfpix)
+                    mappable[ft] = fs[ft][gidx]
+
+            mappables.append(mappable)
+
+        return mappables
+
+
+    def getIntersection(self, aschema, p1, p2, nside=8, nest=True):
+        """
+        Given an association schema, determine which files intersect
+        """
+        
+        idx = []
+
+        if aschema=='halogalaxy':
+            for p in p1:
+                pix = [p]
+                nbrs = hp.get_all_neighbours(nside, p, nest=nest)
+                pix.append(nbrs)
+                pix = np.array(pix)
+                
+                #iterate through pixel lists of secondary file
+                #type. If any pixels in these files are 
+                #neighbors of the primary pixel then we 
+                #need to read this file
+                for i, ip in enumerate(p2):
+                    fidx = np.in1d(ip, pix)
+                    if fidx.any():
+                        idx.append(i)
+
+        return np.array(set(idx))
+
+                
+
+    def genMappables(self, mgroup):
+        """
+        Given a fieldmap and an association
+        schema create mappables for a metric
+        group from file structures
+        """
+
+        fm = mgroup[0]
+        m  = mgroup[1]
+
+        if hasattr(m, '__iter__'):
+            aschema = m[0].aschema
+        else:
+            aschema = m.aschema
+
+        if aschema == 'galaxyonly':
+            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
+        elif aschema == 'haloonly':
+            return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+        elif aschema == 'galaxygalaxy':
+            return self.galaxyGalaxyMappable(fm)
+        elif aschema == 'halohalo':
+            return self.haloHaloMappable(fm)
+        elif aschema == 'halogalaxy':
+            return self.haloGalaxyMappable(fm)
+        
 
     def validate(self, metrics=None, verbose=False):
         """
@@ -308,13 +438,15 @@ class Ministry:
         which are reduced at the end of the iteration into observables 
         that we care about
         """
-        self.genMetricGroups()
+        self.metric_groups = self.genMetricGroups()
         for mg in self.metric_groups:
-            ms = mg[0]
-            fm = mg[1]
+            ms = mg[1]
+            fm = mg[0]
             for mappable in self.genMappables(fm):
+                mapunit self.readMappble(mappable, fm)
+
                 for m in ms:
-                    m.map(mappable)
+                    m.map(mapunit)
 
             for m in ms:
                 m.reduce()
