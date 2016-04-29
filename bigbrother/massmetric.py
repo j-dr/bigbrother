@@ -35,6 +35,9 @@ class MassMetric(GMetric):
         if massbins is None:
             massbins = np.linspace(10, 16, 40)
 
+        if zbins is None:
+            zbins = np.array([0.0, 10.0])
+
         self.massbins = massbins
 
 
@@ -55,14 +58,20 @@ class MassFunction(MassMetric):
         self.aschema = 'haloonly'
 
         if lightcone:
-            self.mapkeys = ['mass', 'redshift']
+            self.mapkeys   = ['mass', 'redshift']
+            self.lightcone = True
         else:
-            self.mapkeys = ['mass']
+            self.mapkeys   = ['mass']
+            self.lightcone = False
 
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
-        self.ndefs = mapunit['mass'].shape[1]
+        if len(mapunit['mass'].shape)>1:
+            self.ndefs = mapunit['mass'].shape[1]
+        else:
+            self.ndefs = 1
+            mapunit['mass'] = np.atleast_2d(mapunit['mass'])
 
         #Want to count galaxies in bins of luminosity for 
         #self.nbands different bands in self.nzbins
@@ -120,8 +129,10 @@ class SimpleHOD(MassMetric):
 
         if lightcone:
             self.mapkeys = ['mass', 'occ', 'redshift']
+            self.lightcone = True
         else:
             self.mapkeys = ['mass', 'occ']
+            self.lightcone = False
 
     def map(self, mapunit):
 
@@ -187,7 +198,13 @@ class N19Mass(MassMetric):
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type)
 
-        self.mapkeys = ['mass', 'n19']
+        if lightcone:
+            self.mapkeys   = ['mass', 'n19', 'redshift']
+            self.lightcone = True
+        else:
+            self.mapkeys   = ['mass', 'n19']
+            self.lightcone = False
+
         self.aschema = 'haloonly'
 
     def map(self, mapunit):

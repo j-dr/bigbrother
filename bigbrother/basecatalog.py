@@ -158,7 +158,13 @@ class BaseCatalog:
 
         return mapunit
 
+    def readMappable(self, mappable, fieldmap):
+        """
+        Default reader is FITS reader
+        """
         
+        return self.readFITSMappable(mappable, fieldmap)
+
     @abstractmethod
     def map(self, mappable):
         """

@@ -38,7 +38,7 @@ class HaloCatalog(BaseCatalog):
     def getArea(self):
         
         if self.mask is None:
-            return self.sim.area
+            return self.ministry.area
         else:
             return self.area
 

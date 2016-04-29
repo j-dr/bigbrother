@@ -215,7 +215,8 @@ class GMetric(Metric):
                     try:
                         l1 = ax[i].semilogy(mxs, self.y[:,b,0], 
                                             **kwargs)
-                    except:
+                    except Exception as e:
+                        print(e)
                         l1 = ax.semilogy(mxs, self.y[:,b,0], 
                                          **kwargs)                        
                 else:

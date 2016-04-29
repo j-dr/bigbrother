@@ -214,8 +214,6 @@ class Ministry:
         Check if metric groups have compatible file
         association schemas
         """
-        print(mg0)
-        print(mg1)
         if hasattr(mg0, '__iter__'):
             m0 = mg0[0]
         else:
@@ -232,6 +230,23 @@ class Ministry:
             return False
         
     def genMetricGroups(self, metrics):
+        """
+        Given a list of metrics, group them together based
+        on what types of data they require so that 
+        groups of metrics can be run on the same mappables
+
+        inputs
+        ------
+        metrics -- list
+        A list of Metric objects to be grouped together
+        
+        outputs
+        ------
+        fms -- list
+        First element of the list is fieldmaps for each group
+        of metrics. The second element are the groups of metrics
+        themselves, formatted in lists.
+        """
         
         fieldmaps = [self.getMetricDependencies(m) for m in metrics]
         fms = zip(fieldmaps, metrics)
@@ -248,7 +263,6 @@ class Ministry:
             for edge in graph[node]:
                 if self.compFieldMaps(fms[node][0], fms[edge][0]) &  self.compAssoc(fms[node][1], fms[edge][1]):
                     nomerge=False
-                    print('Merging nodes {0} and {1}'.format(node, edge))
                     m = [node, edge]
                     mg0 = fms[node]
                     mg1 = fms[edge]
@@ -256,7 +270,6 @@ class Ministry:
                     #store new metric group in nfm to be added
                     #to graph later
                     nfm = self.combineFieldMaps(mg0, mg1)
-                    print(nfm)
                     
                     #pop the one with the lower index first so 
                     #we know where the second element is afterwards
@@ -545,10 +558,12 @@ class Ministry:
         if 'redshift' in fieldmap[mappable.dtype].keys():
             idx = mappable.data['redshift'].argsort()
 
+
         dk = mappable.data.keys()
         if len(idx)==len(mappable.data[dk[0]]):
             for k in dk:
                 mappable.data[k] = mappable.data[k][idx]
+                
         
         if len(mappable.children)>0:
             for child in mappable.children:
@@ -562,23 +577,31 @@ class Ministry:
         which are reduced at the end of the iteration into observables 
         that we care about
         """
-        self.metric_groups = self.genMetricGroups()
+        
+        if metrics==None:
+            metrics = self.metrics
+        
+        self.metric_groups = self.genMetricGroups(metrics)
+        
         for mg in self.metric_groups:
+            sbz = False
             ms  = mg[1]
             fm  = mg[0]
-            if 'redshift' in fm.keys():
-                sbz = True
+            for ft in fm.keys():
+                if 'redshift' in fm[ft].keys():
+                    sbz = True
 
-            for mappable in self.genMappables(fm):
+            for mappable in self.genMappables(mg):
                 mapunit = self.readMappable(mappable, fm)
 
                 if sbz:
-                    self.sortByZ(mapunit, fieldmap, [])
+                    self.sortByZ(mapunit, fm, [])
 
-                if 'only' in ms.aschema:
+                if 'only' in ms[0].aschema:
                     mapunit = self.treeToDict(mapunit)
 
                 for m in ms:
+                    print('*****{0}*****'.format(m.__class__.__name__))
                     m.map(mapunit)
                     
                 del mapunit
