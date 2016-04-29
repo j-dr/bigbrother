@@ -54,6 +54,10 @@ class GalaxyCatalog(BaseCatalog):
         else:
             return self.area
 
+    def readMappable(self, mappable, fieldmap):
+        
+        return self.readFITSMappable(mappable, fieldmap)
+
 class BCCCatalog(GalaxyCatalog):
     """
     BCC style ADDGALS catalog
@@ -70,6 +74,7 @@ class BCCCatalog(GalaxyCatalog):
                         LcenMass(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins, central_only=True)]
+
         self.nside = nside
 
         if fieldmap is None:
@@ -275,7 +280,7 @@ class DESGoldCatalog(GalaxyCatalog):
         Do some operations on a mappable unit of the catalog
         """
 
-        mapunit = self.readFITSMappable(mappable, sortbyz=False)
+        mapunit = self.readFITSMappable(mappable)
         mapunit = self.unitConversion(mapunit)
         mapunit = self.filterModest(mapunit)
 

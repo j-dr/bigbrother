@@ -2,6 +2,7 @@ from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from .helpers import PixMetric
 from astropy.cosmology import FlatLambdaCDM
+import units
 import numpy as np
 import healpy as hp
 import helpers
@@ -44,8 +45,9 @@ class BaseCatalog:
         fm = mg[0][0]
 
         for mappable in self.ministry.genMappable(fm):
-            mapunit = self.ministry.readMappable(mappable)
-            mapunit = self.convert(mapunit, self.unitmap['polar_ang'])
+            mapunit = self.ministry.readMappable(mappable, fm)
+            mapunit = self.ministry.treeToDict(mapunit)
+            mapunit = self.convert(mapunit, ms)
             fpix.append(pmetric(mapunit))
 
         return fpix
@@ -119,42 +121,40 @@ class BaseCatalog:
 
         return mappables
 
-    def readFITSMappable(self, mappable, sortbyz=True):
+    def readFITSMappable(self, mappable, fieldmap):
         """
-        For each element in the mappable, read in the fi
-        specified in the fields dictionary and return
-        a map from field names that the map function recognizes
-        to the relevant data
+        For the file help in mappable, read in the fields defined in
+        fieldmap. File must be in FITS format.
         """
 
         mapunit = {}
-        for f in mappable.keys():
+        ft      = mappable.dtype
+        fname   = mappable.name
 
-            fieldmap = mappable[f]
+        for f in fieldmap.keys():
             fields = []
-            for val in fieldmap.values():
+            for val in fieldmap[ft].values():
                 if hasattr(val, '__iter__'):
                     fields.extend(val)
                 else:
                     fields.extend([val])
                     
-            data = fitsio.read(f, columns=fields)
-                
-            for mapkey in fieldmap.keys():
-                mapunit[mapkey] = data[fieldmap[mapkey]]
-                if hasattr(fieldmap[mapkey], '__iter__'):
-                    dt = mapunit[mapkey].dtype[0]
-                    ne = len(mapunit[mapkey])
-                    nf = len(fieldmap[mapkey])
-                    mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
+        data = fitsio.read(fname, columns=fields)
+        for mapkey in fieldmap[ft].keys():
+            mapunit[mapkey] = data[fieldmap[ft][mapkey]]
+            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+                dt = mapunit[mapkey].dtype[0]
+                ne = len(mapunit[mapkey])
+                nf = len(fieldmap[ft][mapkey])
+                mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
 
-        if sortbyz:
-            if 'redshift' not in mapunit.keys():
-                raise ValueError('There is no reshift field, cannot sort by redshift!')
-
-            zidx = mapunit['redshift'].argsort()
-            for mapkey in fieldmap.keys():
-                mapunit[mapkey] = mapunit[mapkey][zidx]
+#        if sortbyz:
+#            if 'redshift' not in mapunit.keys():
+#                raise ValueError('There is no reshift field, cannot sort by redshift!')
+#
+#            zidx = mapunit['redshift'].argsort()
+#            for mapkey in fieldmap[ft].keys():
+#                mapunit[mapkey] = mapunit[mapkey][zidx]
 
         return mapunit
 
@@ -174,3 +174,22 @@ class BaseCatalog:
 
     def setFieldMap(self, fieldmap):
         self.fieldmap = fieldmap
+
+    def convert(self, mapunit, metrics):
+        """
+        Convert a map unit from the units given in the catalog
+        to those required in metrics
+        """
+        
+        for m in metrics:
+            for key in m.unitmap:
+                try:
+                    conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
+                except:
+                    conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
+
+                mapunit[key] = conversion(mapunit[key])
+
+        return mapunit
+                                     
+        

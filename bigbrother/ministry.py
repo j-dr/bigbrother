@@ -18,6 +18,19 @@ def tprint(info):
 
     print('[%8ds] %s' % (time.time()-TZERO,info))
 
+class Mappable(object):
+    """
+    A tree which contains information on the order in which files should be read
+    """
+    
+    def __init__(self, name=None, dtype=None, children=[], childtype=None):
+        
+        self.name = name
+        self.dtype = dtype
+        self.children = children
+        self.data = None
+
+        
 
 class Ministry:
     """
@@ -324,12 +337,33 @@ class Ministry:
         filetypes = fieldmap.keys()
         mappables = []
 
+
+        #need to put filetypes with redshifts in
+        #them first
+        zft = []
+        nzft = []
+        for ft in filetypes:
+            if 'redshift' in fieldmap[ft]:
+                zft.append(ft)
+            else:
+                nzft.append(ft)
+        
+        filetypes = zft
+        filetypes.extend(nzft)
+
         #Create mappables out of filestruct and fieldmaps
         for i in range(len(fs[filetypes[0]])):
-            mappable = {}
-            for ft in filetypes:
-                mappable[fs[ft][i]] = fieldmap[ft]
-            mappables.append(mappable)
+
+            for i, ft in enumerate(filetypes):
+                if i==0:
+                    root = Mappable(fs[ft][i], ft)
+                    last = root
+                else:
+                    node = Mappable(fs[ft][i], ft)
+                    last.children.append(fs[ft])
+                    last = node
+
+            mappables.append(root)
 
         return mappables
          
@@ -348,13 +382,14 @@ class Ministry:
         fs  = self.galaxycatalog.filestruct
         hfs = self.halocatalog.filestruct
         fs.update(hfs)
-        
-        filetypes = fieldmap.keys()
 
-        #get a filetype need for halo catalog
-        for f in ft:
-            if f[0]=='h':
-                hkey = f
+        gft = [ft for ft in fieldmap.keys() if ft 
+               in self.galaxycatalog.filestruct.keys()]
+        hft = [ft for ft in fieldmap.keys() if ft 
+               in self.halocatalog.filestruct.keys()]
+        
+        #get a filetype necessary for halo catalog
+        hkey = hft[0]
 
         gfpix = self.galaxycatalog.getFilePixels(nside)
         hfpix = self.halocatalog.getFilePixels(nside)
@@ -364,13 +399,23 @@ class Ministry:
 
         #Create mappables out of filestruct and fieldmaps
         for i in range(len(hfs[hkey])):
-            mappable = {}
-            for ft in filetypes:
-                if ft[0]=='h':
-                    mappable[ft] = hfs[ft][i]
-                elif ft[0]=='g':
-                    gidx = self.getIntersection('halogalaxy',hfpix[i], gfpix)
-                    mappable[ft] = fs[ft][gidx]
+            root = Mappable(hfs[hkey][i], hkey)
+            last = root
+            for ft in hft:
+                if ft==hkey:    continue
+                mp = Mappable(hfs[ft][i], ft)
+                last.children.append(mp)
+
+            hlast = last
+            gidx = self.getIntersection('halogalaxy',hfpix[i], gfpix)
+
+            for idx in gidx:
+                last = hlast
+
+                for ft in gft:
+                    mp = Mappable(gfs[ft][idx], ft)
+                    last.children.append(mp)
+                    last = mp
 
             mappables.append(mappable)
 
@@ -402,8 +447,6 @@ class Ministry:
 
         return np.array(set(idx))
 
-                
-
     def genMappables(self, mgroup):
         """
         Given a fieldmap and an association
@@ -429,6 +472,87 @@ class Ministry:
             return self.haloHaloMappable(fm)
         elif aschema == 'halogalaxy':
             return self.haloGalaxyMappable(fm)
+
+
+    def readMappable(self, mappable, fieldmap):
+
+        if mappable.dtype[0]=='h':
+            mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
+        elif mappable.dtype[0]=='g':
+            mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
+
+        if len(mappable.children)>0:
+            for child in mappable.children:
+                self.readMappable(child, fieldmap)
+
+        return mappable
+
+    def treeToDict(self, mapunit):
+        """
+        Most general form of map unit is a tree. Most
+        metrics don't require this. If the schema we
+        are working with doesn't, turn the tree
+        into the old dict structure
+        """
+        
+        mu = {}
+        
+        while len(mapunit.children)>0:
+            if len(mapunit.children)>1:
+                raise ValueError("mapunit has more than one branch!")
+
+            for key in mapunit.data.keys():
+                if key in mu.keys():
+                    shp0 = mu[key].shape
+                    shp1 = mapunit.data[key].shape
+                    
+                    if os[0]!=ns[0]:
+                        raise ValueError("Sizes of data for same mapkey {0} do not match!".format(key))
+
+                    nshp = [shp0[0], shp0[1]+shp1[1]]
+                    
+                    d = np.ndarray(nshp)
+                    d[:,:shp0[1]] = mu[key]
+                    d[:,shp0[1]:] = mapunit.data[key]
+                else:
+                    mu[key] = mapunit.data[key]
+
+            mapunit = mapunit.children[0]
+
+        for key in mapunit.data.keys():
+            if key in mu.keys():
+                shp0 = mu[key].shape
+                shp1 = mapunit.data[key].shape
+                
+                if os[0]!=ns[0]:
+                    raise ValueError("Sizes of data for same mapkey {0} do not match!".format(key))
+                
+                nshp = [shp0[0], shp0[1]+shp1[1]]
+                
+                d = np.ndarray(nshp)
+                d[:,:shp0[1]] = mu[key]
+                d[:,shp0[1]:] = mapunit.data[key]
+            else:
+                mu[key] = mapunit.data[key]
+            
+        return mu
+
+    def sortByZ(self, mappable, fieldmap, idx):
+        """
+        Sort a mappable by redshift for each galaxy type
+        """
+        
+        if 'redshift' in fieldmap[mappable.dtype].keys():
+            idx = mappable.data['redshift'].argsort()
+
+        dk = mappable.data.keys()
+        if len(idx)==len(mappable.data[dk[0]]):
+            for k in dk:
+                mappable.data[k] = mappable.data[k][idx]
+        
+        if len(mappable.children)>0:
+            for child in mappable.children:
+                self.sortByZ(child, fieldmap, idx)
         
 
     def validate(self, metrics=None, verbose=False):
@@ -440,13 +564,24 @@ class Ministry:
         """
         self.metric_groups = self.genMetricGroups()
         for mg in self.metric_groups:
-            ms = mg[1]
-            fm = mg[0]
+            ms  = mg[1]
+            fm  = mg[0]
+            if 'redshift' in fm.keys():
+                sbz = True
+
             for mappable in self.genMappables(fm):
-                mapunit self.readMappble(mappable, fm)
+                mapunit = self.readMappable(mappable, fm)
+
+                if sbz:
+                    self.sortByZ(mapunit, fieldmap, [])
+
+                if 'only' in ms.aschema:
+                    mapunit = self.treeToDict(mapunit)
 
                 for m in ms:
                     m.map(mapunit)
+                    
+                del mapunit
 
             for m in ms:
                 m.reduce()

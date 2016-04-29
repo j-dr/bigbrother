@@ -27,7 +27,7 @@ def sortHpixFileStruct(filestruct):
 
 class PixMetric(Metric):
 
-    def __init__(self, ministry, nside)
+    def __init__(self, ministry, nside):
         """
         Initialize a PixMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -44,6 +44,7 @@ class PixMetric(Metric):
 
         self.mapkeys = ['polar_ang', 'azim_ang']
         self.aschema = 'singleonly'
+        self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
 
         
     def map(self, mapunit):
