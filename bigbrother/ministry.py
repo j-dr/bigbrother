@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
 from .halo import HaloCatalog, BCCHaloCatalog
+from copy import copy, deepcopy
 import numpy as np
 import healpy as hp
 import helpers
@@ -23,11 +24,14 @@ class Mappable(object):
     A tree which contains information on the order in which files should be read
     """
     
-    def __init__(self, name=None, dtype=None, children=[], childtype=None):
+    def __init__(self, name, dtype, children=None, childtype=None):
         
         self.name = name
         self.dtype = dtype
-        self.children = children
+        if children==None:
+            self.children = []
+        else:
+            self.children = children
         self.data = None
 
         
@@ -130,7 +134,10 @@ class Ministry:
             #the map from the metric dependency to the catalog
             #fields as specified by the catalog's field map
 
-            for mapkey in metric.mapkeys:
+            mk  = copy(metric.mapkeys)
+            mk.extend(cat.necessaries)
+
+            for mapkey in mk:
                 if mapkey not in valid.keys():
                     valid[mapkey] = False
 
@@ -249,6 +256,7 @@ class Ministry:
         """
         
         fieldmaps = [self.getMetricDependencies(m) for m in metrics]
+        metrics = [[m] for m in metrics]
         fms = zip(fieldmaps, metrics)
         nodes = range(len(fms))
         snodes = set(nodes)
@@ -332,7 +340,7 @@ class Ministry:
             m1.extend(list(m2))
             m = m1
         elif hasattr(m2,'__iter__'):
-            m2.extend(list(m1))
+            m2.append(m1)
             m = m2
         else:
             m = [m1,m2]
@@ -367,13 +375,13 @@ class Ministry:
         #Create mappables out of filestruct and fieldmaps
         for i in range(len(fs[filetypes[0]])):
 
-            for i, ft in enumerate(filetypes):
-                if i==0:
+            for j, ft in enumerate(filetypes):
+                if j==0:
                     root = Mappable(fs[ft][i], ft)
                     last = root
                 else:
                     node = Mappable(fs[ft][i], ft)
-                    last.children.append(fs[ft])
+                    last.children.append(node)
                     last = node
 
             mappables.append(root)
@@ -488,14 +496,16 @@ class Ministry:
 
 
     def readMappable(self, mappable, fieldmap):
-
-        if mappable.dtype[0]=='h':
+        if hasattr(self, 'halocatalog') and (mappable.dtype==self.halocatalog.filetypes):
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
-        elif mappable.dtype[0]=='g':
+        elif hasattr(self, 'galaxycatalog') and (mappable.dtype in self.galaxycatalog.filetypes):
+            print('gal')
+            print(mappable.dtype)
             mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
 
         if len(mappable.children)>0:
             for child in mappable.children:
+                print(child)
                 self.readMappable(child, fieldmap)
 
         return mappable
@@ -568,7 +578,24 @@ class Ministry:
         if len(mappable.children)>0:
             for child in mappable.children:
                 self.sortByZ(child, fieldmap, idx)
-        
+
+    def convert(self, mapunit, metrics):
+
+        if hasattr(self,'galaxycatalog'):
+            mapunit = self.galaxycatalog.convert(mapunit, metrics)
+        if hasattr(self,'halocatalog'):
+            mapunit = self.halocatalog.convert(mapunit, metrics)
+
+        return mapunit
+
+    def filter(self, mapunit):
+
+        if hasattr(self,'galaxycatalog'):
+            mapunit = self.galaxycatalog.filter(mapunit, self.galaxycatalog.fieldmap)
+        if hasattr(self,'halocatalog'):
+            mapunit = self.halocatalog.filter(mapunit, self.halocatalog.fieldmap)
+
+        return mapunit
 
     def validate(self, metrics=None, verbose=False):
         """
@@ -597,8 +624,14 @@ class Ministry:
                 if sbz:
                     self.sortByZ(mapunit, fm, [])
 
-                if 'only' in ms[0].aschema:
+                if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
                     mapunit = self.treeToDict(mapunit)
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
+                elif 'only' in ms[0].aschema:
+                    mapunit = self.treeToDict(mapunit)
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
 
                 for m in ms:
                     print('*****{0}*****'.format(m.__class__.__name__))

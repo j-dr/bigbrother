@@ -52,7 +52,6 @@ class BaseCatalog:
 
         return fpix
             
-
     def genMappable(self, metrics):
         """
         Given a set of metrics, generate a list of mappables
@@ -189,6 +188,7 @@ class BaseCatalog:
         
         for m in metrics:
             for key in m.unitmap:
+                if key not in mapunit.keys(): continue
                 try:
                     conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
                 except:
@@ -197,5 +197,23 @@ class BaseCatalog:
                 mapunit[key] = conversion(mapunit[key])
 
         return mapunit
+
+    def filter(self, mapunit, fieldmap):
+        
+        for i, key in enumerate(self.filters):
+            filt = getattr(self, 'filter{0}'.format(key))
+            
+            if i==0:
+                idx = filt(mapunit)
+            else:
+                idxi = filt(mapunit)
+                idx = idx&idxi
+                
+        for key in mapunit.keys():
+            if key in fieldmap.keys():
+                mapunit[key] = mapunit[key][idx]
+
+        return mapunit
+        
                                      
         

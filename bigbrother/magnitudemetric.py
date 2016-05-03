@@ -37,6 +37,7 @@ class MagnitudeMetric(GMetric):
 
         self.magbins = magbins
         self.aschema = 'galaxyonly'
+        self.unitmap = {'appmag':'mag', 'luminosity':'mag'}
 
         GMetric.__init__(self, ministry, zbins=zbins, xbins=magbins,
                          catalog_type=catalog_type)
@@ -180,8 +181,12 @@ class MagCounts(MagnitudeMetric):
 
         MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins,
                                  catalog_type=catalog_type)
+        
+        if zbins!=None:
+            self.mapkeys = ['appmag', 'redshift']
+        else:
+            self.mapkeys = ['appmag']
 
-        self.mapkeys = ['appmag', 'redshift']
         self.aschema = 'galaxyonly'
 
     def map(self, mapunit):
@@ -541,6 +546,8 @@ class ColorMagnitude(Metric):
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
                                  sharex=True, sharey=True, figsize=(8,8))
+            ax = np.atleast_2d(ax)
+
             newaxes = True
         else:
             newaxes = False
@@ -572,6 +579,173 @@ class ColorMagnitude(Metric):
             else:
                 f, ax = m.visualize(usecolors=usecolors[i],
                                     f=f, ax=ax, **kwargs)
+
+        if plotname!=None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+class FQuenched(Metric):
+
+    def __init__(self, ministry, zbins=[0.0, 0.2], m=0.0,b=1.0,catalog_type=['galaxycatalog']):
+        Metric.__init__(self, ministry, catalog_type=catalog_type)
+        self.zbins = zbins
+
+        if zbins is None:
+            self.nzbins = 1
+        else:
+            self.nzbins = len(zbins)-1
+            self.zbins = np.array(self.zbins)
+
+        self.m = m
+        self.b = b
+
+        self.mapkeys = ['appmag', 'redshift']
+        self.aschema = 'galaxyonly'
+
+    def map(self, mapunit):
+
+        #hard-code color mag diagram cut for now
+        #horizontal line in color
+
+        if not hasattr(self, 'qscounts'):
+            self.qscounts = np.zeros(self.nzbins)
+            self.tcounts = np.zeros(self.nzbins)
+
+        if self.zbins!=None:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+
+                qidx = np.where((mapunit['appmag'][zlidx:zhidx,0] 
+                                 - mapunit['appmag'][zlidx:zhidx,1])
+                                > (self.m * mapunit['appmag'][zlidx:zhidx,0] 
+                                   + self.b))
+
+                self.qscounts[i] = len(qidx)
+                self.tcounts[i] = zhidx-zlidx
+
+        else:
+            qidx = np.where((mapunit['appmag'][:,0] 
+                             - mapunit['appmag'][:,1])
+                            > (self.m * mapunit['appmag'][:,0] 
+                               + self.b))
+
+            self.qscounts[0] = len(qidx)
+            self.tcounts[0] = len(mapunit['appmag'])
+        
+                
+    def reduce(self):
+        self.fquenched = self.qscounts/self.tcounts
+
+    def visualize(self, f=None, ax=None, **kwargs):
+        
+        if f is None:
+            f, ax = plt.subplots(1, figsize=(8,8))
+            newaxes = True
+        else:
+            newaxes = False
+
+        zm = (self.zbins[:-1] + self.zbins[1:])/2
+            
+        ax.plot(zm, self.fquenched)
+
+        return f, ax
+
+    def compare(self, othermetrics, plotname=None, **kwargs):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax = m.visualize(**kwargs)
+            else:
+                f, ax = m.visualize(f=f, ax=ax, **kwargs)
+
+        if plotname!=None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
+class FQuenchedLum(Metric):
+
+    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, catalog_type=['galaxycatalog']):
+        Metric.__init__(self, ministry, catalog_type=catalog_type)
+        self.zbins = zbins
+
+        if zbins is None:
+            self.nzbins = 1
+        else:
+            self.nzbins = len(zbins)-1
+            self.zbins = np.array(self.zbins)
+
+        if magbins is None:
+            self.magbins = np.linspace(-25, -18, 30)
+        else:
+            self.magbins = magbins
+
+        self.mapkeys = ['appmag', 'luminosity', 'redshift']
+        self.aschema = 'galaxyonly'
+
+    def map(self, mapunit):
+
+        if not hasattr(self, 'qscounts'):
+            self.qscounts = np.zeros((len(self.magbins),self.nzbins))
+            self.tcounts = np.zeros((len(self.magbins),self.nzbins))
+
+        if self.zbins!=None:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+
+                for j, lum in enumerate(self.magbins[:-1]):
+                    lidx = np.where((self.magbins[j]<mapunit['luminosity'][:,0])
+                                    and (mapunit['luminosity']<self.magbins[j+1]))
+                    qidx = np.where((mapunit['appmag'][zlidx:zhidx,0][lidx]
+                                     - mapunit['appmag'][zlidx:zhidx,1][lidx])
+                                    > (self.m * mapunit['appmag'][zlidx:zhidx,0][lidx] 
+                                       + self.b))
+
+                self.qscounts[j,i] = len(qidx)
+                self.tcounts[j,i] = zhidx-zlidx
+
+        else:
+            qidx = np.where((mapunit['appmag'][:,0] 
+                             - mapunit['appmag'][:,1])
+                            > (self.m * mapunit['appmag'][:,0] 
+                               + self.b))
+
+            self.qscounts[0] = len(qidx)
+            self.tcounts[0] = len(mapunit['appmag'])
+        
+                
+    def reduce(self):
+        self.fquenched = self.qscounts/self.tcounts
+
+    def visualize(self, f=None, ax=None, **kwargs):
+        
+        if f is None:
+            f, ax = plt.subplots(1, figsize=(8,8))
+            newaxes = True
+        else:
+            newaxes = False
+
+        zm = (self.zbins[:-1] + self.zbins[1:])/2
+            
+        ax[0].plot(zm, self.fquenched)
+
+        return f, ax
+
+    def compare(self, othermetrics, plotname=None, **kwargs):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax = m.visualize(**kwargs)
+            else:
+                f, ax = m.visualize(f=f, ax=ax, **kwargs)
 
         if plotname!=None:
             plt.savefig(plotname)

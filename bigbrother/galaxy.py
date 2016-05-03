@@ -1,7 +1,7 @@
 from __future__ import print_function, division
 from collections import OrderedDict
 from .basecatalog import BaseCatalog
-from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude
+from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 import numpy as np
@@ -73,7 +73,8 @@ class BCCCatalog(GalaxyCatalog):
                         LuminosityFunction(self.ministry, zbins=zbins, central_only=True),
                         LcenMass(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins),
-                        ColorMagnitude(self.ministry, zbins=zbins, central_only=True)]
+                        ColorMagnitude(self.ministry, zbins=zbins, central_only=True),
+                        FQuenched(self.ministry, zbins=np.linspace(0,2.0,30))]
 
         self.nside = nside
 
@@ -240,6 +241,9 @@ class DESGoldCatalog(GalaxyCatalog):
                                                ('FLUX_AUTO_Z',['auto'])]),
                          'modest':OrderedDict([('MODEST_CLASS',['basic'])])}
 
+        self.unitmap = {'appmag':'flux'}
+        self.filters = ['Modest']
+
     def parseFileStruct(self, filestruct):
 
         self.filestruct = filestruct
@@ -302,12 +306,7 @@ class DESGoldCatalog(GalaxyCatalog):
 
     def filterModest(self, mapunit):
 
-        midx = mapunit['modest']==1
-
-        for mapkey in mapunit.keys():
-            mapunit[mapkey] = mapunit[mapkey][midx]
-
-        return mapunit
+        return mapunit['modest']==1
         
     def reduce(self):
         """                                                                                                                                                                          
