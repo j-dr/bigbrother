@@ -40,7 +40,7 @@ class PixMetric(Metric):
         """
         Metric.__init__(self, ministry)
 
-        self.nside
+        self.nside = nside
 
         self.mapkeys = ['polar_ang', 'azim_ang']
         self.aschema = 'singleonly'
@@ -52,3 +52,43 @@ class PixMetric(Metric):
         pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
         
         return pix
+
+    def reduce(self):
+        pass
+
+    def visualize(self):
+        pass
+    
+    def compare(self):
+        pass
+
+
+class Area(Metric):
+
+    def __init__(self, ministry, nside=64):
+
+        Metric.__init__(self, ministry)
+
+        self.nside = nside
+
+        self.mapkeys = ['polar_ang', 'azim_ang']
+        self.aschema = 'galaxyonly'
+        self.catalog_type = ['galaxycatalog']
+        self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
+        self.area = 0.0
+
+    def map(self, mapunit):
+
+        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
+        upix = np.unique(pix)
+        area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
+        self.area += area
+
+    def reduce(self):
+        pass
+
+    def visualize(self):
+        pass
+    
+    def compare(self):
+        pass

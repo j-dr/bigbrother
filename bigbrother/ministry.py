@@ -322,6 +322,8 @@ class Ministry:
             temp = ft1
             ft1  = ft2
             ft2  = temp
+            
+        ift = ft1-ft2
 
         for ft in ft2:
             mk1 = set(fm1[ft].keys())
@@ -335,6 +337,9 @@ class Ministry:
                     f.append(fm2[ft][k])
 
             cfm[ft] = OrderedDict(zip(umk, f))
+
+        for ft in ift:
+            cfm[ft] = fm1[ft]
 
         if hasattr(m1,'__iter__'):
             m1.extend(list(m2))
@@ -499,8 +504,6 @@ class Ministry:
         if hasattr(self, 'halocatalog') and (mappable.dtype==self.halocatalog.filetypes):
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
         elif hasattr(self, 'galaxycatalog') and (mappable.dtype in self.galaxycatalog.filetypes):
-            print('gal')
-            print(mappable.dtype)
             mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
 
         if len(mappable.children)>0:
@@ -638,6 +641,9 @@ class Ministry:
                     m.map(mapunit)
                     
                 del mapunit
+
+        for mg in self.metric_groups:
+            ms = mg[1]
 
             for m in ms:
                 m.reduce()

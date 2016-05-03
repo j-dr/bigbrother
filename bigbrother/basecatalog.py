@@ -23,6 +23,8 @@ class BaseCatalog:
         self.area = 0.0
         self.nside = nside
         self.goodpix = goodpix
+        self.necessaries = []
+        self.filters = []
 
     @abstractmethod
     def parseFileStruct(self, filestruct):
@@ -188,7 +190,11 @@ class BaseCatalog:
         
         for m in metrics:
             for key in m.unitmap:
-                if key not in mapunit.keys(): continue
+                if key not in mapunit.keys(): 
+                    continue
+                elif self.unitmap[key]==m.unitmap[key]:
+                    continue
+                
                 try:
                     conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
                 except:
@@ -199,6 +205,8 @@ class BaseCatalog:
         return mapunit
 
     def filter(self, mapunit, fieldmap):
+
+        idx = None
         
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
@@ -209,9 +217,10 @@ class BaseCatalog:
                 idxi = filt(mapunit)
                 idx = idx&idxi
                 
-        for key in mapunit.keys():
-            if key in fieldmap.keys():
-                mapunit[key] = mapunit[key][idx]
+        if idx is not None:
+            for key in mapunit.keys():
+                if key in fieldmap.keys():
+                    mapunit[key] = mapunit[key][idx]
 
         return mapunit
         

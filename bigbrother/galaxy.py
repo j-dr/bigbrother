@@ -49,8 +49,17 @@ class GalaxyCatalog(BaseCatalog):
         self.filetypes = self.filestruct.keys()
 
     def getArea(self):
-        if self.mask is None:
+        
+        arm = np.array([True if m.__class__.__name__=="Area" else False 
+                  for m in self.ministry.metrics])
+        am = any(arm)
+        if am:
+            idx, = np.where(arm==True)
+
+        if (self.mask is None) & (not am):
             return self.ministry.area
+        elif am:
+            return self.ministry.metrics[idx].area
         else:
             return self.area
 
@@ -77,6 +86,7 @@ class BCCCatalog(GalaxyCatalog):
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30))]
 
         self.nside = nside
+        self.unitmap = {'luminosity':'mag', 'appmag':'mag'}
 
         if fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['truth'])]),
@@ -239,9 +249,11 @@ class DESGoldCatalog(GalaxyCatalog):
                                                ('FLUX_AUTO_R',['auto']),
                                                ('FLUX_AUTO_I',['auto']), 
                                                ('FLUX_AUTO_Z',['auto'])]),
-                         'modest':OrderedDict([('MODEST_CLASS',['basic'])])}
+                         'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
+                         'polar_ang':OrderedDict([('DEC',['basic'])]),
+                         'azim_ang':OrderedDict([('RA',['basic'])])}
 
-        self.unitmap = {'appmag':'flux'}
+        self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra'}
         self.filters = ['Modest']
 
     def parseFileStruct(self, filestruct):
