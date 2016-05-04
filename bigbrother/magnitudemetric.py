@@ -364,17 +364,22 @@ class ColorColor(Metric):
         else:
             self.magbins = magbins
 
-        self.mapkeys = ['appmag', 'redshift']
+        if zbins!=None:
+            self.mapkeys = ['appmag', 'redshift']
+        else:
+            self.mapkeys = ['appmag']
+
         self.aschema = 'galaxyonly'
+        self.unitmap = {'appmag':'mag'}
 
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
-
+        
         if not hasattr(self, 'cc'):
             self.cc = np.zeros((len(self.magbins)-1, len(self.magbins)-1, 
                                 self.nbands*(self.nbands-1)/2,
                                 self.nzbins))
-
+            
         if self.zbins!=None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
@@ -411,6 +416,8 @@ class ColorColor(Metric):
             mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
                               for i in range(len(self.magbins)-1)])
 
+        #X, Y = np.meshgrid(mmags
+
         if usecolors is None:
             usecolors = range(self.cc.shape[2])
 
@@ -423,7 +430,7 @@ class ColorColor(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[j][i].pcolormesh(self.magbins, self.cbins, self.cc[::-1,::-1,i,j],
+                ax[j][i].contour(X, Y, self.cc[:,:,i,j].T,
                                     **kwargs)
 
         return f, ax
@@ -450,7 +457,7 @@ class ColorMagnitude(Metric):
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, 
                  cbins=None, central_only=False, logscale=False,
-                 catalog_type=['galaxycatalog']):
+                 catalog_type=['galaxycatalog'], usebands=None):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type)
         
@@ -474,18 +481,27 @@ class ColorMagnitude(Metric):
             self.magbins = magbins
             self.cbins = cbins
 
+        self.usebands = usebands
+        if self.usebands is not None:
+            self.nbands = len(self.usebands)
+
         self.central_only = central_only
         self.logscale = logscale
 
-        if central_only:
+        if central_only & (zbins is not None):
             self.mapkeys = ['appmag', 'redshift', 'central']
-        else:
+        elif (zbins is not None):
             self.mapkeys = ['appmag', 'redshift']
+        else:
+            self.mapkeys = ['appmag']
 
         self.aschema = 'galaxyonly'
+        self.unitmap = {'appmag':'mag'}
 
     def map(self, mapunit):
-        self.nbands = mapunit['appmag'].shape[1]
+        
+        if self.usebands is None:
+            self.nbands = mapunit['appmag'].shape[1]
 
         mu = {}
         if self.central_only:
@@ -532,8 +548,10 @@ class ColorMagnitude(Metric):
 
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None, **kwargs):
 
-        
-        X, Y = np.meshgrid(self.magbins, self.cbins)
+        x = (self.magbins[:-1]+self.magbins[1:])/2
+        y = (self.cbins[:-1]+self.cbins[1:])/2
+        X, Y = np.meshgrid(x, y)
+
         if self.logscale:
             cc = np.log10(self.cc)
             cc[cc==(-np.inf)] = 0.0
@@ -554,7 +572,7 @@ class ColorMagnitude(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[j][i].pcolormesh(X, Y, cc[:,:,i,j],
+                ax[j][i].contour(X, Y, cc[:,:,i,j].T,
                                     **kwargs)
 
         return f, ax

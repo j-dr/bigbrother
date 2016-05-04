@@ -114,16 +114,21 @@ class BCCCatalog(GalaxyCatalog):
         self.filetypes = filetypes        
 
         if len(filestruct.keys())>1:
+            lfs = [len(filestruct[ft]) for ft in filestruct.keys()]
+            mlfs = min(lfs)
+            oft = lfs.index(mlfs)
             opix =  np.array([int(t.split('/')[-1].split('.')[-2]) for t
-                              in self.filestruct[filetypes[0]]])
+                              in self.filestruct[filetypes[oft]]])
             oidx = opix.argsort()
 
             for ft in filetypes:
-                assert(len(filestruct[ft])==len(filestruct[filetypes[0]]))
                 pix = np.array([int(t.split('/')[-1].split('.')[-2]) for t
                     in self.filestruct[ft]])
+                idx = np.in1d(pix, opix)
+                self.filestruct[ft] = self.filestruct[ft][idx]
+                pix = pix[idx]
                 idx = pix.argsort()
-                assert(pix[idx]==opix[oidx])
+                assert((pix[idx]==opix[oidx]).all())
                 
                 if len(idx)==1:
                     self.filestruct[ft] = [self.filestruct[ft][idx]]

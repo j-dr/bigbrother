@@ -306,22 +306,27 @@ class Ministry:
         comparing them using compFieldMaps returns True
         """
         #make sure compatible
+
+        if not self.compFieldMaps(fm1[0], fm2[0]):
+            raise ValueError("Field maps are not compatible!")
+
+        cfm = {}
+        ft1 = set(fm1[0].keys())
+        ft2 = set(fm2[0].keys())
+
+        if ft1.issubset(ft2):
+            temp = fm1
+            fm1  = fm2
+            fm2  = temp
+
+        ft1 = set(fm1[0].keys())
+        ft2 = set(fm2[0].keys())
         m1 = fm1[1]
         m2 = fm2[1]
         fm1 = fm1[0]
         fm2 = fm2[0]
 
-        if not self.compFieldMaps(fm1, fm2):
-            raise ValueError("Field maps are not compatible!")
 
-        cfm = {}
-        ft1 = set(fm1.keys())
-        ft2 = set(fm2.keys())
-
-        if ft1.issubset(ft2):
-            temp = ft1
-            ft1  = ft2
-            ft2  = temp
             
         ift = ft1-ft2
 
