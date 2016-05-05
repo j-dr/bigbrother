@@ -683,6 +683,89 @@ class FQuenched(Metric):
 
         return f, ax
 
+class FRed(Metric):
+
+    def __init__(self, ministry, zbins=[0.0, 0.2], catalog_type=['galaxycatalog'], zeroind=True):
+        Metric.__init__(self, ministry, catalog_type=catalog_type)
+        self.zbins = zbins
+
+        if zbins is None:
+            self.nzbins = 1
+        else:
+            self.nzbins = len(zbins)-1
+            self.zbins = np.array(self.zbins)
+
+        self.mapkeys = ['ctcatid', 'redshift']
+        self.unitmap = {}
+        self.aschema = 'galaxyonly'
+        self.zeroind = zeroind
+
+        self.ctcat = np.genfromtxt('/nfs/slac/g/ki/ki23/des/jderose/l-addgals/training/cooper/dr6_cooper_id_with_red.dat')
+
+    def map(self, mapunit):
+
+        if not hasattr(self, 'nred'):
+            self.qscounts = np.zeros(self.nzbins)
+            self.tcounts = np.zeros(self.nzbins)
+
+        if self.zbins!=None:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+                
+                if self.zeroind:
+                    qidx, = np.where(self.ctcat[mapunit['ctcatid']-1,3]==1)
+                else:
+                    qidx, = np.where(self.ctcat[mapunit['ctcatid'],3]==1)
+
+                self.qscounts[i] = len(qidx)
+                self.tcounts[i] = zhidx-zlidx
+
+        else:
+            qidx = np.where((mapunit['appmag'][:,0] 
+                             - mapunit['appmag'][:,1])
+                            > (self.m * mapunit['appmag'][:,0] 
+                               + self.b))
+
+            self.qscounts[0] = len(qidx)
+            self.tcounts[0] = len(mapunit['ctcatid'])
+        
+                
+    def reduce(self):
+        self.fquenched = self.qscounts/self.tcounts
+
+    def visualize(self, f=None, ax=None, **kwargs):
+        
+        if f is None:
+            f, ax = plt.subplots(1, figsize=(8,8))
+            newaxes = True
+        else:
+            newaxes = False
+
+        zm = (self.zbins[:-1] + self.zbins[1:])/2
+            
+        ax.plot(zm, self.fquenched)
+
+        return f, ax
+
+    def compare(self, othermetrics, plotname=None, **kwargs):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax = m.visualize(**kwargs)
+            else:
+                f, ax = m.visualize(f=f, ax=ax, **kwargs)
+
+        if plotname!=None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+            
+
+
 
 class FQuenchedLum(Metric):
 
