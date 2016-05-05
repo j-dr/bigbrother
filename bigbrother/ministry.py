@@ -513,7 +513,6 @@ class Ministry:
 
         if len(mappable.children)>0:
             for child in mappable.children:
-                print(child)
                 self.readMappable(child, fieldmap)
 
         return mappable

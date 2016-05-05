@@ -564,7 +564,7 @@ class ColorMagnitude(Metric):
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
                                  sharex=True, sharey=True, figsize=(8,8))
-            ax = np.atleast_2d(ax)
+            ax = np.atleast_2d(ax).T
 
             newaxes = True
         else:
@@ -572,7 +572,7 @@ class ColorMagnitude(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[j][i].contour(X, Y, cc[:,:,i,j].T,
+                ax[j][i].contour(X, Y, cc[:,:,i,j].T,30,
                                     **kwargs)
 
         return f, ax
@@ -605,7 +605,7 @@ class ColorMagnitude(Metric):
 
 class FQuenched(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], m=0.0,b=1.0,catalog_type=['galaxycatalog']):
+    def __init__(self, ministry, zbins=[0.0, 0.2], m=0.0,b=1.2,catalog_type=['galaxycatalog']):
         Metric.__init__(self, ministry, catalog_type=catalog_type)
         self.zbins = zbins
 
@@ -619,12 +619,10 @@ class FQuenched(Metric):
         self.b = b
 
         self.mapkeys = ['appmag', 'redshift']
+        self.unitmap = {'appmag':'mag'}
         self.aschema = 'galaxyonly'
 
     def map(self, mapunit):
-
-        #hard-code color mag diagram cut for now
-        #horizontal line in color
 
         if not hasattr(self, 'qscounts'):
             self.qscounts = np.zeros(self.nzbins)
@@ -635,7 +633,7 @@ class FQuenched(Metric):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                qidx = np.where((mapunit['appmag'][zlidx:zhidx,0] 
+                qidx, = np.where((mapunit['appmag'][zlidx:zhidx,0] 
                                  - mapunit['appmag'][zlidx:zhidx,1])
                                 > (self.m * mapunit['appmag'][zlidx:zhidx,0] 
                                    + self.b))

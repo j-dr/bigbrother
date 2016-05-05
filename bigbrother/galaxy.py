@@ -67,6 +67,20 @@ class GalaxyCatalog(BaseCatalog):
         
         return self.readFITSMappable(mappable, fieldmap)
 
+    def filterAppmag(self, mapunit, bands=None, badval=99.):
+
+        if bands is None:
+            bands = range(mapunit['appmag'].shape[1])
+            
+        for i, b in enumerate(bands):
+            if i==0:
+                idx = mapunit['appmag'][:,b]!=badval
+            else:
+                idxi = mapunit['appmag'][:,b]!=badval
+                idx = idx&idxi
+
+        return idx
+
 class BCCCatalog(GalaxyCatalog):
     """
     BCC style ADDGALS catalog
@@ -86,6 +100,7 @@ class BCCCatalog(GalaxyCatalog):
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30))]
 
         self.nside = nside
+        self.filters = ['Appmag']
         self.unitmap = {'luminosity':'mag', 'appmag':'mag'}
 
         if fieldmap is None:
@@ -134,6 +149,8 @@ class BCCCatalog(GalaxyCatalog):
                     self.filestruct[ft] = [self.filestruct[ft][idx]]
                 else:
                     self.filestruct[ft] = self.filestruct[ft][idx]
+
+                print(len(self.filestruct[ft]))
 
     def pixelVal(self,mappable):
         """
