@@ -182,7 +182,7 @@ class MagCounts(MagnitudeMetric):
         MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins,
                                  catalog_type=catalog_type)
         
-        if zbins!=None:
+        if zbins is not None:
             self.mapkeys = ['appmag', 'redshift']
         else:
             self.mapkeys = ['appmag']
@@ -196,7 +196,7 @@ class MagCounts(MagnitudeMetric):
             self.magcounts = np.zeros((len(self.magbins)-1, 
                                        self.nbands, self.nzbins))
             
-        if self.zbins!=None:
+        if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
@@ -312,7 +312,7 @@ class LcenMass(Metric):
             sax.set_xlabel(r'$M\, [M_{sun}]$')
             sax.set_ylabel(r'$L_{cen}\, [mag]$')
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
         return f, ax
@@ -322,7 +322,7 @@ class LcenMass(Metric):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
-        if usebands!=None:
+        if usebands is not None:
             if not hasattr(usebands[0], '__iter__'):
                 usebands = [usebands]*len(tocompare)
             else:
@@ -331,7 +331,7 @@ class LcenMass(Metric):
             usebands = [None]*len(tocompare)
         
         for i, m in enumerate(tocompare):
-            if usebands[i]!=None:
+            if usebands[i] is not None:
                 assert(len(usebands[0])==len(usebands[i]))
             if i==0:
                 f, ax = m.visualize(usebands=usebands[i], **kwargs)
@@ -339,7 +339,7 @@ class LcenMass(Metric):
                 f, ax = m.visualize(usebands=usebands[i],
                                     f=f, ax=ax, **kwargs)
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
         return f, ax
@@ -349,7 +349,9 @@ class ColorColor(Metric):
     """
     Color-color diagram.
     """
-    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, catalog_type=['galaxycatalog']):
+    def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None, 
+                 catalog_type=['galaxycatalog'], usebands=None,
+                 amagcut=-19.0):
         Metric.__init__(self, ministry, catalog_type=catalog_type)
         
         self.zbins = zbins
@@ -359,49 +361,65 @@ class ColorColor(Metric):
             self.nzbins = len(zbins)-1
             self.zbins = np.array(self.zbins)
 
-        if magbins is None:
-            self.magbins = np.linspace(10, 30, 60)
+        if cbins is None:
+            self.cbins = np.linspace(-1, 2, 30)
         else:
-            self.magbins = magbins
+            self.cbins = cbins
 
-        if zbins!=None:
+        if zbins is not None:
             self.mapkeys = ['appmag', 'redshift']
         else:
             self.mapkeys = ['appmag']
 
+        self.amagcut = amagcut
+        self.usebands = usebands
         self.aschema = 'galaxyonly'
         self.unitmap = {'appmag':'mag'}
 
     def map(self, mapunit):
-        self.nbands = mapunit['appmag'].shape[1]
-        
+
+        if self.usebands is None:
+            self.nbands = mapunit['appmag'].shape[1]
+            self.usebands = range(self.nbands)
+        else:
+            self.nbands = len(self.usebands)
+
+        self.nclr = self.nbands-1
+
+        clr = np.zeros((len(mapunit['appmag']),self.nbands-1))
+        for i, b in enumerate(self.usebands[:-1]):
+            clr[:,i] = mapunit['appmag'][:,self.usebands[i]] - mapunit['appmag'][:,self.usebands[i+1]]
+            print(clr[:,i])
+
+
         if not hasattr(self, 'cc'):
-            self.cc = np.zeros((len(self.magbins)-1, len(self.magbins)-1, 
-                                self.nbands*(self.nbands-1)/2,
-                                self.nzbins))
+            self.cc = np.zeros((len(self.cbins)-1, len(self.cbins)-1, 
+                                self.nbands-2, self.nzbins))
             
-        if self.zbins!=None:
+        if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-                for j in range(self.nbands):
-                    for k in range(self.nbands):
-                        if k<=j: continue
-                        ind = k*(k-1)/2+j-1
-                        c, e0, e1 = np.histogram2d(mapunit['appmag'][zlidx:zhidx,j], 
-                                                   mapunit['appmag'][zlidx:zhidx,k], 
-                                                   bins=[self.magbins,self.magbins])
-                        self.cc[:,:,ind,i] += c
-        else:
-            for j in range(self.nbands):
-                for k in range(self.nbands):
-                    if k<=j: continue
-                    ind = k*(k-1)/2+j-1
-                    c, e0, e1 = np.histogram2d(mapunit['appmag'][:,j], 
-                                               mapunit['appmag'][:,k], 
-                                               bins=[self.magbins,self.magbins])
-                    self.cc[:,:,ind,0] += c
 
+                if self.amagcut!=None:
+                    for e, j in enumerate(self.usebands):
+                        if e==0:
+                            lidx = mapunit['appmag'][zlidx:zhidx,j]<self.amagcut
+                        else:
+                            lix = mapunit['appmag'][zlidx:zhidx,j]<self.amagcut
+                            lidx = lidx & lix
+
+                for j in range(self.nclr-1):
+                    c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,j+1][lidx],
+                                               clr[zlidx:zhidx,j][lidx],
+                                               bins=self.cbins)
+                    self.cc[:,:,j,i] += c
+        else:
+            for i in range(self.nclr-1):
+                c, e0, e1 = np.histogram2d(clr[:,i], 
+                                           clr[:,i+1], 
+                                           bins=self.cbins)
+                self.cc[:,:,i,0] += c
 
     
     def reduce(self):
@@ -411,12 +429,10 @@ class ColorColor(Metric):
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None, **kwargs):
 
         if hasattr(self, 'magmean'):
-            mmags = self.magmean
+            mclr = self.mclr
         else:
-            mmags = np.array([(self.magbins[i]+self.magbins[i+1])/2 
-                              for i in range(len(self.magbins)-1)])
-
-        #X, Y = np.meshgrid(mmags
+            mclr = np.array([(self.cbins[i]+self.cbins[i+1])/2 
+                              for i in range(len(self.cbins)-1)])
 
         if usecolors is None:
             usecolors = range(self.cc.shape[2])
@@ -424,19 +440,22 @@ class ColorColor(Metric):
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
                                  sharex=True, sharey=True, figsize=(8,8))
+            ax = np.atleast_2d(ax).T
             newaxes = True
         else:
             newaxes = False
 
+        X, Y = np.meshgrid(mclr, mclr)
+
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[j][i].contour(X, Y, self.cc[:,:,i,j].T,
+                ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 30,
                                     **kwargs)
 
         return f, ax
 
     def compare(self, othermetric, plotname=None, usecolors=None, **kwargs):
-        if usecolors!=None:
+        if usecolors is not None:
             assert(len(usecolors[0])==len(usecolors[1]))
             f, ax = self.visualize(usecolors=usecolors[0], **kwargs)
             f, ax = othermetric.visualize(usecolors=usecolors[1],
@@ -446,7 +465,7 @@ class ColorColor(Metric):
             f, ax = othermetric[0].visualize(usecolors=usecolors,
                                           f=f, ax=ax, **kwargs)
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
 
@@ -489,19 +508,19 @@ class ColorMagnitude(Metric):
         self.logscale = logscale
 
         if central_only & (zbins is not None):
-            self.mapkeys = ['appmag', 'redshift', 'central']
+            self.mapkeys = ['luminosity', 'redshift', 'central']
         elif (zbins is not None):
-            self.mapkeys = ['appmag', 'redshift']
+            self.mapkeys = ['luminosity', 'redshift']
         else:
-            self.mapkeys = ['appmag']
+            self.mapkeys = ['luminosity']
 
         self.aschema = 'galaxyonly'
-        self.unitmap = {'appmag':'mag'}
+        self.unitmap = {'luminosity':'mag'}
 
     def map(self, mapunit):
         
         if self.usebands is None:
-            self.nbands = mapunit['appmag'].shape[1]
+            self.nbands = mapunit['luminosity'].shape[1]
 
         mu = {}
         if self.central_only:
@@ -516,7 +535,7 @@ class ColorMagnitude(Metric):
                                 self.nbands*(self.nbands-1)/2,
                                 self.nzbins))
 
-        if self.zbins!=None:
+        if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mu['redshift'].searchsorted(self.zbins[i])
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
@@ -524,9 +543,9 @@ class ColorMagnitude(Metric):
                     for k in range(self.nbands):
                         if k<=j: continue
                         ind = k*(k-1)/2+j-1
-                        c, e0, e1 = np.histogram2d(mu['appmag'][zlidx:zhidx,j], 
-                                                   mu['appmag'][zlidx:zhidx,j] -
-                                                   mu['appmag'][zlidx:zhidx,k], 
+                        c, e0, e1 = np.histogram2d(mu['luminosity'][zlidx:zhidx,j], 
+                                                   mu['luminosity'][zlidx:zhidx,j] -
+                                                   mu['luminosity'][zlidx:zhidx,k], 
                                                    bins=[self.magbins,self.cbins])
                         self.cc[:,:,ind,i] += c
         else:
@@ -534,9 +553,9 @@ class ColorMagnitude(Metric):
                 for k in range(self.nbands):
                     if k<=j: continue
                     ind = k*(k-1)/2+j-1
-                    c, e0, e1 = np.histogram2d(mu['appmag'][:,j], 
-                                               mu['appmag'][:,j] -
-                                               mu['appmag'][:,k], 
+                    c, e0, e1 = np.histogram2d(mu['luminosity'][:,j], 
+                                               mu['luminosity'][:,j] -
+                                               mu['luminosity'][:,k], 
                                                bins=[self.magbins,self.cbins])
                     self.cc[:,:,ind,0] += c
 
@@ -581,7 +600,7 @@ class ColorMagnitude(Metric):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
-        if usecolors!=None:
+        if usecolors is not None:
             if not hasattr(usecolors[0], '__iter__'):
                 usecolors = [usecolors]*len(tocompare)
             else:
@@ -590,7 +609,7 @@ class ColorMagnitude(Metric):
             usecolors = [None]*len(tocompare)
         
         for i, m in enumerate(tocompare):
-            if usecolors[i]!=None:
+            if usecolors[i] is not None:
                 assert(len(usecolors[0])==len(usecolors[i]))
             if i==0:
                 f, ax = m.visualize(usecolors=usecolors[i], **kwargs)
@@ -598,7 +617,7 @@ class ColorMagnitude(Metric):
                 f, ax = m.visualize(usecolors=usecolors[i],
                                     f=f, ax=ax, **kwargs)
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
         return f, ax
@@ -618,8 +637,8 @@ class FQuenched(Metric):
         self.m = m
         self.b = b
 
-        self.mapkeys = ['appmag', 'redshift']
-        self.unitmap = {'appmag':'mag'}
+        self.mapkeys = ['luminosity', 'redshift']
+        self.unitmap = {'luminosity':'mag'}
         self.aschema = 'galaxyonly'
 
     def map(self, mapunit):
@@ -628,27 +647,27 @@ class FQuenched(Metric):
             self.qscounts = np.zeros(self.nzbins)
             self.tcounts = np.zeros(self.nzbins)
 
-        if self.zbins!=None:
+        if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                qidx, = np.where((mapunit['appmag'][zlidx:zhidx,0] 
-                                 - mapunit['appmag'][zlidx:zhidx,1])
-                                > (self.m * mapunit['appmag'][zlidx:zhidx,0] 
+                qidx, = np.where((mapunit['luminosity'][zlidx:zhidx,0] 
+                                 - mapunit['luminosity'][zlidx:zhidx,1])
+                                > (self.m * mapunit['luminosity'][zlidx:zhidx,0] 
                                    + self.b))
 
                 self.qscounts[i] = len(qidx)
                 self.tcounts[i] = zhidx-zlidx
 
         else:
-            qidx = np.where((mapunit['appmag'][:,0] 
-                             - mapunit['appmag'][:,1])
-                            > (self.m * mapunit['appmag'][:,0] 
+            qidx = np.where((mapunit['luminosity'][:,0] 
+                             - mapunit['luminosity'][:,1])
+                            > (self.m * mapunit['luminosity'][:,0] 
                                + self.b))
 
             self.qscounts[0] = len(qidx)
-            self.tcounts[0] = len(mapunit['appmag'])
+            self.tcounts[0] = len(mapunit['luminosity'])
         
                 
     def reduce(self):
@@ -678,7 +697,7 @@ class FQuenched(Metric):
             else:
                 f, ax = m.visualize(f=f, ax=ax, **kwargs)
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
         return f, ax
@@ -708,24 +727,24 @@ class FRed(Metric):
             self.qscounts = np.zeros(self.nzbins)
             self.tcounts = np.zeros(self.nzbins)
 
-        if self.zbins!=None:
+        if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
                 
                 if self.zeroind:
-                    qidx, = np.where(self.ctcat[mapunit['ctcatid']-1,3]==1)
+                    qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx]-1,3]==1)
                 else:
-                    qidx, = np.where(self.ctcat[mapunit['ctcatid'],3]==1)
+                    qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx],3]==1)
 
                 self.qscounts[i] = len(qidx)
                 self.tcounts[i] = zhidx-zlidx
 
         else:
-            qidx = np.where((mapunit['appmag'][:,0] 
-                             - mapunit['appmag'][:,1])
-                            > (self.m * mapunit['appmag'][:,0] 
-                               + self.b))
+            if self.zeroind:
+                qidx, = np.where(self.ctcat[mapunit['ctcatid']-1,3]==1)
+            else:
+                qidx, = np.where(self.ctcat[mapunit['ctcatid'],3]==1)
 
             self.qscounts[0] = len(qidx)
             self.tcounts[0] = len(mapunit['ctcatid'])
@@ -758,18 +777,15 @@ class FRed(Metric):
             else:
                 f, ax = m.visualize(f=f, ax=ax, **kwargs)
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
         return f, ax
 
-            
-
-
 
 class FQuenchedLum(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, catalog_type=['galaxycatalog']):
+    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, m=0.0, b=0.8, catalog_type=['galaxycatalog']):
         Metric.__init__(self, ministry, catalog_type=catalog_type)
         self.zbins = zbins
 
@@ -784,39 +800,46 @@ class FQuenchedLum(Metric):
         else:
             self.magbins = magbins
 
-        self.mapkeys = ['appmag', 'luminosity', 'redshift']
+        self.m = m
+        self.b = b
+
+        self.mapkeys = ['luminosity', 'redshift']
         self.aschema = 'galaxyonly'
+        self.unitmap = {'luminosity':'mag'}
 
     def map(self, mapunit):
 
         if not hasattr(self, 'qscounts'):
-            self.qscounts = np.zeros((len(self.magbins),self.nzbins))
-            self.tcounts = np.zeros((len(self.magbins),self.nzbins))
+            self.qscounts = np.zeros((len(self.magbins)-1,self.nzbins))
+            self.tcounts = np.zeros((len(self.magbins)-1,self.nzbins))
 
-        if self.zbins!=None:
+        if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
                 for j, lum in enumerate(self.magbins[:-1]):
-                    lidx = np.where((self.magbins[j]<mapunit['luminosity'][:,0])
-                                    and (mapunit['luminosity']<self.magbins[j+1]))
-                    qidx = np.where((mapunit['appmag'][zlidx:zhidx,0][lidx]
-                                     - mapunit['appmag'][zlidx:zhidx,1][lidx])
-                                    > (self.m * mapunit['appmag'][zlidx:zhidx,0][lidx] 
+                    lidx, = np.where((self.magbins[j]<mapunit['luminosity'][zlidx:zhidx,0])
+                                    & (mapunit['luminosity'][zlidx:zhidx,0]<self.magbins[j+1]))
+                    qidx, = np.where((mapunit['luminosity'][zlidx:zhidx,0][lidx]
+                                     - mapunit['luminosity'][zlidx:zhidx,1][lidx])
+                                    > (self.m * mapunit['luminosity'][zlidx:zhidx,0][lidx] 
                                        + self.b))
 
-                self.qscounts[j,i] = len(qidx)
-                self.tcounts[j,i] = zhidx-zlidx
+                    self.qscounts[j,i] = len(qidx)
+                    self.tcounts[j,i] = len(lidx)
 
         else:
-            qidx = np.where((mapunit['appmag'][:,0] 
-                             - mapunit['appmag'][:,1])
-                            > (self.m * mapunit['appmag'][:,0] 
-                               + self.b))
+            for i, lum in enumerate(self.magbins[:-1]):
+                lidx, = np.where((self.magbins[j]<mapunit['luminosity'][:,0])
+                                & (mapunit['luminosity']<self.magbins[j+1]))
+                qidx, = np.where((mapunit['luminosity'][:,0][lidx]
+                                 - mapunit['luminosity'][:,1][lidx])
+                                > (self.m * mapunit['luminosity'][:,0][lidx] 
+                                   + self.b))
 
-            self.qscounts[0] = len(qidx)
-            self.tcounts[0] = len(mapunit['appmag'])
+                self.qscounts[i] = len(qidx)
+                self.tcounts[i] = len(lidx)
         
                 
     def reduce(self):
@@ -825,14 +848,17 @@ class FQuenchedLum(Metric):
     def visualize(self, f=None, ax=None, **kwargs):
         
         if f is None:
-            f, ax = plt.subplots(1, figsize=(8,8))
+            f, ax = plt.subplots(1,self.nzbins, figsize=(8,8))
+            ax = np.atleast_2d(ax)
             newaxes = True
         else:
             newaxes = False
 
-        zm = (self.zbins[:-1] + self.zbins[1:])/2
-            
-        ax[0].plot(zm, self.fquenched)
+        lm = (self.magbins[:-1]+self.magbins[1:])/2
+        print(len(lm))
+        print(len(self.fquenched))
+        for i in range(self.nzbins):
+            ax[0][i].plot(lm, self.fquenched[:,i])
 
         return f, ax
 
@@ -846,7 +872,7 @@ class FQuenchedLum(Metric):
             else:
                 f, ax = m.visualize(f=f, ax=ax, **kwargs)
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
         return f, ax
