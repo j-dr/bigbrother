@@ -92,3 +92,49 @@ class Area(Metric):
     
     def compare(self):
         pass
+
+
+class HealpixMap(Metric):
+
+    def __init__(self, ministry, nside=64, cut=None):
+
+        Metric.__init__(self, ministry)
+
+        self.nside = nside
+        self.cuts  = cuts
+
+        if cuts is None:
+            self.mapkeys = ['polar_ang', 'azim_ang']
+            self.ncuts = 1
+            self.cutkey = None
+        else:
+            self.mapkeys = ['polar_ang', 'azim_ang']
+            self.cutkey = self.cuts.keys()[0]
+            self.cuts = self.cuts[self.cutkeys]
+            self.mapkeys.append(self.cutkey)
+            self.ncuts = len(cuts[self.cutkey])
+
+        self.aschema      = 'singleonly'
+        self.catalog_type = ['galaxycatalog']
+        self.unitmap      = {'polar_ang':'rad', 'azim_ang':'rad'}
+        self.pbins        = np.arange(12*nside**2+1)
+        self.hmap         = np.zeros((12*nside**2, self.ncuts))
+
+    def map(self, mapunit):
+
+        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
+        
+        if self.cuts is None:
+            c, e = np.histogram(pix, bins=self.pbins)
+            self.hmap[:,0] += c
+        else:
+            for i, c in enumerate(self.cuts):
+                cidx, = np.where(mapunit[self.cutkey]>c)
+                c, e = np.histogram(pix[cidx], bins=self.pbins)
+                self.hmap[:,i] += c
+    
+    def reduce(self):
+        pass
+
+    def visualize(self):
+        pass

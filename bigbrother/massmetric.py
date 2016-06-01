@@ -7,7 +7,6 @@ import matplotlib.pylab as plt
 import numpy as np
 
 
-
 class MassMetric(GMetric):
     """
     Restruct GMetric to magnitudes
@@ -199,10 +198,10 @@ class N19Mass(MassMetric):
                             catalog_type=catalog_type)
 
         if lightcone:
-            self.mapkeys   = ['mass', 'n19', 'redshift']
+            self.mapkeys   = ['mass', 'occ', 'redshift']
             self.lightcone = True
         else:
-            self.mapkeys   = ['mass', 'n19']
+            self.mapkeys   = ['mass', 'occ']
             self.lightcone = False
 
         self.aschema = 'haloonly'

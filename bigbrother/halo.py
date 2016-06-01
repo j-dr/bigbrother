@@ -59,10 +59,16 @@ class BCCHaloCatalog(HaloCatalog):
     Class to handle BCC Halo catalogs
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None, 
-                 nside=8, zbins=None, maskfile=None,
+    def __init__(self, ministry, filestruct, unitmap=None, fieldmap=None, 
+                 nside=8, zbins=None, maskfile=None, filters=None,
                  goodpix=1):
-        HaloCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
+
+        if unitmap is None:
+            unitmap = {'mass':'msunh'}
+
+        HaloCatalog.__init__(self, ministry, filestruct, unitmap=unitmap, 
+                             maskfile=maskfile, filters=filters, 
+                             goodpix=goodpix)
         self.ministry = ministry
         self.metrics = [MassFunction(self.ministry, zbins=zbins),
                         N19Mass(self.ministry, zbins=zbins)]

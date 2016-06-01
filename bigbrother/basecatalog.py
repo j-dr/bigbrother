@@ -14,9 +14,14 @@ class BaseCatalog:
     Base class for catalog type
     """
     
-    def __init__(self, ministry, filestruct, nside=8, maskfile=None, goodpix=1):
+    def __init__(self, ministry, filestruct, fieldmap=None, 
+                 unitmap=None, nside=8, maskfile=None, 
+                 filters=None, goodpix=1):
         self.ministry = ministry
         self.filestruct = filestruct
+        self.fieldmap = fieldmap
+        self.unitmap  = unitmap
+        self.filters = filters
         self.parseFileStruct(filestruct)
         self.maskfile = maskfile
         self.mask = None
@@ -210,6 +215,8 @@ class BaseCatalog:
         
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
+            if key not in self.fieldmap.keys():
+                continue
             
             if i==0:
                 idx = filt(mapunit)

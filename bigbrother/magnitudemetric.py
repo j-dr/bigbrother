@@ -367,30 +367,28 @@ class ColorColor(Metric):
             self.cbins = cbins
 
         if zbins is not None:
-            self.mapkeys = ['appmag', 'redshift']
+            self.mapkeys = ['luminosity', 'redshift']
         else:
-            self.mapkeys = ['appmag']
+            self.mapkeys = ['luminosity']
 
         self.amagcut = amagcut
         self.usebands = usebands
         self.aschema = 'galaxyonly'
-        self.unitmap = {'appmag':'mag'}
+        self.unitmap = {'luminosity':'mag'}
 
     def map(self, mapunit):
 
         if self.usebands is None:
-            self.nbands = mapunit['appmag'].shape[1]
+            self.nbands = mapunit['luminosity'].shape[1]
             self.usebands = range(self.nbands)
         else:
             self.nbands = len(self.usebands)
 
         self.nclr = self.nbands-1
 
-        clr = np.zeros((len(mapunit['appmag']),self.nbands-1))
+        clr = np.zeros((len(mapunit['luminosity']),self.nbands-1))
         for i, b in enumerate(self.usebands[:-1]):
-            clr[:,i] = mapunit['appmag'][:,self.usebands[i]] - mapunit['appmag'][:,self.usebands[i+1]]
-            print(clr[:,i])
-
+            clr[:,i] = mapunit['luminosity'][:,self.usebands[i]] - mapunit['luminosity'][:,self.usebands[i+1]]
 
         if not hasattr(self, 'cc'):
             self.cc = np.zeros((len(self.cbins)-1, len(self.cbins)-1, 
@@ -404,9 +402,9 @@ class ColorColor(Metric):
                 if self.amagcut!=None:
                     for e, j in enumerate(self.usebands):
                         if e==0:
-                            lidx = mapunit['appmag'][zlidx:zhidx,j]<self.amagcut
+                            lidx = mapunit['luminosity'][zlidx:zhidx,j]<self.amagcut
                         else:
-                            lix = mapunit['appmag'][zlidx:zhidx,j]<self.amagcut
+                            lix = mapunit['luminosity'][zlidx:zhidx,j]<self.amagcut
                             lidx = lidx & lix
 
                 for j in range(self.nclr-1):
@@ -855,8 +853,6 @@ class FQuenchedLum(Metric):
             newaxes = False
 
         lm = (self.magbins[:-1]+self.magbins[1:])/2
-        print(len(lm))
-        print(len(self.fquenched))
         for i in range(self.nzbins):
             ax[0][i].plot(lm, self.fquenched[:,i])
 

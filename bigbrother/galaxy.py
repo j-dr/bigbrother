@@ -61,7 +61,7 @@ class GalaxyCatalog(BaseCatalog):
         elif am:
             return self.ministry.metrics[idx].area
         else:
-            return self.area
+            return self.calculateArea()
 
     def readMappable(self, mappable, fieldmap):
         
@@ -88,7 +88,7 @@ class BCCCatalog(GalaxyCatalog):
 
     def __init__(self, ministry, filestruct, fieldmap=None, 
                  nside=8, zbins=None, maskfile=None,
-                 goodpix=1):
+                 filters=None, unitmap=None, goodpix=1):
         GalaxyCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
         self.min = ministry
         self.metrics = [LuminosityFunction(self.ministry, zbins=zbins), 
@@ -100,7 +100,11 @@ class BCCCatalog(GalaxyCatalog):
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30))]
 
         self.nside = nside
-        self.filters = ['Appmag']
+        if filters is None:
+            self.filters = ['Appmag']
+        else:
+            self.filters = filters
+
         self.unitmap = {'luminosity':'mag', 'appmag':'mag'}
 
         if fieldmap is None:
@@ -183,8 +187,10 @@ class S82SpecCatalog(GalaxyCatalog):
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
     """
 
-    def __init__(self, ministry, filestruct, nside=8):
-        GalaxyCatalog.__init__(self, ministry, filestruct)
+    def __init__(self, ministry, filestruct, fieldmap=None, 
+                 unitmap=None, filters=None, nside=8):
+        GalaxyCatalog.__init__(self, ministry, filestruct, 
+                               unitmap=unitmap, filters=filters)
         self.ministry = ministry
         self.parseFileStruct(None)
         self.metrics = [LuminosityFunction(self.ministry)]
@@ -220,8 +226,10 @@ class S82PhotCatalog(GalaxyCatalog):
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
     """
 
-    def __init__(self, ministry, filestruct, nside=8):
-        GalaxyCatalog.__init__(self, ministry, filestruct)
+    def __init__(self, ministry, filestruct, fieldmap=None, unitmap=None,
+                 filters=None, nside=8):
+        GalaxyCatalog.__init__(self, ministry, filestruct, filters=filters,
+                               unitmap=unitmap)
         self.ministry = ministry
         self.parseFileStruct(None)
         self.metrics = [MagCounts(self.ministry), ColorColor(self.ministry)]
@@ -259,24 +267,39 @@ class DESGoldCatalog(GalaxyCatalog):
     DES Gold catalog in the style of Y1A1. 
     """
 
-    def __init__(self, ministry, filestruct, nside=8, maskfile=None, goodpix=1):
-        GalaxyCatalog.__init__(self, ministry, filestruct,maskfile=maskfile,goodpix=goodpix)
+    def __init__(self, ministry, filestruct, fieldmap=None, 
+                 unitmap=None, filters=None, nside=8, 
+                 maskfile=None, goodpix=1):
+
+        GalaxyCatalog.__init__(self, ministry, filestruct,
+                               maskfile=maskfile,goodpix=goodpix,
+                               filters=filters, unitmap=unitmap)
         self.necessaries = ['modest']
         self.ministry = ministry
         self.parseFileStruct(filestruct)
         self.nside = nside
         self.metrics = [MagCounts(self.ministry, zbins=None), 
                         ColorColor(self.ministry, zbins=None)] 
-        self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']), 
-                                               ('FLUX_AUTO_R',['auto']),
-                                               ('FLUX_AUTO_I',['auto']), 
-                                               ('FLUX_AUTO_Z',['auto'])]),
-                         'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
-                         'polar_ang':OrderedDict([('DEC',['basic'])]),
-                         'azim_ang':OrderedDict([('RA',['basic'])])}
+        if fieldmap==None:
+            self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']), 
+                                                   ('FLUX_AUTO_R',['auto']),
+                                                   ('FLUX_AUTO_I',['auto']), 
+                                                   ('FLUX_AUTO_Z',['auto'])]),
+                             'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
+                             'polar_ang':OrderedDict([('DEC',['basic'])]),
+                             'azim_ang':OrderedDict([('RA',['basic'])])}
+        else:
+            self.fieldmap = fieldmap
 
-        self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra'}
-        self.filters = ['Modest']
+        if unitmap is None:
+            self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra'}
+        else:
+            self.unitmap = unitmap
+            
+        if filters is None:
+            self.filters = ['Modest']
+        else:
+            self.filters = filters
 
     def parseFileStruct(self, filestruct):
 

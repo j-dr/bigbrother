@@ -34,12 +34,14 @@ class Mappable(object):
             self.children = children
         self.data = None
 
-        
 
 class Ministry:
     """
     A class which owns all the other catalog data 
     """
+
+    _known_galaxy_catalog_types = ['BCC', 'S82Phot', 'S82Spec', 'DESGold']
+    _known_halo_catalog_types   = ['BCC']
     
     def __init__(self, omega_m, omega_l, h, minz, maxz, area=0.0,
                  boxsize=None):
@@ -88,7 +90,7 @@ class Ministry:
         
         
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
-                         zbins=None, maskfile=None,
+                         unitmap=None, filters=None, zbins=None, maskfile=None,
                          goodpix=1):
         """
         Fill in the galaxy catalog information
@@ -96,7 +98,8 @@ class Ministry:
 
         if catalog_type == "BCC":
             self.galaxycatalog = BCCCatalog(self, filestruct,  zbins=zbins, 
-                                            fieldmap=fieldmap, maskfile=maskfile,
+                                            fieldmap=fieldmap, unitmap=unitmap,
+                                            filters=filters, maskfile=maskfile,
                                             goodpix=goodpix)
         elif catalog_type == "S82Phot":
             self.galaxycatalog = S82PhotCatalog(self, None)
@@ -104,10 +107,12 @@ class Ministry:
             self.galaxycatalog = S82SpecCatalog(self, None)
         elif catalog_type == "DESGold":
             self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile, 
-                                                goodpix=goodpix)
+                                                goodpix=goodpix, fieldmap=fieldmap,
+                                                unitmap=unitmap, filters=filters)
 
     def setHaloCatalog(self, catalog_type, filestruct, fieldmap=None,
-                       zbins=None, maskfile=None, goodpix=1):
+                       zbins=None, maskfile=None, goodpix=1, unitmap=None,
+                       filters=None):
         """
         Fill in the halo catalog information
         """
@@ -651,4 +656,3 @@ class Ministry:
 
             for m in ms:
                 m.reduce()
-
