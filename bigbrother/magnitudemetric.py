@@ -551,7 +551,7 @@ class ColorMagnitude(Metric):
             for j in range(self.nbands):
                 for k in range(self.nbands):
                     if k<=j: continue
-                    ind = k*(k-1)/2+j-1
+                    ind = int(k*(k-1)/2+j-1)
                     c, e0, e1 = np.histogram2d(mu['luminosity'][:,j], 
                                                mu['luminosity'][:,j] -
                                                mu['luminosity'][:,k], 

@@ -192,9 +192,11 @@ class GalaxyRadialProfileBCC(Metric):
     def reduce(self):
 
         self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
-        vol = 4*np.pi*self.rmean/3
-
-        self.rprof /= vol
+        vol = 4*np.pi*(self.rmean**3)/3
+        
+        for i in range(self.nzbins):
+            for j in range(self.nlumbins):
+                self.rprof[:,j,i] /= vol
 
 
     def visualize(self, plotname=None, f=None, ax=None, **kwargs):
