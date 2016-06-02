@@ -194,6 +194,8 @@ class BaseCatalog:
         """
         
         for m in metrics:
+            if self.ctype not in m.catalog_type:
+                continue
             for key in m.unitmap:
                 if key not in mapunit.keys(): 
                     continue

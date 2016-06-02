@@ -11,6 +11,16 @@ class HaloCatalog(BaseCatalog):
     """
     Base class for halo catalogs
     """
+
+    def __init__(self, ministry, filestruct, fieldmap=None, 
+                 nside=8, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=1):
+
+        self.ctype = 'halocatalog'
+        BaseCatalog.__init__(self, ministry, filestruct, fieldmap=None, 
+                             nside=8, maskfile=None, filters=None, 
+                             unitmap=None, goodpix=1)
+
     
     def calculateArea(self, pixels, nside):
         """
@@ -76,8 +86,8 @@ class BCCHaloCatalog(HaloCatalog):
         self.nside = nside
 
         if fieldmap is None:
-            self.fieldmap = {'mass':OrderedDict([('MVIR',['hlist'])]),
-                             'occ':OrderedDict([('N19', ['hlist'])]),
+            self.fieldmap = {'mass':OrderedDict([('MVIR',['truth'])]),
+                             'occ':OrderedDict([('N19', ['truth'])]),
                              'redshift':OrderedDict([('Z',['truth'])])}
             self.hasz = True
         else:
@@ -86,6 +96,8 @@ class BCCHaloCatalog(HaloCatalog):
                 self.sortbyz = True
             else:
                 self.sortbyz = False
+
+        self.unitmap = {'mass':'msunh'}
 
     def parseFileStruct(self, filestruct):
         """

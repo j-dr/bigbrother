@@ -63,6 +63,8 @@ class MassFunction(MassMetric):
             self.mapkeys   = ['mass']
             self.lightcone = False
 
+        self.unitmap = {'mass':'msunh'}
+
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
@@ -205,6 +207,7 @@ class N19Mass(MassMetric):
             self.lightcone = False
 
         self.aschema = 'haloonly'
+        self.unitmap = {'mass':'msunh'}
 
     def map(self, mapunit):
         pass

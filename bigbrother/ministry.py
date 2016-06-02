@@ -168,14 +168,14 @@ class Ministry:
                                 fieldmap[ft][mapkey] = field
                                 
                             valid[mapkey] = True
-
+        
         notavail = []
         for key in valid.keys():
             if not valid[key]:
                 notavail.append(key)
         
         if len(notavail)>0:
-            raise Exception("Mapkeys {0} are not available!".format(notavail))
+            raise Exception("Mapkeys {0} are not available. Required by {1}!".format(notavail, metric.__class__.__name__))
 
         return fieldmap
 

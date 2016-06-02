@@ -14,6 +14,16 @@ class GalaxyCatalog(BaseCatalog):
     """
     Base class for galaxy catalogs
     """
+
+    def __init__(self, ministry, filestruct, fieldmap=None, 
+                 nside=8, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=1):
+
+        self.ctype = 'galaxycatalog'
+        BaseCatalog.__init__(self, ministry, filestruct, fieldmap=None, 
+                             nside=8, maskfile=None, filters=None,
+                             unitmap=None, goodpix=1)
+
     
     def calculateArea(self, pixels, nside):
         """
@@ -105,7 +115,7 @@ class BCCCatalog(GalaxyCatalog):
         else:
             self.filters = filters
 
-        self.unitmap = {'luminosity':'mag', 'appmag':'mag'}
+        self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'hmass':'msunh'}
 
         if fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['truth'])]),

@@ -236,8 +236,9 @@ class LcenMass(Metric):
         else:
             self.massbins = massbins
 
-        self.mapkeys = ['luminosity', 'redshift', 'central', 'mass']
+        self.mapkeys = ['luminosity', 'redshift', 'central', 'halomass']
         self.aschema = 'galaxyonly'
+        self.unitmap = {'luminosity':'mag', 'halomass':'msunh'}
 
         
     def map(self, mapunit):
@@ -259,7 +260,7 @@ class LcenMass(Metric):
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
             zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
-            mb = np.digitize(mu['mass'][zlidx:zhidx], bins=self.massbins)
+            mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
 
             for j in range(len(self.massbins)-1):
                 blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
@@ -309,7 +310,7 @@ class LcenMass(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$M\, [M_{sun}]$')
+            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
             sax.set_ylabel(r'$L_{cen}\, [mag]$')
 
         if plotname is not None:
