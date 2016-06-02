@@ -19,6 +19,7 @@ class AngularCorrelationFunction(Metric):
         data. All angles should be specified in degrees.
         """
         Metric.__init__(self, ministry)
+        self.catalog_type = catalog_type
 
         if zbins is None:
             self.zbins = [0.0, 0.2]
@@ -144,6 +145,8 @@ class GalaxyRadialProfileBCC(Metric):
         """
 
         Metric.__init__(self, ministry)
+        
+        self.catalog_type = catalog_type
 
         if zbins is None:
             self.zbins = [0.0, 0.2]
@@ -167,7 +170,6 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.nrbins = len(self.rbins)-1
 
-
         self.aschema = 'galaxyonly'
 
         self.mapkeys = ['luminosity', 'redshift', 'rhalo']
@@ -179,11 +181,12 @@ class GalaxyRadialProfileBCC(Metric):
             self.rprof = np.zeros((self.nrbins, self.nlumbins, self.nzbins))
 
         for i, z in enumerate(self.zbins[:-1]):
-            zidx = (self.zbins[i]<mapunit['redshift']) & (mapunit['redshift']<self.zbins[i+1])
+            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             for j, l in enumerate(self.lumbins[:-1]):
-                lidx = (self.lumbins[i]<mapunit['luminosity']) & (mapunit['luminosity']<self.lumbins[i+1])
+                lidx = (self.lumbins[i]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[i+1])
 
-                c, e = np.histogram(mapunit['rhalo'][zidx&lidx], bins=self.rbins)
+                c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][lidx], bins=self.rbins)
                 self.rprof[:,j,i] = c
 
     def reduce(self):

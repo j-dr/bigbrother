@@ -119,7 +119,7 @@ class BCCCatalog(GalaxyCatalog):
         else:
             self.filters = filters
 
-        self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'hmass':'msunh'}
+        self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh'}
 
         if fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['truth'])]),
@@ -127,7 +127,7 @@ class BCCCatalog(GalaxyCatalog):
                                                    ('MAG_I',['obs']), ('MAG_Z',['obs']),
                                                    ('MAG_Y',['obs'])]),
                              'redshift':OrderedDict([('Z',['truth'])])}
-            self.hasz = True
+            self.sortbyz = True
         else:
             self.fieldmap = fieldmap
             if 'redshift' in fieldmap.keys():

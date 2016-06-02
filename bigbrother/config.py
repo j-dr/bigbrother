@@ -1,14 +1,15 @@
 from __future__ import print_function, division
 from collections import OrderedDict
 from glob import glob
+import numpy as np
 import yaml
 
 from .ministry import Ministry
 from .galaxy   import GalaxyCatalog
 from .halo     import HaloCatalog
-import .magnitudemetric as mam
-import .massmetric      as msm
-import .corrmetric      as crm
+import bigbrother.magnitudemetric as mam
+import bigbrother.massmetric      as msm
+import bigbrother.corrmetric      as crm
 
 def readCfg(filename):
     
@@ -63,7 +64,7 @@ def parseConfig(cfg):
         
         if 'fieldmap' in gcfg.keys():
             fm  = parseFieldMap(gcfg['fieldmap'])
-        else
+        else:
             fm  = None
 
         if 'unitmap' in gcfg.keys():
@@ -141,5 +142,6 @@ def parseConfig(cfg):
             mstry.metrics = mstry.galaxycatalog.metrics
         if mstry.halocatalog is not None:
             mstry.metrics.extend(mstry.halocatalog.metrics)
+
 
     return mstry

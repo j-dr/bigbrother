@@ -4,6 +4,6 @@ setup(
     name='bigbrother',
     version='0.1dev',
     packages=['bigbrother',],
-    scripts=['bin/validate'],
+    scripts=['bin/bb-validate'],
     long_description=open('README.md').read(),
     )
