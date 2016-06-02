@@ -609,7 +609,7 @@ class Ministry:
 
         return mapunit
 
-    def validate(self, metrics=None, verbose=False):
+    def validate(self, nmap=None, metrics=None, verbose=False):
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
@@ -629,8 +629,10 @@ class Ministry:
             for ft in fm.keys():
                 if 'redshift' in fm[ft].keys():
                     sbz = True
+                    
+            for i, mappable in enumerate(self.genMappables(mg)):
+                if (nmap is not None) & (i>nmap): break
 
-            for mappable in self.genMappables(mg):
                 mapunit = self.readMappable(mappable, fm)
 
                 if sbz:
