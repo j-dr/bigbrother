@@ -135,6 +135,8 @@ class SimpleHOD(MassMetric):
             self.mapkeys = ['mass', 'occ']
             self.lightcone = False
 
+        self.unitmap = {'mass':'msunh'}
+
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for

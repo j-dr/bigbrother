@@ -46,6 +46,7 @@ class AngularCorrelationFunction(Metric):
 
         self.jsamples = 0
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
     def map(self, mapunit):
 
@@ -89,12 +90,8 @@ class AngularCorrelationFunction(Metric):
                 self.varwthetaj[:,j,i] = varXi
     
    def reduce(self):
-
+       pass
        
-
-
-        
-
    def generate_randoms(cat, rand_factor=10, nside=8, nest=True, selectz=False):
        """
        Generate a set of randoms from a catalog by pixelating the input
