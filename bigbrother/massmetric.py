@@ -37,7 +37,10 @@ class MassMetric(GMetric):
         if zbins is None:
             zbins = np.array([0.0, 10.0])
 
-        self.massbins = massbins
+        self.massbins  = massbins
+        self.zbins     = zbins
+        self.nmassbins = len(self.massbins)-1
+        self.nzbins    = len(self.zbins)-1
 
 
         GMetric.__init__(self, ministry, zbins=zbins, xbins=massbins,
@@ -190,7 +193,7 @@ class SimpleHOD(MassMetric):
         self.ye = self.hoderr
 
 
-class N19Mass(MassMetric):
+class OccMass(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
                  catalog_type=['halocatalog']):
@@ -212,8 +215,57 @@ class N19Mass(MassMetric):
         self.unitmap = {'mass':'msunh'}
 
     def map(self, mapunit):
-        pass
 
+        if not hasattr(self, 'occmass'):
+            self.occ   = np.zeros((self.nmassbins,self.nzbins))
+            self.occsq = np.zeros((self.nmassbins,self.nzbins))
+            self.count = np.zeros((self.nmassbins,self.nzbins))
+
+        for i, z in enumerate(self.zbins[:-1]):
+            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+            
+            mb = np.digitize(mapunit['mass'][zlidx:zhidx], bins=self.massbins)
+            for j, m in enumerate(self.massbins[:-1]):
+                o  = mapunit['occ'][zlidx:zhidx][mb==j]
+                self.occ[j,i]   += np.sum(o)
+                self.occsq[j,i] += np.sum(o**2)
+                self.count[j,i] += np.sum(mb==j)
+                
     def reduce(self):
-        pass
+
+        self.occmass = self.occ/self.count
+        self.occstd  = (self.count*self.occsq - self.occ**2)/(self.count*(self.count-1))
+
+    def visualize(self, plotname=None, f=None, ax=None, **kwargs):
+
+        if f is None:
+            f, ax = plt.subplots(self.nzbins, sharex=True, sharey=True,
+                                 figsize=(8,8))
+            newaxes = True
+        else:
+            newaxes = False
+
+        self.mmean = (self.massbins[:-1] + self.massbins[1:])/2
+
+        for i in range(self.nzbins):
+            ax[i].errorbar(self.mmean, self.occmass[:,i], self.occstd[:,i],
+                           **kwargs)
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$M_{halo}\, [M_{\odot} \, h^{-1}]$')
+            sax.set_ylabel(r'$N$')
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+        
 

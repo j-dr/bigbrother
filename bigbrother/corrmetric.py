@@ -6,6 +6,7 @@ import matplotlib.pylab as plt
 import treecorr as tc
 import numpy as np
 
+from .metric import Metric, GMetric
 
 
 class AngularCorrelationFunction(Metric):
@@ -88,11 +89,11 @@ class AngularCorrelationFunction(Metric):
                 xi,varXi = dd.calculateXi(rr,dr)
                 self.wthetaj[:,j,i] = xi
                 self.varwthetaj[:,j,i] = varXi
-    
-   def reduce(self):
+
+    def reduce(self):
        pass
-       
-   def generate_randoms(cat, rand_factor=10, nside=8, nest=True, selectz=False):
+    
+    def generate_randoms(self, cat, rand_factor=10, nside=8, nest=True, selectz=False):
        """
        Generate a set of randoms from a catalog by pixelating the input
        catalog and uniformly distributing random points within the pixels
@@ -131,8 +132,109 @@ class AngularCorrelationFunction(Metric):
     
        grand = grand[inarea]
     
-    return grand
+       return grand
 
         
+class GalaxyRadialProfileBCC(Metric):
+
+    def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
+                 massbins=None, subjack=False, catalog_type=['galaxycatalog']):
+        """
+        Radial profile of galaxies around their nearest halos.
+        """
+
+        Metric.__init__(self, ministry)
+
+        if zbins is None:
+            self.zbins = [0.0, 0.2]
+        else:
+            self.zbins = zbins
+            self.zbins = np.array(self.zbins)
+
+        self.nzbins = len(self.zbins)-1
+
+        if lumbins is None:
+            self.lumbins = np.array([-22, -21, -20, -19])
+        else:
+            self.lumbins = lumbins
+
+        self.nlumbins = len(self.lumbins)-1
+
+        if rbins is None:
+            self.rbins = np.logspace(-2, 1, 21)
+        else:
+            self.rbins = rbins
+
+        self.nrbins = len(self.rbins)-1
+
+
+        self.aschema = 'galaxyonly'
+
+        self.mapkeys = ['luminosity', 'redshift', 'rhalo']
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+
+    def map(self, mapunit):
+
+        if not hasattr(self, 'rprof'):
+            self.rprof = np.zeros((self.nrbins, self.nlumbins, self.nzbins))
+
+        for i, z in enumerate(self.zbins[:-1]):
+            zidx = (self.zbins[i]<mapunit['redshift']) & (mapunit['redshift']<self.zbins[i+1])
+            for j, l in enumerate(self.lumbins[:-1]):
+                lidx = (self.lumbins[i]<mapunit['luminosity']) & (mapunit['luminosity']<self.lumbins[i+1])
+
+                c, e = np.histogram(mapunit['rhalo'][zidx&lidx], bins=self.rbins)
+                self.rprof[:,j,i] = c
+
+    def reduce(self):
+
+        self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
+        vol = 4*np.pi*self.rmean/3
+
+        self.rprof /= vol
+
+
+    def visualize(self, plotname=None, f=None, ax=None, **kwargs):
+
+        if f is None:
+            f, ax = plt.subplots(self.nlumbins, self.nzbins,
+                                 sharex=True, sharey=True,
+                                 figsize=(8,8))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if self.nzbins>1:
+            for i, in range(self.nlbins):
+                for j in range(self.nzbins):
+                    ax[i][j].semilogx(self.rmean, self.rprof[:,i,j], 
+                                      **kwargs)
+        else:
+            for i, in range(self.nlbins):
+                for j in range(self.nzbins):
+                    ax[i].semilogx(self.rmean, self.rprof[:,i,j], 
+                                   **kwargs)
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$r\, [Mpc \, h^{-1}]$')
+            sax.set_ylabel(r'$n \, [Mpc^{3} \, h^{-1}]$')
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
+    def compare(self):
+        pass
+
         
-        
+                
+                
+

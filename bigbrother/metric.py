@@ -85,7 +85,7 @@ class GMetric(Metric):
     def reduce(self):
         pass
 
-    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=True, 
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
                   f=None, ax=None, xlabel=None,ylabel=None,**kwargs):
         """

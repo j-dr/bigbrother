@@ -1,14 +1,17 @@
 from __future__ import print_function, division
 from collections import OrderedDict
-from .basecatalog import BaseCatalog
-from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
-import numpy as np
 import healpy as hp
+import numpy as np
 import helpers
 import fitsio
 import time
+
+from .basecatalog     import BaseCatalog
+from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched
+from .corrmetric      import GalaxyRadialProfileBCC
+
 
 class GalaxyCatalog(BaseCatalog):
     """
@@ -107,7 +110,8 @@ class BCCCatalog(GalaxyCatalog):
                         LcenMass(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins, central_only=True),
-                        FQuenched(self.ministry, zbins=np.linspace(0,2.0,30))]
+                        FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),
+                        GalaxyRadialProfileBCC(self.ministry, zbins=zbins)]
 
         self.nside = nside
         if filters is None:

@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 from collections import OrderedDict
-from .massmetric import SimpleHOD, MassFunction, N19Mass
+from .massmetric import SimpleHOD, MassFunction, OccMass
 from .basecatalog import BaseCatalog
 import numpy as np
 import healpy as hp
@@ -81,7 +81,7 @@ class BCCHaloCatalog(HaloCatalog):
                              goodpix=goodpix)
         self.ministry = ministry
         self.metrics = [MassFunction(self.ministry, zbins=zbins),
-                        N19Mass(self.ministry, zbins=zbins)]
+                        OccMass(self.ministry, zbins=zbins)]
 
         self.nside = nside
 
