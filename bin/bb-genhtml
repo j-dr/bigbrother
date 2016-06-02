@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+from __future__ import print_function, division
+from glob import glob
+import sys
+
+if __name__ == "__main__":
+
+    plots    = glob(sys.argv[1])
+    htmlname = sys.argv[2]
+
+    with open(htmlname, 'w') as fp:
+        print("<!DOCTYPE html>", file=fp)
+        print("<html>", file=fp)
+        print("<body>", file=fp)
+
+        for p in plots:
+            pname = p.split('/')[-1]
+            pname = pname.split('.')[0]
+            print("<h2> {0} </h2>".format(pname), file=fp)
+            print('<img src="{0}" style="width:304px;height:228px;>"'.format(p), file=fp)
+
+        print("</body>", file=fp)
+        print("</html>", file=fp)
+
+
