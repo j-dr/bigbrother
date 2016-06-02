@@ -587,10 +587,11 @@ class ColorMagnitude(Metric):
             newaxes = True
         else:
             newaxes = False
-
-        for i in usecolors:
+            
+        for i, c in enumerate(usecolors):
             for j in range(self.nzbins):
-                ax[j][i].contour(X, Y, cc[:,:,i,j].T,30,
+
+                ax[i][j].contour(X, Y, cc[:,:,c,j].T,30,
                                     **kwargs)
 
         return f, ax

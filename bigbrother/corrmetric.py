@@ -210,12 +210,12 @@ class GalaxyRadialProfileBCC(Metric):
             newaxes = False
 
         if self.nzbins>1:
-            for i, in range(self.nlbins):
+            for i in range(self.nlumbins):
                 for j in range(self.nzbins):
                     ax[i][j].semilogx(self.rmean, self.rprof[:,i,j], 
                                       **kwargs)
         else:
-            for i, in range(self.nlbins):
+            for i in range(self.nlumbins):
                 for j in range(self.nzbins):
                     ax[i].semilogx(self.rmean, self.rprof[:,i,j], 
                                    **kwargs)
@@ -239,6 +239,49 @@ class GalaxyRadialProfileBCC(Metric):
     def compare(self):
         pass
 
+
+class NofZ(Metric):
+
+    def __init__(self, ministry, magbins=None, catalog_type=['galaxycatalog']):
+        """
+        Radial profile of galaxies around their nearest halos.
+        """
+
+        Metric.__init__(self, ministry)
+        
+        self.catalog_type = catalog_type
+
+        if zbins is None:
+            self.zbins = [0.0, 0.2]
+        else:
+            self.zbins = zbins
+            self.zbins = np.array(self.zbins)
+
+        self.nzbins = len(self.zbins)-1
+
+        if lumbins is None:
+            self.lumbins = np.array([-22, -21, -20, -19])
+        else:
+            self.lumbins = lumbins
+
+        self.nlumbins = len(self.lumbins)-1
+
+        if rbins is None:
+            self.rbins = np.logspace(-2, 1, 21)
+        else:
+            self.rbins = rbins
+
+        self.nrbins = len(self.rbins)-1
+
+        self.aschema = 'galaxyonly'
+
+        self.mapkeys = ['luminosity', 'redshift', 'rhalo']
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+
+    def map(self, mapunit):
+
+        if not hasattr(self, 'rprof'):
+            self.rprof = np.zeros((self.nrbins, self.nlumbins, self.nzbins))
         
                 
                 

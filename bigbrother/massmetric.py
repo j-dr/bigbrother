@@ -32,7 +32,7 @@ class MassMetric(GMetric):
         """
 
         if massbins is None:
-            massbins = np.linspace(10, 16, 40)
+            massbins = np.logspace(10, 16, 40)
 
         if zbins is None:
             zbins = np.array([0.0, 10.0])
@@ -52,7 +52,7 @@ class MassFunction(MassMetric):
                  catalog_type=['halocatalog']):
 
         if massbins is None:
-            massbins = np.linspace(10, 16, 40)
+            massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type)
@@ -75,7 +75,10 @@ class MassFunction(MassMetric):
             self.ndefs = mapunit['mass'].shape[1]
         else:
             self.ndefs = 1
-            mapunit['mass'] = np.atleast_2d(mapunit['mass'])
+            mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
+
+        #temporary fix for plotting w/ GMetric functions
+        self.nbands = self.ndefs
 
         #Want to count galaxies in bins of luminosity for 
         #self.nbands different bands in self.nzbins
@@ -95,7 +98,7 @@ class MassFunction(MassMetric):
                                         bins=self.massbins)
                     self.masscounts[:,j,i] += c
         else:
-            for j in range(self.nbands):
+            for j in range(self.ndefs):
                 c, e = np.histogram(mapunit['mass'][:,j], bins=self.massbins)
                 self.masscounts[:,j,0] += c
 
@@ -124,7 +127,7 @@ class SimpleHOD(MassMetric):
                  catalog_type=['halocatalog']):
 
         if massbins is None:
-            massbins = np.linspace(10, 16, 40)
+            massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type)
@@ -143,7 +146,14 @@ class SimpleHOD(MassMetric):
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
-        self.ndefs = mapunit['mass'].shape[1]
+        if len(mapunit['mass'].shape)>1:
+            self.ndefs = mapunit['mass'].shape[1]
+        else:
+            self.ndefs = 1
+            mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
+
+        #temporary fix for plotting w/ GMetric functions
+        self.nbands = self.ndefs
 
         #Want to count galaxies in bins of luminosity for 
         #self.nbands different bands in self.nzbins
@@ -199,7 +209,7 @@ class OccMass(MassMetric):
                  catalog_type=['halocatalog']):
 
         if massbins is None:
-            massbins = np.linspace(10, 16, 40)
+            massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type)
@@ -216,56 +226,36 @@ class OccMass(MassMetric):
 
     def map(self, mapunit):
 
+        if len(mapunit['mass'].shape)>1:
+            self.ndefs = mapunit['mass'].shape[1]
+        else:
+            self.ndefs = 1
+            mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
+        
+        self.nbands = self.ndefs
+
         if not hasattr(self, 'occmass'):
-            self.occ   = np.zeros((self.nmassbins,self.nzbins))
-            self.occsq = np.zeros((self.nmassbins,self.nzbins))
-            self.count = np.zeros((self.nmassbins,self.nzbins))
+            self.occ   = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
+            self.occsq = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
+            self.count = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-            
-            mb = np.digitize(mapunit['mass'][zlidx:zhidx], bins=self.massbins)
-            for j, m in enumerate(self.massbins[:-1]):
-                o  = mapunit['occ'][zlidx:zhidx][mb==j]
-                self.occ[j,i]   += np.sum(o)
-                self.occsq[j,i] += np.sum(o**2)
-                self.count[j,i] += np.sum(mb==j)
+            for j in range(self.ndefs):
+                mb = np.digitize(mapunit['mass'][zlidx:zhidx,j], bins=self.massbins)
+
+                for k, m in enumerate(self.massbins[:-1]):
+                    o  = mapunit['occ'][zlidx:zhidx][mb==k]
+                    self.occ[k,j,i]   += np.sum(o)
+                    self.occsq[k,j,i] += np.sum(o**2)
+                    self.count[k,j,i] += np.sum(mb==k)
                 
     def reduce(self):
 
         self.occmass = self.occ/self.count
-        self.occstd  = (self.count*self.occsq - self.occ**2)/(self.count*(self.count-1))
+        self.occvar  = (self.count*self.occsq - self.occ**2)/(self.count*(self.count-1))
 
-    def visualize(self, plotname=None, f=None, ax=None, **kwargs):
-
-        if f is None:
-            f, ax = plt.subplots(self.nzbins, sharex=True, sharey=True,
-                                 figsize=(8,8))
-            newaxes = True
-        else:
-            newaxes = False
-
-        self.mmean = (self.massbins[:-1] + self.massbins[1:])/2
-
-        for i in range(self.nzbins):
-            ax[i].errorbar(self.mmean, self.occmass[:,i], self.occstd[:,i],
-                           **kwargs)
-
-        if newaxes:
-            sax = f.add_subplot(111)
-            sax.spines['top'].set_color('none')
-            sax.spines['bottom'].set_color('none')
-            sax.spines['left'].set_color('none')
-            sax.spines['right'].set_color('none')
-            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$M_{halo}\, [M_{\odot} \, h^{-1}]$')
-            sax.set_ylabel(r'$N$')
-
-        if plotname is not None:
-            plt.savefig(plotname)
-
-        return f, ax
-
-        
+        self.y = self.occmass
+        self.ye = np.sqrt(self.occstd)
 

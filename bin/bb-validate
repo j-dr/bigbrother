@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function, division
+import pickle
 import sys
 
 import bigbrother.config as config
@@ -13,7 +14,9 @@ if __name__=="__main__":
     mstry = config.parseConfig(cfg)
     mstry.validate(nmap=cfg['Validate']['nmap'])
 
+    if 'savefile' in cfg['Validate'].keys():
+        pickle.dump(mstry, cfg['Validate']['savefile'])
+        
     for m in mstry.metrics:
-
         m.visualize(plotname="{0}_{1}.png".format(cfg['Ministry']['simname'],
                                                   m.__class__.__name__))
