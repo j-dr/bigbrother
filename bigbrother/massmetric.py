@@ -282,7 +282,7 @@ class OccMass(MassMetric):
         if xlabel is None:
             xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
         if ylabel is None:
-            ylabel = r'$\<N>$'
+            ylabel = r'$<N>$'
 
         MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
