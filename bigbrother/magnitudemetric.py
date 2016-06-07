@@ -940,8 +940,8 @@ class FQuenchedLum(Metric):
 
         else:
             for i, lum in enumerate(self.magbins[:-1]):
-                lidx, = np.where((self.magbins[j]<mapunit['luminosity'][:,0])
-                                & (mapunit['luminosity']<self.magbins[j+1]))
+                lidx, = np.where((self.magbins[i]<mapunit['luminosity'][:,0])
+                                & (mapunit['luminosity'][:,0]<self.magbins[i+1]))
                 qidx, = np.where((mapunit['luminosity'][:,0][lidx]
                                  - mapunit['luminosity'][:,1][lidx])
                                 > (self.m * mapunit['luminosity'][:,0][lidx] 
