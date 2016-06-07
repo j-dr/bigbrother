@@ -274,3 +274,17 @@ class OccMass(MassMetric):
         self.y = self.occmass
         self.ye = np.sqrt(self.occvar)
 
+
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
+        if ylabel is None:
+            ylabel = r'$\<N>$'
+
+        MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                             fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                             ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                             ylabel=ylabel, compare=compare,logx=True,**kwargs)
