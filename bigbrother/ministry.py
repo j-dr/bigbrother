@@ -126,7 +126,6 @@ class Ministry:
         
         fieldmap = {}
         valid = {}
-        print(metric)
         for ctype in metric.catalog_type:
             if not hasattr(self, ctype):
                 raise ValueError("This Ministry does not have"

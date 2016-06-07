@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function, division
+#if __name__=='__main__':
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pylab as plt
 import pickle
 import sys
 
@@ -15,8 +19,20 @@ if __name__=="__main__":
     mstry.validate(nmap=cfg['Validate']['nmap'])
 
     if 'savefile' in cfg['Validate'].keys():
-        pickle.dump(mstry, cfg['Validate']['savefile'])
+        with open(cfg['Validate']['savefile'], 'w') as fp:
+            pickle.dump(mstry, fp)
+
+    pnames = {}
         
     for m in mstry.metrics:
+        plt.clf()
+        if m.__class__.__name__ in pnames.keys():
+            pn = m.__class__.__name__ + "_{0}".format(pnames[m.__class__.__name__])
+            pnames[m.__class__.__name__] += 1
+        else:
+            pn = m.__class__.__name__ 
+            pnames[m.__class__.__name__] = 1
+
         m.visualize(plotname="{0}_{1}.png".format(cfg['Ministry']['simname'],
-                                                  m.__class__.__name__))
+                                                  pn))
+

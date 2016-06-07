@@ -129,7 +129,7 @@ def parseConfig(cfg):
                 mtr = getattr(crm, m)
 
             if m in mcfg.keys():
-                mtr = mtr(mstry, **cfg[m])
+                mtr = mtr(mstry, **mcfg['metrics'][m])
             else:
                 mtr = mtr(mstry)
 

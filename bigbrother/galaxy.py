@@ -9,7 +9,7 @@ import fitsio
 import time
 
 from .basecatalog     import BaseCatalog
-from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched
+from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum
 from .corrmetric      import GalaxyRadialProfileBCC
 
 
@@ -108,9 +108,12 @@ class BCCCatalog(GalaxyCatalog):
                         MagCounts(self.ministry, zbins=zbins), 
                         LuminosityFunction(self.ministry, zbins=zbins, central_only=True),
                         LcenMass(self.ministry, zbins=zbins),
-                        ColorMagnitude(self.ministry, zbins=zbins),
-                        ColorMagnitude(self.ministry, zbins=zbins, central_only=True),
+                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1]),
+                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1],
+                                       central_only=True),
+                        ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2]),
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),
+                        FQuenchedLum(self.ministry, zbins=zbins),
                         GalaxyRadialProfileBCC(self.ministry, zbins=zbins)]
 
         self.nside = nside

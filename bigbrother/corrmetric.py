@@ -1,7 +1,7 @@
 from __future__ import print_function, division
-if __name__=='__main__':
-    import matplotlib as mpl
-    mpl.use('Agg')
+#if __name__=='__main__':
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pylab as plt
 import treecorr as tc
 import numpy as np
@@ -185,9 +185,12 @@ class GalaxyRadialProfileBCC(Metric):
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             for j, l in enumerate(self.lumbins[:-1]):
                 lidx = (self.lumbins[i]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[i+1])
-
+                print(mapunit['rhalo'][zlidx:zhidx][lidx])
                 c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][lidx], bins=self.rbins)
-                self.rprof[:,j,i] = c
+                self.rprof[:,j,i] += c
+                print(c)
+                print(zhidx-zlidx)
+                print(np.sum(lidx))
 
     def reduce(self):
 
@@ -199,7 +202,7 @@ class GalaxyRadialProfileBCC(Metric):
                 self.rprof[:,j,i] /= vol
 
 
-    def visualize(self, plotname=None, f=None, ax=None, **kwargs):
+    def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
 
         if f is None:
             f, ax = plt.subplots(self.nlumbins, self.nzbins,
@@ -222,6 +225,8 @@ class GalaxyRadialProfileBCC(Metric):
 
         if newaxes:
             sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
             sax.spines['bottom'].set_color('none')
             sax.spines['left'].set_color('none')
@@ -230,7 +235,7 @@ class GalaxyRadialProfileBCC(Metric):
             sax.set_xlabel(r'$r\, [Mpc \, h^{-1}]$')
             sax.set_ylabel(r'$n \, [Mpc^{3} \, h^{-1}]$')
 
-        if plotname is not None:
+        if (plotname is not None) & (not compare):
             plt.savefig(plotname)
 
         return f, ax
@@ -244,7 +249,7 @@ class NofZ(Metric):
 
     def __init__(self, ministry, magbins=None, catalog_type=['galaxycatalog']):
         """
-        Radial profile of galaxies around their nearest halos.
+        Number density of objects as a function of redshift.
         """
 
         Metric.__init__(self, ministry)

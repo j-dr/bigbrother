@@ -1,8 +1,8 @@
 from __future__ import print_function, division
 from .metric import Metric, GMetric
-if __name__=='__main__':
-    import matplotlib as mpl
-    mpl.use('Agg')
+#if __name__=='__main__':
+import matplotlib as mpl
+mpl.use('TkAgg')
 import matplotlib.gridspec as gridspec
 import matplotlib.pylab as plt
 import numpy as np
@@ -168,6 +168,20 @@ class LuminosityFunction(MagnitudeMetric):
 
         return n[0]
 
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = "Mag"
+        if ylabel is None:
+            ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
+
+        MagnitudeMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                                  fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                                  ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                                  ylabel=ylabel, compare=compare, **kwargs)
+
 class MagCounts(MagnitudeMetric):
     """
     Galaxy counts per magnitude.
@@ -213,6 +227,21 @@ class MagCounts(MagnitudeMetric):
         area = self.ministry.galaxycatalog.getArea()
         self.magcounts = self.magcounts/area
         self.y = self.magcounts
+
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = "Mag"
+        if ylabel is None:
+            ylabel = r'$n \, [mag^{-1}\, deg^{-2}]$'
+
+        MagnitudeMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                                  fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                                  ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                                  ylabel=ylabel, compare=compare, **kwargs)
+
 
         
 class LcenMass(Metric):
@@ -273,7 +302,8 @@ class LcenMass(Metric):
         self.lcen_mass = self.totlum/self.bincount
 
 
-    def visualize(self, plotname=None, f=None, ax=None, usebands=None, **kwargs):
+    def visualize(self, compare=False, plotname=None, f=None, ax=None, 
+                  usebands=None, **kwargs):
 
         if hasattr(self, 'massmean'):
             mmass = self.massmean
@@ -292,6 +322,18 @@ class LcenMass(Metric):
         else:
             newaxes = False
 
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
+            sax.set_ylabel(r'$L_{cen}\, [mag]$')
+
         if self.nzbins>1:
             for i, b in enumerate(usebands):
                 for j in range(self.nzbins):
@@ -303,17 +345,9 @@ class LcenMass(Metric):
                     ax[i].semilogx(mmass, self.lcen_mass[:,b,j], 
                                    **kwargs)
 
-        if newaxes:
-            sax = f.add_subplot(111)
-            sax.spines['top'].set_color('none')
-            sax.spines['bottom'].set_color('none')
-            sax.spines['left'].set_color('none')
-            sax.spines['right'].set_color('none')
-            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
-            sax.set_ylabel(r'$L_{cen}\, [mag]$')
+        plt.tight_layout()
 
-        if plotname is not None:
+        if (plotname is not None) and (not compare):
             plt.savefig(plotname)
 
         return f, ax
@@ -335,9 +369,10 @@ class LcenMass(Metric):
             if usebands[i] is not None:
                 assert(len(usebands[0])==len(usebands[i]))
             if i==0:
-                f, ax = m.visualize(usebands=usebands[i], **kwargs)
+                f, ax = m.visualize(usebands=usebands[i], compare=True,
+                                    **kwargs)
             else:
-                f, ax = m.visualize(usebands=usebands[i],
+                f, ax = m.visualize(usebands=usebands[i], compare=True,
                                     f=f, ax=ax, **kwargs)
 
         if plotname is not None:
@@ -425,7 +460,8 @@ class ColorColor(Metric):
         area = self.ministry.galaxycatalog.getArea()
         self.cc = self.cc/area
 
-    def visualize(self, plotname=None, f=None, ax=None, usecolors=None, **kwargs):
+    def visualize(self, compare=False, plotname=None, f=None, ax=None,
+                  usecolors=None, **kwargs):
 
         if hasattr(self, 'magmean'):
             mclr = self.mclr
@@ -451,17 +487,36 @@ class ColorColor(Metric):
                 ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 30,
                                     **kwargs)
 
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$Color$')
+            sax.set_ylabel(r'$Color$')
+
+        plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+
         return f, ax
 
     def compare(self, othermetric, plotname=None, usecolors=None, **kwargs):
         if usecolors is not None:
             assert(len(usecolors[0])==len(usecolors[1]))
-            f, ax = self.visualize(usecolors=usecolors[0], **kwargs)
-            f, ax = othermetric.visualize(usecolors=usecolors[1],
+            f, ax = self.visualize(usecolors=usecolors[0], compare=True,
+                                   **kwargs)
+            f, ax = othermetric.visualize(usecolors=usecolors[1], compare=True,
                                           f=f, ax=ax, **kwargs)
         else:
-            f, ax = self.visualize(usecolors=usecolors, **kwargs)
-            f, ax = othermetric[0].visualize(usecolors=usecolors,
+            f, ax = self.visualize(usecolors=usecolors, compare=True, **kwargs)
+            f, ax = othermetric[0].visualize(usecolors=usecolors, compare=True,
                                           f=f, ax=ax, **kwargs)
 
         if plotname is not None:
@@ -564,7 +619,8 @@ class ColorMagnitude(Metric):
         area = self.ministry.galaxycatalog.getArea()
         self.cc = self.cc/area
 
-    def visualize(self, plotname=None, f=None, ax=None, usecolors=None, **kwargs):
+    def visualize(self, plotname=None, f=None, ax=None, usecolors=None, 
+                  compare=False, **kwargs):
 
         x = (self.magbins[:-1]+self.magbins[1:])/2
         y = (self.cbins[:-1]+self.cbins[1:])/2
@@ -594,6 +650,23 @@ class ColorMagnitude(Metric):
                 ax[i][j].contour(X, Y, cc[:,:,c,j].T,30,
                                     **kwargs)
 
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$Color$')
+            sax.set_ylabel(r'$Mag$')
+
+        plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
         return f, ax
 
     def compare(self, othermetrics, plotname=None, usecolors=None, **kwargs):
@@ -612,9 +685,10 @@ class ColorMagnitude(Metric):
             if usecolors[i] is not None:
                 assert(len(usecolors[0])==len(usecolors[i]))
             if i==0:
-                f, ax = m.visualize(usecolors=usecolors[i], **kwargs)
+                f, ax = m.visualize(usecolors=usecolors[i], compare=True,
+                                    **kwargs)
             else:
-                f, ax = m.visualize(usecolors=usecolors[i],
+                f, ax = m.visualize(usecolors=usecolors[i], compare=True,
                                     f=f, ax=ax, **kwargs)
 
         if plotname is not None:
@@ -673,7 +747,8 @@ class FQuenched(Metric):
     def reduce(self):
         self.fquenched = self.qscounts/self.tcounts
 
-    def visualize(self, f=None, ax=None, **kwargs):
+    def visualize(self, f=None, ax=None, compare=False, plotname=None,
+                  **kwargs):
         
         if f is None:
             f, ax = plt.subplots(1, figsize=(8,8))
@@ -685,6 +760,23 @@ class FQuenched(Metric):
             
         ax.plot(zm, self.fquenched)
 
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$z$')
+            sax.set_ylabel(r'$f_{red}$')
+
+        plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
         return f, ax
 
     def compare(self, othermetrics, plotname=None, **kwargs):
@@ -693,9 +785,9 @@ class FQuenched(Metric):
 
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax = m.visualize(**kwargs)
+                f, ax = m.visualize(compare=True, **kwargs)
             else:
-                f, ax = m.visualize(f=f, ax=ax, **kwargs)
+                f, ax = m.visualize(f=f, ax=ax, compare=True, **kwargs)
 
         if plotname is not None:
             plt.savefig(plotname)
@@ -753,7 +845,7 @@ class FRed(Metric):
     def reduce(self):
         self.fquenched = self.qscounts/self.tcounts
 
-    def visualize(self, f=None, ax=None, **kwargs):
+    def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
         
         if f is None:
             f, ax = plt.subplots(1, figsize=(8,8))
@@ -765,6 +857,23 @@ class FRed(Metric):
             
         ax.plot(zm, self.fquenched)
 
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
+            sax.set_ylabel(r'$L_{cen}\, [mag]$')
+
+        plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
         return f, ax
 
     def compare(self, othermetrics, plotname=None, **kwargs):
@@ -773,9 +882,9 @@ class FRed(Metric):
 
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax = m.visualize(**kwargs)
+                f, ax = m.visualize(compare=True,**kwargs)
             else:
-                f, ax = m.visualize(f=f, ax=ax, **kwargs)
+                f, ax = m.visualize(f=f, ax=ax, compare=True,**kwargs)
 
         if plotname is not None:
             plt.savefig(plotname)
@@ -845,7 +954,8 @@ class FQuenchedLum(Metric):
     def reduce(self):
         self.fquenched = self.qscounts/self.tcounts
 
-    def visualize(self, f=None, ax=None, **kwargs):
+    def visualize(self, f=None, ax=None, plotname=None, 
+                  compare=False, **kwargs):
         
         if f is None:
             f, ax = plt.subplots(1,self.nzbins, figsize=(8,8))
@@ -858,6 +968,24 @@ class FQuenchedLum(Metric):
         for i in range(self.nzbins):
             ax[0][i].plot(lm, self.fquenched[:,i])
 
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$Mag$')
+            sax.set_ylabel(r'$f_{red}$')
+
+        plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+
         return f, ax
 
     def compare(self, othermetrics, plotname=None, **kwargs):
@@ -866,9 +994,9 @@ class FQuenchedLum(Metric):
 
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax = m.visualize(**kwargs)
+                f, ax = m.visualize(compare=True,**kwargs)
             else:
-                f, ax = m.visualize(f=f, ax=ax, **kwargs)
+                f, ax = m.visualize(f=f, ax=ax, compare=True, **kwargs)
 
         if plotname is not None:
             plt.savefig(plotname)

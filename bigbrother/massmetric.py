@@ -1,8 +1,8 @@
 from __future__ import print_function, division
 from .metric import Metric, GMetric
-if __name__=='__main__':
-    import matplotlib as mpl
-    mpl.use('Agg')
+#if __name__=='__main__':
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pylab as plt
 import numpy as np
 
@@ -119,6 +119,21 @@ class MassFunction(MassMetric):
             self.mass_function[:,:,i] /= vol
 
         self.y = self.mass_function
+
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
+        if ylabel is None:
+            ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
+
+        MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                             fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                             ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                             ylabel=ylabel, compare=compare,logx=True,**kwargs)
+
 
 
 class SimpleHOD(MassMetric):
@@ -257,5 +272,5 @@ class OccMass(MassMetric):
         self.occvar  = (self.count*self.occsq - self.occ**2)/(self.count*(self.count-1))
 
         self.y = self.occmass
-        self.ye = np.sqrt(self.occstd)
+        self.ye = np.sqrt(self.occvar)
 

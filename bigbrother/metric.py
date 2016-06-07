@@ -1,8 +1,8 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
-if __name__=='__main__':
-    import matplotlib as mpl
-    mpl.use('Agg')
+#if __name__=='__main__':
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.gridspec as gridspec
 import matplotlib.pylab as plt
 import numpy as np
@@ -32,7 +32,7 @@ class Metric(object):
         pass
 
     @abstractmethod
-    def visualize(self, plotname=None):
+    def visualize(self, plotname=None, compare=False):
         pass
 
     @abstractmethod
@@ -87,7 +87,8 @@ class GMetric(Metric):
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
-                  f=None, ax=None, xlabel=None,ylabel=None,**kwargs):
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,
+                  logx=False, **kwargs):
         """
         Plot the calculated metric.
         
@@ -195,12 +196,18 @@ class GMetric(Metric):
                     if fracdev==False:
                         l1 = ax[i][j].semilogy(mxs, self.y[:,b,j], 
                                           **kwargs)
+                        if logx:
+                            ax[i][j].set_xscale('log')
                     else:
                         l1 = ax[2*i][j].semilogy(mxs, self.y[:,b,j], 
                                           **kwargs)
                         ax[2*i+1][j].plot(mxs[li:hi], 
                                           (self.y[li:hi,b,j]-ref_y[:,b,j])\
                                               /ref_y[:,b,j], **kwargs)
+                        if logx:
+                            ax[2*i][j].set_xscale('log')
+                            ax[2*i+1][j].set_xscale('log')
+
                         if (i==0) & (j==0):
                             if xlim!=None:
                                 ax[0][0].set_xlim(xlim)
@@ -215,15 +222,23 @@ class GMetric(Metric):
                     try:
                         l1 = ax[i].semilogy(mxs, self.y[:,b,0], 
                                             **kwargs)
+                        if logx:
+                            ax[i].set_xscale('log')
+
                     except Exception as e:
                         print(e)
                         l1 = ax.semilogy(mxs, self.y[:,b,0], 
                                          **kwargs)                        
+                        if logx:
+                            ax.set_xscale('log')
                 else:
                     l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0], 
                                         **kwargs)
                     ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,b,0])\
                                       /ref_y[:,b,0], **kwargs)
+                    if logx:
+                        ax[2*i][0].set_xscale('log')
+                        ax[2*i+1][0].set_xscale('log')
 
                     if (i==0):
                         if xlim!=None:
@@ -236,15 +251,21 @@ class GMetric(Metric):
         #if we just created the axes, add labels
         if newaxes:
             sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
+            sax.spines['top'].set_alpha(0.0)
             sax.spines['bottom'].set_color('none')
+            sax.spines['bottom'].set_alpha(0.0)
             sax.spines['left'].set_color('none')
+            sax.spines['left'].set_alpha(0.0)
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
             sax.set_xlabel(r'%s' % xlabel, fontsize=18)
             sax.set_ylabel(r'%s' % ylabel, fontsize=20)
+            plt.tight_layout()
 
-        if plotname!=None:
+        if (plotname is not None) & (not compare):
             plt.savefig(plotname)
 
         return f, ax, l1
@@ -294,22 +315,22 @@ class GMetric(Metric):
             if i==0:
                 if fracdev:
                     f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
-                                        ref_y=self.y, xlim=xlim,
+                                        ref_y=self.y, xlim=xlim, compare=True,
                                         ylim=ylim, fylim=fylim, label=labels[i],**kwargs)
 
                 else:
-                    f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
+                    f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, compare=True,
                                         fracdev=False, fylim=fylim,label=labels[i],**kwargs)
             else:
                 if fracdev:
                     f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
-                                        ref_y=tocompare[0].y, 
+                                        ref_y=tocompare[0].y, compare=True,
                                         xlim=xlim, ylim=ylim, fylim=fylim,
                                         f=f, ax=ax, label=labels[i], **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                         fylim=fylim, f=f, ax=ax, fracdev=False,
-                                        label=labels[i], **kwargs)
+                                        compare=True, label=labels[i], **kwargs)
             lines.append(l[0])
 
         if labels[0]!=None:
