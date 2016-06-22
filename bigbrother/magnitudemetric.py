@@ -177,10 +177,10 @@ class LuminosityFunction(MagnitudeMetric):
         if ylabel is None:
             ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
 
-        MagnitudeMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
-                                  fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
-                                  ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
-                                  ylabel=ylabel, compare=compare, **kwargs)
+        return MagnitudeMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                                         fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                                         ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                                         ylabel=ylabel, compare=compare, **kwargs)
 
 class MagCounts(MagnitudeMetric):
     """
@@ -237,13 +237,11 @@ class MagCounts(MagnitudeMetric):
         if ylabel is None:
             ylabel = r'$n \, [mag^{-1}\, deg^{-2}]$'
 
-        MagnitudeMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
-                                  fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
-                                  ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
-                                  ylabel=ylabel, compare=compare, **kwargs)
+        return MagnitudeMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                                         fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                                         ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                                         ylabel=ylabel, compare=compare, **kwargs)
 
-
-        
 class LcenMass(Metric):
     """
     Central galaxy luminosity - halo virial mass relation.

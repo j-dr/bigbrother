@@ -232,6 +232,8 @@ class GMetric(Metric):
                         if logx:
                             ax.set_xscale('log')
                 else:
+                    print(len(mxs))
+                    print(len(self.y))
                     l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0], 
                                         **kwargs)
                     ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,b,0])\
@@ -306,6 +308,9 @@ class GMetric(Metric):
 
         if labels is None:
             labels = [None]*len(tocompare)
+
+        print("labels: {0}".format(labels[0]))
+        print("usecols: {0}".format(usecols[0]))
         
         lines = []
 
@@ -317,7 +322,6 @@ class GMetric(Metric):
                     f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
                                         ref_y=self.y, xlim=xlim, compare=True,
                                         ylim=ylim, fylim=fylim, label=labels[i],**kwargs)
-
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, compare=True,
                                         fracdev=False, fylim=fylim,label=labels[i],**kwargs)
