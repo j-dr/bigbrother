@@ -626,6 +626,8 @@ class Ministry:
                     self.metrics.extend(self.galaxycatalog.metrics)
                 if hasattr(self,'halocatalog'):                
                     self.metrics.extend(self.halocatalog.metrics)
+
+                metrics = self.metrics
         
         self.metric_groups = self.genMetricGroups(metrics)
         
