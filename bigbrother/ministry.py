@@ -618,7 +618,14 @@ class Ministry:
         """
         
         if metrics==None:
-            metrics = self.metrics
+            try:
+                metrics = self.metrics
+            except AttributeError as e:
+                self.metrics = []
+                if hasattr(self,'galaxycatalog'):                
+                    self.metrics.extend(self.galaxycatalog.metrics)
+                if hasattr(self,'halocatalog'):                
+                    self.metrics.extend(self.halocatalog.metrics)
         
         self.metric_groups = self.genMetricGroups(metrics)
         
