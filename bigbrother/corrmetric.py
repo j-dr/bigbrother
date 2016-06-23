@@ -60,7 +60,7 @@ class AngularCorrelationFunction(Metric):
 
         #putting this outside loop maybe faster, inside loop
         #lower memory usage
-            
+
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
@@ -75,14 +75,14 @@ class AngularCorrelationFunction(Metric):
                 d  = treecorr.Catalog(x=cat['azim_ang'], y=cat['polar_ang'])
                 r = treecorr.Catalog(x=rand['azim_ang'], y=rand['polar_ang'])
 
-                dd = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta, 
-                                            max_sep=self.maxtheta, sep_units='degrees', 
+                dd = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
+                                            max_sep=self.maxtheta, sep_units='degrees',
                                             bin_slop=0.001)
                 dr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees', 
+                                            max_sep=self.maxtheta, sep_units='degrees',
                                             bin_slop=0.001)
                 rr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees', 
+                                            max_sep=self.maxtheta, sep_units='degrees',
                                             bin_slop=0.001)
                 dd.process(d)
                 dr.process(d,r)
@@ -93,17 +93,17 @@ class AngularCorrelationFunction(Metric):
 
     def reduce(self):
        pass
-    
+
     def generate_randoms(self, cat, rand_factor=10, nside=8, nest=True, selectz=False):
        """
        Generate a set of randoms from a catalog by pixelating the input
        catalog and uniformly distributing random points within the pixels
-       occupied by galaxies. 
+       occupied by galaxies.
 
        Also option to assign redshifts with the same distribution as the input
        catalog to allow for generation of randoms once for all z bins.
        """
-       
+
        if selectz:
            rdtype = np.dtype([('azim_ang', np.float32), ('polar_ang', np.float32),
                               ('redshift', np.float32)])
@@ -111,7 +111,7 @@ class AngularCorrelationFunction(Metric):
            rdtype = np.dtype([('azim_ang', np.float32), ('polar_ang', np.float32)])
 
        rsize = len(cat)*rand_factor
-    
+
        #randomly generate angles within region bounded by catalog angles
        grand = np.zeros(rsize, dtype=rdtype)
        grand['azim_ang'] = np.random.uniform(low=np.min(cat['RA']),
@@ -124,18 +124,18 @@ class AngularCorrelationFunction(Metric):
            grand['redshift'] = np.random.choice(cat['redshift'], size=rsize)
            zidx = grand['redshift'].argsort()
            grand = grand[zidx]
-    
+
        #only keep points which fall within the healpix cells overlapping the catalog
        cpix = hp.ang2pix(nside, *radec2rad(cat['DEC'], cat['RA']), nest=nest)
        ucpix = np.unique(cpix)
        rpix = hp.ang2pix(nside, *radec2rad(grand['DEC'], grand['RA']), nest=nest)
        inarea = np.in1d(rpix, ucpix)
-    
+
        grand = grand[inarea]
-    
+
        return grand
 
-        
+
 class GalaxyRadialProfileBCC(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
@@ -145,7 +145,7 @@ class GalaxyRadialProfileBCC(Metric):
         """
 
         Metric.__init__(self, ministry)
-        
+
         self.catalog_type = catalog_type
 
         if zbins is None:
@@ -196,7 +196,7 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
         vol = 4*np.pi*(self.rmean**3)/3
-        
+
         for i in range(self.nzbins):
             for j in range(self.nlumbins):
                 self.rprof[:,j,i] /= vol
@@ -215,12 +215,12 @@ class GalaxyRadialProfileBCC(Metric):
         if self.nzbins>1:
             for i in range(self.nlumbins):
                 for j in range(self.nzbins):
-                    ax[i][j].semilogx(self.rmean, self.rprof[:,i,j], 
+                    ax[i][j].semilogx(self.rmean, self.rprof[:,i,j],
                                       **kwargs)
         else:
             for i in range(self.nlumbins):
                 for j in range(self.nzbins):
-                    ax[i].semilogx(self.rmean, self.rprof[:,i,j], 
+                    ax[i].semilogx(self.rmean, self.rprof[:,i,j],
                                    **kwargs)
 
         if newaxes:
@@ -253,7 +253,7 @@ class NofZ(Metric):
         """
 
         Metric.__init__(self, ministry)
-        
+
         self.catalog_type = catalog_type
 
         if zbins is None:
@@ -287,7 +287,3 @@ class NofZ(Metric):
 
         if not hasattr(self, 'rprof'):
             self.rprof = np.zeros((self.nrbins, self.nlumbins, self.nzbins))
-        
-                
-                
-

@@ -12,20 +12,23 @@ class HaloCatalog(BaseCatalog):
     Base class for halo catalogs
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None, 
+    def __init__(self, ministry, filestruct, fieldmap=None,
                  nside=8, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=1):
+                 filters=None, unitmap=None, goodpix=1,
+                 reader='fits'):
 
         self.ctype = 'halocatalog'
-        BaseCatalog.__init__(self, ministry, filestruct, fieldmap=None, 
-                             nside=8, maskfile=None, filters=None, 
-                             unitmap=None, goodpix=1)
+        BaseCatalog.__init__(self, ministry, filestruct,
+                                fieldmap=None, nside=8,
+                                maskfile=None, filters=None,
+                                unitmap=None, goodpix=1,
+                                reader=reader)
 
-    
+
     def calculateArea(self, pixels, nside):
         """
         Calculate the area in the given pixels provided a mask
-        that is pixelated with an nside greater than that of 
+        that is pixelated with an nside greater than that of
         the catalog
         """
 
@@ -33,20 +36,20 @@ class HaloCatalog(BaseCatalog):
         if self.mask is None:
             self.mask, self.maskhdr = hp.read_map(self.maskfile,h=True)
             self.maskhdr = dict(self.maskhdr)
-        
+
         #our map should be finer than our file pixelation
-        assert(nside<self.maskhdr['NSIDE']) 
+        assert(nside<self.maskhdr['NSIDE'])
 
         udmap = hp.ud_grade(np.arange(12*nside**2),self.maskhdr['NSIDE'])
         pixarea = hp.nside2pixarea(self.maskhdr['NSIDE'],degrees=True)
         for i,p in enumerate(pixels):
             pm, = np.where(udmap==p)
             area[i] = pixarea*len(self.mask[pm][self.mask[pm]>=self.goodpix])
-            
+
         return area
 
     def getArea(self):
-        
+
         if self.mask is None:
             return self.ministry.area
         else:
@@ -63,21 +66,40 @@ class HaloCatalog(BaseCatalog):
 
         return mapunit
 
+    def readMappable(self, mappable, fieldmap):
+        """
+        Takes a mappable object and a fieldmap as inputs
+        and returns a mapunit containing the data required
+        by the fieldmap.
+        """
+        if self.reader=='fits':
+            return self.readFITSMappable(mappable, fieldmap)
+        elif self.reader=='rockstar':
+            return self.readRockstarMappable(mappable, fieldmap)
+
+    def readRockstarMappable(self, mappable, fieldmap):
+        """
+        Takes in a mappable object, and a
+        """
+
+        #Fill in reader code here
+        return
+
 
 class BCCHaloCatalog(HaloCatalog):
     """
     Class to handle BCC Halo catalogs
     """
 
-    def __init__(self, ministry, filestruct, unitmap=None, fieldmap=None, 
+    def __init__(self, ministry, filestruct, unitmap=None, fieldmap=None,
                  nside=8, zbins=None, maskfile=None, filters=None,
                  goodpix=1):
 
         if unitmap is None:
             unitmap = {'mass':'msunh'}
 
-        HaloCatalog.__init__(self, ministry, filestruct, unitmap=unitmap, 
-                             maskfile=maskfile, filters=filters, 
+        HaloCatalog.__init__(self, ministry, filestruct, unitmap=unitmap,
+                             maskfile=maskfile, filters=filters,
                              goodpix=goodpix)
         self.ministry = ministry
         self.metrics = [MassFunction(self.ministry, zbins=zbins),
@@ -101,14 +123,14 @@ class BCCHaloCatalog(HaloCatalog):
 
     def parseFileStruct(self, filestruct):
         """
-        Given a filestruct object, namely a list of truth 
-        and/or obs files, map fields in these files 
+        Given a filestruct object, namely a list of truth
+        and/or obs files, map fields in these files
         to generalized observables which our map functions
         know how to deal with
         """
         self.filestruct = filestruct
         filetypes = self.filestruct.keys()
-        self.filetypes = filetypes        
+        self.filetypes = filetypes
 
         if len(filestruct.keys())>1:
             opix =  np.array([int(t.split('/')[-1].split('.')[-2]) for t
@@ -121,7 +143,7 @@ class BCCHaloCatalog(HaloCatalog):
                     in self.filestruct[ft]])
                 idx = pix.argsort()
                 assert(pix[idx]==opix[oidx])
-                
+
                 if len(idx)==1:
                     self.filestruct[ft] = [self.filestruct[ft][idx]]
                 else:
@@ -135,7 +157,7 @@ class BCCHaloCatalog(HaloCatalog):
         fts = mappable.keys()
         f1 = fts[0]
         pix = int(f1.split('.')[-2])
-        
+
         return pix
 
     def map(self, mappable):
