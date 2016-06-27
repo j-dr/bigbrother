@@ -10,19 +10,19 @@ def sortHpixFileStruct(filestruct):
         opix =  np.array([int(t.split('/')[-1].split('.')[-2]) for t
                           in filestruct[filetypes[0]]])
         oidx = opix.argsort()
-        
+
         for ft in filetypes:
             assert(len(filestruct[ft])==len(filestruct[filetypes[0]]))
             pix = np.array([int(t.split('/')[-1].split('.')[-2]) for t
                             in filestruct[ft]])
             idx = pix.argsort()
             assert(pix[idx]==opix[oidx])
-            
+
             if len(idx)==1:
                 filestruct[ft] = [filestruct[ft][idx]]
             else:
                 filestruct[ft] = filestruct[ft][idx]
-    
+
     return filestruct
 
 class PixMetric(Metric):
@@ -46,11 +46,11 @@ class PixMetric(Metric):
         self.aschema = 'singleonly'
         self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
 
-        
+
     def map(self, mapunit):
-        
+
         pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
-        
+
         return pix
 
     def reduce(self):
@@ -58,7 +58,7 @@ class PixMetric(Metric):
 
     def visualize(self):
         pass
-    
+
     def compare(self):
         pass
 
@@ -89,7 +89,7 @@ class Area(Metric):
 
     def visualize(self):
         pass
-    
+
     def compare(self):
         pass
 
@@ -123,7 +123,7 @@ class HealpixMap(Metric):
     def map(self, mapunit):
 
         pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
-        
+
         if self.cuts is None:
             c, e = np.histogram(pix, bins=self.pbins)
             self.hmap[:,0] += c
@@ -132,9 +132,19 @@ class HealpixMap(Metric):
                 cidx, = np.where(mapunit[self.cutkey]>c)
                 c, e = np.histogram(pix[cidx], bins=self.pbins)
                 self.hmap[:,i] += c
-    
+
     def reduce(self):
         pass
 
-    def visualize(self):
+    def visualize(self, plotname=None, compare=False):
+        hp.mollview(self.hmap)
+        f = plt.gcf()
+        ax = plt.gca()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax
+
+    def compare(self, othermetric, plotname=None):
         pass
