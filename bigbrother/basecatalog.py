@@ -13,10 +13,12 @@ class BaseCatalog:
     """
     Base class for catalog type
     """
-    
-    def __init__(self, ministry, filestruct, fieldmap=None, 
-                 unitmap=None, nside=8, maskfile=None, 
-                 filters=None, goodpix=1):
+
+    _valid_reader_types = ['fits', 'rockstar']
+
+    def __init__(self, ministry, filestruct, fieldmap=None,
+                 unitmap=None, nside=8, maskfile=None,
+                 filters=None, goodpix=1, reader='fits'):
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
@@ -30,22 +32,26 @@ class BaseCatalog:
         self.goodpix = goodpix
         self.necessaries = []
         self.filters = []
+        if reader in _valid_reader_types:
+            self.reader = reader
+        else:
+            raise(ValueError("Invalid reader type {0} specified".format(reader)))
 
     @abstractmethod
     def parseFileStruct(self, filestruct):
         """
-        Given a filestruct object, create map from parameters 
+        Given a filestruct object, create map from parameters
         we require to filepaths for easy access
         """
 
     def getFilePixels(self, nside):
         """
-        Get the healpix cells occupied by galaxies 
+        Get the healpix cells occupied by galaxies
         in each file. Assumes files have already been
         sorted correctly by parseFileStruct
         """
         fpix = []
-        
+
         pmetric = PixMetric(self.ministry, nside)
         mg = self.ministry.genMetricGroups([pmetric])
         ms = mg[0][1]
@@ -58,7 +64,7 @@ class BaseCatalog:
             fpix.append(pmetric(mapunit))
 
         return fpix
-            
+
     def genMappable(self, metrics):
         """
         Given a set of metrics, generate a list of mappables
@@ -80,10 +86,10 @@ class BaseCatalog:
 
         mapkeys = np.unique(mapkeys)
 
-        #for each type of data necessary for 
+        #for each type of data necessary for
         #the metrics we want to calculate,
         #determine the file type it's located
-        #in and the field 
+        #in and the field
         for mapkey in mapkeys:
             try:
                 fileinfo = self.fieldmap[mapkey]
@@ -115,7 +121,7 @@ class BaseCatalog:
 
                 if not valid:
                     raise Exception("Filetypes {0} for mapkey {1} are not available!".format(filetypes, mapkey))
-                
+
         self.mapkeys = mapkeys
 
         #Create mappables out of filestruct and fieldmaps
@@ -129,7 +135,7 @@ class BaseCatalog:
 
     def readFITSMappable(self, mappable, fieldmap):
         """
-        For the file help in mappable, read in the fields defined in
+        For the file held in mappable, read in the fields defined in
         fieldmap. File must be in FITS format.
         """
 
@@ -144,7 +150,7 @@ class BaseCatalog:
                     fields.extend(val)
                 else:
                     fields.extend([val])
-                    
+
         data = fitsio.read(fname, columns=fields)
         for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
@@ -154,29 +160,21 @@ class BaseCatalog:
                 nf = len(fieldmap[ft][mapkey])
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
 
-#        if sortbyz:
-#            if 'redshift' not in mapunit.keys():
-#                raise ValueError('There is no reshift field, cannot sort by redshift!')
-#
-#            zidx = mapunit['redshift'].argsort()
-#            for mapkey in fieldmap[ft].keys():
-#                mapunit[mapkey] = mapunit[mapkey][zidx]
-
-        return mapunit
-
     def readMappable(self, mappable, fieldmap):
         """
         Default reader is FITS reader
         """
-        
-        return self.readFITSMappable(mappable, fieldmap)
+
+        if self.reader=='fits':
+            return self.readFITSMappable(mappable, fieldmap)
+
 
     @abstractmethod
     def map(self, mappable):
         """
         Do some operations on a mappable unit of the catalog
         """
-        
+
     def reduce(self):
         """
         Reduce the information produced by the map operations
@@ -192,16 +190,16 @@ class BaseCatalog:
         Convert a map unit from the units given in the catalog
         to those required in metrics
         """
-        
+
         for m in metrics:
             if self.ctype not in m.catalog_type:
                 continue
             for key in m.unitmap:
-                if key not in mapunit.keys(): 
+                if key not in mapunit.keys():
                     continue
                 elif self.unitmap[key]==m.unitmap[key]:
                     continue
-                
+
                 try:
                     conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
                 except:
@@ -214,24 +212,21 @@ class BaseCatalog:
     def filter(self, mapunit, fieldmap):
 
         idx = None
-        
+
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
             if key not in self.fieldmap.keys():
                 continue
-            
+
             if i==0:
                 idx = filt(mapunit)
             else:
                 idxi = filt(mapunit)
                 idx = idx&idxi
-                
+
         if idx is not None:
             for key in mapunit.keys():
                 if key in fieldmap.keys():
                     mapunit[key] = mapunit[key][idx]
 
         return mapunit
-        
-                                     
-        
