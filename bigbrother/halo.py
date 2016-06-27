@@ -83,8 +83,30 @@ class HaloCatalog(BaseCatalog):
         """
 
         #Fill in reader code here
-        return
 
+	mapunit = {}
+	ft      = mappable.dtype
+	fname   = mappable.name
+
+	for f in fieldmap.keys():
+	    fields = []
+	    for val in fieldmap[ft].values():
+	        if hasattr(val, '__iter__'):
+	            fields.extend(val)
+	        else:
+	            fields.extend([val])
+	
+	data = readHlist(fname, fields)
+
+	for mapkey in fieldmap[ft].keys():
+            mapunit[mapkey] = data[fieldmap[ft][mapkey]]
+            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+                dt = mapunit[mapkey].dtype[0]
+                ne = len(mapunit[mapkey])
+                nf = len(fieldmap[ft][mapkey])
+                mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
+
+	return mapunit
 
 class BCCHaloCatalog(HaloCatalog):
     """
