@@ -2,10 +2,9 @@ from __future__ import print_function, division
 from collections import OrderedDict
 from .massmetric import SimpleHOD, MassFunction, OccMass
 from .basecatalog import BaseCatalog
+from helpers import SimulationAnalysis
 import numpy as np
 import healpy as hp
-from helpers.SimulationAnalysis import readHlist
-from helpers.SimulationAnalysis import readHlist
 
 
 class HaloCatalog(BaseCatalog):
@@ -107,7 +106,7 @@ class HaloCatalog(BaseCatalog):
 	        else:
 	            fields.extend([val])
 	
-	data = readHlist(fname, fields)
+	data = SimulationAnalysis.readHlist(fname, fields)
 
 	for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
