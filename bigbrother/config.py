@@ -11,17 +11,19 @@ import bigbrother.magnitudemetric as mam
 import bigbrother.massmetric      as msm
 import bigbrother.corrmetric      as crm
 
+_eval_keys = ['zbins']
+
 def readCfg(filename):
-    
+
     with open(filename, 'r') as fp:
         cfg = yaml.load(fp)
 
     return cfg
 
 def parseFileStruct(cfs):
-    
+
     fs = {}
-    
+
     for key in cfs.keys():
         files = glob(cfs[key])
         fs[key] = np.array(files)
@@ -39,13 +41,13 @@ def parseFieldMap(cfm):
             k = f.keys()[0]
             pair = (k, f[k])
             fieldlist.append(pair)
-        
+
         fm[key] = OrderedDict(fieldlist)
-        
+
     return fm
 
 def parseConfig(cfg):
-    
+
     if 'Ministry' in cfg.keys():
         mcfg = cfg['Ministry']
         try:
@@ -59,62 +61,48 @@ def parseConfig(cfg):
 
     if 'GalaxyCatalog' in cfg.keys():
         gcfg = cfg['GalaxyCatalog']
-        
+        gct  = gcfg.pop('catalog_type', None)
         fs   = parseFileStruct(gcfg['filestruct'])
-        
+
         if 'fieldmap' in gcfg.keys():
-            fm  = parseFieldMap(gcfg['fieldmap'])
+            fm  = parseFieldMap(gcfg.pop('fieldmap', None))
         else:
             fm  = None
 
-        if 'unitmap' in gcfg.keys():
-            um = gcfg['unitmap']
-        else:
-            um = None
+        for key in gcfg.keys():
+            if key in _eval_keys:
+                gcfg[key] = eval(gcfg[key])
 
-        if 'filters' in gcfg.keys():
-            flt = gcfg['filters']
-        else:
-            flt = None
-
-        if gcfg['catalog_type'] in Ministry._known_galaxy_catalog_types:
-            mstry.setGalaxyCatalog(gcfg['catalog_type'], fs, fieldmap=fm,
-                                   unitmap=um, filters=flt)   
+        if gct in Ministry._known_galaxy_catalog_types:
+            mstry.setGalaxyCatalog(gct, fs, fieldmap=fm, **gcfg)
         else:
             if fm is None:
                 raise(ValueError("Must supply fieldmap for generic galaxy catalog"))
 
-            gc = GalaxyCatalog(mstry, fs, fieldmap=fm)
+            gc = GalaxyCatalog(mstry, fs, fieldmap=fm, **gcfg)
             mstry.galaxycatalog = gc
 
     if 'HaloCatalog' in cfg.keys():
         hcfg = cfg['HaloCatalog']
-        
-        fs   = parseFileStruct(hcfg['filestruct'])
-        
+        hct  = hcfg.pop('catalog_type', None)
+        fs   = parseFileStruct(hcfg.pop('filestruct', None))
+
         if 'fieldmap' in hcfg.keys():
-            fm  = parseFieldMap(hcfg['fieldmap'])
+            fm  = parseFieldMap(hcfg.pop('fieldmap', None))
         else:
             fm  = None
 
-        if 'unitmap' in hcfg.keys():
-            um = hcfg['unitmap']
-        else:
-            um = None
+        for key in hcfg.keys():
+            if key in _eval_keys:
+                hcfg[key] = eval(hcfg[key])
 
-        if 'filters' in hcfg.keys():
-            flt = hcfg['filters']
-        else:
-            flt = None
-
-        if hcfg['catalog_type'] in Ministry._known_galaxy_catalog_types:
-            mstry.setHaloCatalog(hcfg['catalog_type'], fs, fieldmap=fm,
-                                   unitmap=um, filters=flt)   
+        if hct in Ministry._known_galaxy_catalog_types:
+            mstry.setHaloCatalog(hct, fs, fieldmap=fm, **hcfg)
         else:
             if fm is None:
                 raise(ValueError("Must supply fieldmap for generic galaxy catalog"))
 
-            hc = HaloCatalog(mstry, fs, fieldmap=fm, unitmap=um, filters=flt)
+            hc = HaloCatalog(mstry, fs, fieldmap=fm, **hcfg)
             mstry.halocatalog = hc
 
     if 'metrics' in mcfg.keys():
@@ -134,7 +122,7 @@ def parseConfig(cfg):
                 mtr = mtr(mstry)
 
             metrics.append(mtr)
-        
+
         mstry.metrics = metrics
     else:
 
