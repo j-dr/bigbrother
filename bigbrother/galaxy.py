@@ -18,9 +18,9 @@ class GalaxyCatalog(BaseCatalog):
     """
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=1,
-                 reader='fits'):
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None,
+                 reader=None):
 
         self.ctype = 'galaxycatalog'
         BaseCatalog.__init__(self, ministry, filestruct,
@@ -101,8 +101,8 @@ class BCCCatalog(GalaxyCatalog):
     """
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=1):
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None):
         GalaxyCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
         self.min = ministry
         self.metrics = [LuminosityFunction(self.ministry, zbins=zbins),

@@ -13,13 +13,13 @@ class HaloCatalog(BaseCatalog):
     """
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=1,
-                 reader='fits'):
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None,
+                 reader=None):
 
         self.ctype = 'halocatalog'
         BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=fieldmap, nside=8,
+                                fieldmap=fieldmap, nside=nside,
                                 maskfile=maskfile, filters=filters,
                                 unitmap=unitmap, goodpix=goodpix,
                                 reader=reader)
@@ -105,7 +105,7 @@ class HaloCatalog(BaseCatalog):
 	            fields.extend(val)
 	        else:
 	            fields.extend([val])
-	
+
 	data = SimulationAnalysis.readHlist(fname, fields)
 
 	for mapkey in fieldmap[ft].keys():
@@ -115,7 +115,7 @@ class HaloCatalog(BaseCatalog):
                 ne = len(mapunit[mapkey])
                 nf = len(fieldmap[ft][mapkey])
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
-                
+
 	return mapunit
 
 class BCCHaloCatalog(HaloCatalog):
@@ -124,8 +124,8 @@ class BCCHaloCatalog(HaloCatalog):
     """
 
     def __init__(self, ministry, filestruct, unitmap=None, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None, filters=None,
-                 goodpix=1):
+                 nside=None, zbins=None, maskfile=None, filters=None,
+                 goodpix=None):
 
         if unitmap is None:
             unitmap = {'mass':'msunh'}

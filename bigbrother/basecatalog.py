@@ -16,8 +16,8 @@ class BaseCatalog:
     _valid_reader_types = ['fits', 'rockstar']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, nside=8, maskfile=None,
-                 filters=None, goodpix=1, reader='fits'):
+                 unitmap=None, nside=None, maskfile=None,
+                 filters=None, goodpix=None, reader=None):
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
@@ -26,13 +26,28 @@ class BaseCatalog:
         self.parseFileStruct(filestruct)
         self.maskfile = maskfile
         self.mask = None
-        self.area = 0.0
-        self.nside = nside
-        self.goodpix = goodpix
+        if area is None:
+            self.area = 0.0
+        else:
+            self.area = area
+
+        if nside is None:
+            self.nside = 8
+        else:
+            self.nside = nside
+
+        if goodpix is None:
+            self.goodpix = 1
+        else:
+            self.goodpix = goodpix
+
         self.necessaries = []
         self.filters = []
+
         if reader in BaseCatalog._valid_reader_types:
             self.reader = reader
+        elif reader is None:
+            self.reader = None
         else:
             raise(ValueError("Invalid reader type {0} specified".format(reader)))
 

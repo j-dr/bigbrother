@@ -22,13 +22,13 @@ GalaxyCatalog  :
       - OMAG : [ truth ]
     azim_ang    :
       - RA   : [ truth ]
-    polar_ang   : 
+    polar_ang   :
       - DEC  : [ truth ]
     redshift    :
       - Z    : [ truth ]
     central    :
       - CENTRAL : [ truth ]
-    halomass    : 
+    halomass    :
       - M200    : [ truth ]
     rhalo       :
       - RHALO   : [ truth ]
@@ -39,7 +39,8 @@ GalaxyCatalog  :
     luminosity: mag
   filters  :
     - Appmag
-  
+  zbins : np.linspace(0, 2.0, 6)
+
 #halo catalog information
 HaloCatalog  :
   catalog_type  : BCC
