@@ -159,6 +159,8 @@ class BaseCatalog:
                 nf = len(fieldmap[ft][mapkey])
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
 
+        return mapunit
+
     def readMappable(self, mappable, fieldmap):
         """
         Default reader is FITS reader
