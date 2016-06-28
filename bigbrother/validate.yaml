@@ -1,47 +1,52 @@
-Buzzard_v1.2  :
-  Cosmology  :
-    OmegaM  : 0.3
-    OmegaL  : 0.7
-    h       : 0.7
-    zmin    : 0.0
-    zmax    : 2.0
-    area    : 161.13 #three pixels
-  GalaxyCatalog :
-    zbins  :  [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-    filestruct  :
-      truth  :  /lustre/ki/pfs/jderose/l-addgals/catalogs/Buzzard_v1.2/Catalog_v1.2b/Buzzard*fits #either glob or file containing all files
-    fieldmap  :
-      luminosity  :
-        AMAG  :  [truth]
-      appmag  :
-        OMAG  :  [truth]
-      redshift  :
-        Z     :  [truth]
-  HaloCatalog :
-    zbins  :  [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-    filestruct  :
-      truth  :  /lustre/ki/pfs/jderose/l-addgals/catalogs/Buzzard_v1.2/Catalog_v1.2b/Buzzard_halos*fits #either glob or file containing all files
-    fieldmap  :
-      mass  :
-        M200b  :  [truth]
-      redshift  :
-        Z     :  [truth]
-      pos_x  :
-        HALOPX  : [truth]
-      pos_y  : 
-        HALOPY  : [truth] 
-      pos_z  :
-        HALOPZ  : [truth]
+#example configuration file for BCC validation
+#general information
+Ministry  :
+  omegam  : 0.286
+  omegal  : 0.714
+  h       : 0.7
+  minz    : 0.0
+  maxz    : 2.0
+  area    : 10000
+  simname : "Buzzard-1-oldhalos"
 
-	
-Y1A1Redm  :
-  Cosmology  :
-    OmegaM  : 0.3
-    OmegaL  : 0.7
-    h       : 0.7
-    zmin    : 0.0
-    zmax    : 2.0
-    area    : 0.0 #three pixels
-  GalaxyCatalog :
-    zbins  :  [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+
+#galaxy catalog information
+GalaxyCatalog  :
+  catalog_type  : BCC
+  filestruct    :
+    truth         :  /nfs/slac/des/fs1/g/sims/jderose/addgals/catalogs/Buzzard/Catalog_v1.1/truth/Buzzard*fit
+  fieldmap      :
+    luminosity  :
+      - AMAG : [ truth ]
+    appmag      :
+      - OMAG : [ truth ]
+    azim_ang    :
+      - RA   : [ truth ]
+    polar_ang   : 
+      - DEC  : [ truth ]
+    redshift    :
+      - Z    : [ truth ]
+    central    :
+      - CENTRAL : [ truth ]
+    halomass    : 
+      - M200    : [ truth ]
+    rhalo       :
+      - RHALO   : [ truth ]
+  unitmap  :
+    azim_ang  : ra
+    polar_ang : dec
+    appmag    : mag
+    luminosity: mag
+  filters  :
+    - Appmag
   
+#halo catalog information
+HaloCatalog  :
+  catalog_type  : BCC
+  filestruct    :
+    truth       :  /nfs/slac/des/fs1/g/sims/jderose/addgals/catalogs/Buzzard/Catalog_v1.1/halos/Buzzard*rotated*fit
+
+#Some configuration parameters for running validations
+Validate  :
+  nmap  : 2
+  savefile : Buzzard-1_ministry.pkl
