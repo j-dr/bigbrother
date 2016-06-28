@@ -62,7 +62,7 @@ def parseConfig(cfg):
     if 'GalaxyCatalog' in cfg.keys():
         gcfg = cfg['GalaxyCatalog']
         gct  = gcfg.pop('catalog_type', None)
-        fs   = parseFileStruct(gcfg['filestruct'])
+        fs   = parseFileStruct(gcfg.pop('filestruct', None))
 
         if 'fieldmap' in gcfg.keys():
             fm  = parseFieldMap(gcfg.pop('fieldmap', None))
