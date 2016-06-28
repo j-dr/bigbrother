@@ -17,7 +17,8 @@ class BaseCatalog:
 
     def __init__(self, ministry, filestruct, fieldmap=None,
                  unitmap=None, nside=None, maskfile=None,
-                 filters=None, goodpix=None, reader=None):
+                 filters=None, goodpix=None, reader=None,
+                 area=None):
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
