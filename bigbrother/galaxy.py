@@ -4,7 +4,6 @@ from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 import healpy as hp
 import numpy as np
-import helpers
 import fitsio
 import time
 
@@ -172,8 +171,6 @@ class BCCCatalog(GalaxyCatalog):
                     self.filestruct[ft] = [self.filestruct[ft][idx]]
                 else:
                     self.filestruct[ft] = self.filestruct[ft][idx]
-
-                print(len(self.filestruct[ft]))
 
     def pixelVal(self,mappable):
         """

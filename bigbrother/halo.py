@@ -4,7 +4,8 @@ from .massmetric import SimpleHOD, MassFunction, OccMass
 from .basecatalog import BaseCatalog
 import numpy as np
 import healpy as hp
-import helpers
+from helpers.SimulationAnalysis import readHlist
+from helpers.SimulationAnalysis import readHlist
 
 
 class HaloCatalog(BaseCatalog):
@@ -19,9 +20,9 @@ class HaloCatalog(BaseCatalog):
 
         self.ctype = 'halocatalog'
         BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=None, nside=8,
-                                maskfile=None, filters=None,
-                                unitmap=None, goodpix=1,
+                                fieldmap=fieldmap, nside=8,
+                                maskfile=maskfile, filters=filters,
+                                unitmap=unitmap, goodpix=goodpix,
                                 reader=reader)
 
 
@@ -54,6 +55,16 @@ class HaloCatalog(BaseCatalog):
             return self.ministry.area
         else:
             return self.area
+
+    def parseFileStruct(self, filestruct):
+        """
+        Given a filestruct object, namely a list of truth
+        and/or obs files, map fields in these files
+        to generalized observables which our map functions
+        know how to deal with
+        """
+        self.filestruct = filestruct
+        self.filetypes = self.filestruct.keys()
 
     def unitConversion(self, mapunit):
 
@@ -105,7 +116,7 @@ class HaloCatalog(BaseCatalog):
                 ne = len(mapunit[mapkey])
                 nf = len(fieldmap[ft][mapkey])
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
-
+                
 	return mapunit
 
 class BCCHaloCatalog(HaloCatalog):

@@ -1,11 +1,10 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
-from .helpers import PixMetric
+from .healpix_utils import PixMetric
 from astropy.cosmology import FlatLambdaCDM
 import units
 import numpy as np
 import healpy as hp
-import helpers
 import fitsio
 import time
 
@@ -32,7 +31,7 @@ class BaseCatalog:
         self.goodpix = goodpix
         self.necessaries = []
         self.filters = []
-        if reader in _valid_reader_types:
+        if reader in BaseCatalog._valid_reader_types:
             self.reader = reader
         else:
             raise(ValueError("Invalid reader type {0} specified".format(reader)))

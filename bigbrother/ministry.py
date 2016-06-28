@@ -7,7 +7,6 @@ from .halo import HaloCatalog, BCCHaloCatalog
 from copy import copy, deepcopy
 import numpy as np
 import healpy as hp
-import helpers
 import fitsio
 import time
 
@@ -511,7 +510,7 @@ class Ministry:
 
 
     def readMappable(self, mappable, fieldmap):
-        if hasattr(self, 'halocatalog') and (mappable.dtype==self.halocatalog.filetypes):
+        if hasattr(self, 'halocatalog') and (mappable.dtype in self.halocatalog.filetypes):
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
         elif hasattr(self, 'galaxycatalog') and (mappable.dtype in self.galaxycatalog.filetypes):
             mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
