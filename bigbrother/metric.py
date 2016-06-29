@@ -275,8 +275,8 @@ class GMetric(Metric):
         return f, ax, l1
 
 
-    def compare(self, othermetrics, plotname=None, usecols=None, fracdev=True, xlim=None,
-                ylim=None, fylim=None, labels=None, **kwargs):
+    def compare(self, othermetrics, plotname=None, usecols=None, fracdev=True,
+                    xlim=None, ylim=None, fylim=None, labels=None, **kwargs):
         """
         Compare a list of other metrics of the same type
 

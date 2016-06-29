@@ -7,7 +7,7 @@ Ministry  :
   minz    : 0.0
   maxz    : 2.0
   area    : 10000
-  ministry_name : "Buzzard-1-oldhalos"
+  ministry_name : "Chinchilla-1"
 
 
 #galaxy catalog information
@@ -53,27 +53,32 @@ Validate  :
   savefile : Buzzard-1_ministry.pkl
 
 Compare   :
-    halo_catalog:
+    compare_version : comp1.0
+    metrics :
         MassFunction :
             ministry_name :
+                - Chinchilla-1
                 - Buzzard-v1.1
         OccMass      :
             ministry_name :
+                - Chinchilla-1
                 - Buzzard-v1.1
-    galaxy_catalog:
         MagCounts  :
             ministry_name :
+                - Chinchilla-1
                 - DES-Y1A1-SNFields
                 - Buzzard-v1.1
         LuminosityFunction :
             ministry_name :
-                - Buzzard-v1.1
+                - Chinchilla-1
                 - Buzzard-v1.1
             tag :
                 - AllLF
                 - CentralLF
         ColorMagnitude :
             ministry_name :
+                - Chinchilla-1
+                - Chinchilla-1
                 - Buzzard-v1.1
                 - Buzzard-v1.1
                 - DES-Y1A1-SNFields
@@ -83,5 +88,6 @@ Compare   :
                 - None
         ColorColor :
             ministry_name :
+                - Chinchilla-1
                 - Buzzard-v1.1
                 - DES-Y1A1-SNFields
