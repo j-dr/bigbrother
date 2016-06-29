@@ -72,6 +72,8 @@ class Ministry:
 
         if area is None:
             self.area = 0.0
+        else:
+            self.area = area
 
         if minz!=maxz:
             self.lightcone = True
