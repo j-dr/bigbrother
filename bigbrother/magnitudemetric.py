@@ -12,8 +12,8 @@ class MagnitudeMetric(GMetric):
     """
     Restruct GMetric to magnitudes
     """
-    
-    def __init__(self, ministry, zbins=None, magbins=None, 
+
+    def __init__(self, ministry, zbins=None, magbins=None,
                  catalog_type=None):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
@@ -25,10 +25,10 @@ class MagnitudeMetric(GMetric):
         ministry : Ministry
             The ministry object that this metric is associated with.
         zbins : array-like
-            An 1-d array containing the edges of the redshift bins to 
+            An 1-d array containing the edges of the redshift bins to
             measure the LF in.
         xbins : array-like
-            A 1-d array containing the edges of the magnitude bins to 
+            A 1-d array containing the edges of the magnitude bins to
             measure the metric in.
         """
 
@@ -65,10 +65,10 @@ class LuminosityFunction(MagnitudeMetric):
             Whether the LF should be measured for only central galaxies.
             Defaults to false
         zbins : array-like
-            An 1-d array containing the edges of the redshift bins to 
+            An 1-d array containing the edges of the redshift bins to
             measure the LF in.
         magbins : array-like
-            A 1-d array containing the edges of the luminosity bins to 
+            A 1-d array containing the edges of the luminosity bins to
             measure the LF in.
         """
 
@@ -88,10 +88,10 @@ class LuminosityFunction(MagnitudeMetric):
             self.mapkeys = ['luminosity', 'redshift']
 
         self.aschema = 'galaxyonly'
-        
+
     def map(self, mapunit):
         """
-        A simple example of what a map function should look like. 
+        A simple example of what a map function should look like.
         Map functions always take mapunits as input.
         """
 
@@ -108,14 +108,14 @@ class LuminosityFunction(MagnitudeMetric):
         else:
             mu = mapunit
 
-        #Want to count galaxies in bins of luminosity for 
+        #Want to count galaxies in bins of luminosity for
         #self.nbands different bands in self.nzbins
         #redshift bins
         if not hasattr(self, 'lumcounts'):
-            self.lumcounts = np.zeros((len(self.magbins)-1, self.nbands, 
+            self.lumcounts = np.zeros((len(self.magbins)-1, self.nbands,
                                        self.nzbins))
 
-        #Assume redshifts are provided, and that the 
+        #Assume redshifts are provided, and that the
         #mapunit is sorted in terms of them
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
@@ -123,7 +123,7 @@ class LuminosityFunction(MagnitudeMetric):
 
             #Count galaxies in bins of luminosity
             for j in range(self.nbands):
-                c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j], 
+                c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j],
                                     bins=self.magbins)
                 self.lumcounts[:,j,i] += c
 
@@ -150,16 +150,16 @@ class LuminosityFunction(MagnitudeMetric):
         Integrate the luminosity function between
         lmin and lmax at a particular redshift.
         """
-        
+
         if not hasattr(self, 'lummean'):
-            self.magmean = np.array([(self.magbins[i]+self.magbins[i+1])/2 
+            self.magmean = np.array([(self.magbins[i]+self.magbins[i+1])/2
                                      for i in range(len(self.magbins)-1)])
         if not hasattr(self, 'zmean'):
             self.zmean = np.array([(self.zbins[i]+self.zbins[i+1])/2
                                    for i in range(len(self.zbins)-1)])
 
         if not hasattr(self, 'integ_spline'):
-            self.mv_spline = RectBivariateSpline(self.magmean, self.zmean, 
+            self.mv_spline = RectBivariateSpline(self.magmean, self.zmean,
                                                     self.luminosity_function[:,band,:])
 
         uvspl = lambda l : self.mv_spline(l, z)
@@ -168,8 +168,8 @@ class LuminosityFunction(MagnitudeMetric):
 
         return n[0]
 
-    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
-                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
 
         if xlabel is None:
@@ -187,7 +187,7 @@ class MagCounts(MagnitudeMetric):
     Galaxy counts per magnitude.
     """
 
-    def __init__(self, ministry, zbins=[0.0, 0.2],  magbins=None, 
+    def __init__(self, ministry, zbins=[0.0, 0.2],  magbins=None,
                  catalog_type=['galaxycatalog']):
 
         if magbins is None:
@@ -195,7 +195,7 @@ class MagCounts(MagnitudeMetric):
 
         MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins,
                                  catalog_type=catalog_type)
-        
+
         if zbins is not None:
             self.mapkeys = ['appmag', 'redshift']
         else:
@@ -207,15 +207,15 @@ class MagCounts(MagnitudeMetric):
         self.nbands = mapunit['appmag'].shape[1]
 
         if not hasattr(self, 'magcounts'):
-            self.magcounts = np.zeros((len(self.magbins)-1, 
+            self.magcounts = np.zeros((len(self.magbins)-1,
                                        self.nbands, self.nzbins))
-            
+
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
                 for j in range(self.nbands):
-                    c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j], 
+                    c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j],
                                         bins=self.magbins)
                     self.magcounts[:,j,i] += c
         else:
@@ -228,8 +228,8 @@ class MagCounts(MagnitudeMetric):
         self.magcounts = self.magcounts/area
         self.y = self.magcounts
 
-    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
-                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
 
         if xlabel is None:
@@ -246,7 +246,7 @@ class LcenMass(Metric):
     """
     Central galaxy luminosity - halo virial mass relation.
     """
-    def __init__(self, ministry, zbins=None, massbins=None, 
+    def __init__(self, ministry, zbins=None, massbins=None,
                  catalog_type=['galaxycatalog']):
         Metric.__init__(self, ministry, catalog_type=catalog_type)
 
@@ -267,7 +267,7 @@ class LcenMass(Metric):
         self.aschema = 'galaxyonly'
         self.unitmap = {'luminosity':'mag', 'halomass':'msunh'}
 
-        
+
     def map(self, mapunit):
 
         self.nbands = mapunit['luminosity'].shape[1]
@@ -279,11 +279,11 @@ class LcenMass(Metric):
 
 
         if not hasattr(self, 'lumcounts'):
-            self.totlum = np.zeros((len(self.massbins)-1, self.nbands, 
+            self.totlum = np.zeros((len(self.massbins)-1, self.nbands,
                                     len(self.zbins)-1))
             self.bincount = np.zeros((len(self.massbins)-1, self.nbands,
                                       len(self.zbins)-1))
-            
+
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
             zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
@@ -300,13 +300,13 @@ class LcenMass(Metric):
         self.lcen_mass = self.totlum/self.bincount
 
 
-    def visualize(self, compare=False, plotname=None, f=None, ax=None, 
+    def visualize(self, compare=False, plotname=None, f=None, ax=None,
                   usebands=None, **kwargs):
 
         if hasattr(self, 'massmean'):
             mmass = self.massmean
         else:
-            mmass = np.array([(self.massbins[i]+self.massbins[i+1])/2 
+            mmass = np.array([(self.massbins[i]+self.massbins[i+1])/2
                               for i in range(len(self.massbins)-1)])
 
         if usebands is None:
@@ -335,12 +335,12 @@ class LcenMass(Metric):
         if self.nzbins>1:
             for i, b in enumerate(usebands):
                 for j in range(self.nzbins):
-                    ax[i][j].semilogx(mmass, self.lcen_mass[:,b,j], 
+                    ax[i][j].semilogx(mmass, self.lcen_mass[:,b,j],
                                       **kwargs)
         else:
             for i, b in enumerate(usebands):
                 for j in range(self.nzbins):
-                    ax[i].semilogx(mmass, self.lcen_mass[:,b,j], 
+                    ax[i].semilogx(mmass, self.lcen_mass[:,b,j],
                                    **kwargs)
 
         plt.tight_layout()
@@ -362,7 +362,7 @@ class LcenMass(Metric):
                 assert(len(usebands)==len(tocompare))
         else:
             usebands = [None]*len(tocompare)
-        
+
         for i, m in enumerate(tocompare):
             if usebands[i] is not None:
                 assert(len(usebands[0])==len(usebands[i]))
@@ -383,11 +383,11 @@ class ColorColor(Metric):
     """
     Color-color diagram.
     """
-    def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None, 
+    def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'], usebands=None,
                  amagcut=-19.0):
         Metric.__init__(self, ministry, catalog_type=catalog_type)
-        
+
         self.zbins = zbins
         if zbins is None:
             self.nzbins = 1
@@ -425,9 +425,9 @@ class ColorColor(Metric):
             clr[:,i] = mapunit['luminosity'][:,self.usebands[i]] - mapunit['luminosity'][:,self.usebands[i+1]]
 
         if not hasattr(self, 'cc'):
-            self.cc = np.zeros((len(self.cbins)-1, len(self.cbins)-1, 
+            self.cc = np.zeros((len(self.cbins)-1, len(self.cbins)-1,
                                 self.nbands-2, self.nzbins))
-            
+
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
@@ -448,12 +448,12 @@ class ColorColor(Metric):
                     self.cc[:,:,j,i] += c
         else:
             for i in range(self.nclr-1):
-                c, e0, e1 = np.histogram2d(clr[:,i], 
-                                           clr[:,i+1], 
+                c, e0, e1 = np.histogram2d(clr[:,i],
+                                           clr[:,i+1],
                                            bins=self.cbins)
                 self.cc[:,:,i,0] += c
 
-    
+
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
         self.cc = self.cc/area
@@ -464,7 +464,7 @@ class ColorColor(Metric):
         if hasattr(self, 'magmean'):
             mclr = self.mclr
         else:
-            mclr = np.array([(self.cbins[i]+self.cbins[i+1])/2 
+            mclr = np.array([(self.cbins[i]+self.cbins[i+1])/2
                               for i in range(len(self.cbins)-1)])
 
         if usecolors is None:
@@ -526,12 +526,12 @@ class ColorMagnitude(Metric):
     """
     Color-magnitude diagram.
     """
-    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, 
+    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None,
                  cbins=None, central_only=False, logscale=False,
                  catalog_type=['galaxycatalog'], usebands=None):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type)
-        
+
         self.zbins = zbins
         if zbins is None:
             self.nzbins = 1
@@ -570,7 +570,7 @@ class ColorMagnitude(Metric):
         self.unitmap = {'luminosity':'mag'}
 
     def map(self, mapunit):
-        
+
         if self.usebands is None:
             self.nbands = mapunit['luminosity'].shape[1]
 
@@ -583,7 +583,7 @@ class ColorMagnitude(Metric):
 
 
         if not hasattr(self, 'cc'):
-            self.cc = np.zeros((len(self.magbins)-1, len(self.cbins)-1, 
+            self.cc = np.zeros((len(self.magbins)-1, len(self.cbins)-1,
                                 self.nbands*(self.nbands-1)/2,
                                 self.nzbins))
 
@@ -595,9 +595,9 @@ class ColorMagnitude(Metric):
                     for k in range(self.nbands):
                         if k<=j: continue
                         ind = k*(k-1)/2+j-1
-                        c, e0, e1 = np.histogram2d(mu['luminosity'][zlidx:zhidx,j], 
+                        c, e0, e1 = np.histogram2d(mu['luminosity'][zlidx:zhidx,j],
                                                    mu['luminosity'][zlidx:zhidx,j] -
-                                                   mu['luminosity'][zlidx:zhidx,k], 
+                                                   mu['luminosity'][zlidx:zhidx,k],
                                                    bins=[self.magbins,self.cbins])
                         self.cc[:,:,ind,i] += c
         else:
@@ -605,19 +605,19 @@ class ColorMagnitude(Metric):
                 for k in range(self.nbands):
                     if k<=j: continue
                     ind = int(k*(k-1)/2+j-1)
-                    c, e0, e1 = np.histogram2d(mu['luminosity'][:,j], 
+                    c, e0, e1 = np.histogram2d(mu['luminosity'][:,j],
                                                mu['luminosity'][:,j] -
-                                               mu['luminosity'][:,k], 
+                                               mu['luminosity'][:,k],
                                                bins=[self.magbins,self.cbins])
                     self.cc[:,:,ind,0] += c
 
 
-    
+
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
         self.cc = self.cc/area
 
-    def visualize(self, plotname=None, f=None, ax=None, usecolors=None, 
+    def visualize(self, plotname=None, f=None, ax=None, usecolors=None,
                   compare=False, **kwargs):
 
         x = (self.magbins[:-1]+self.magbins[1:])/2
@@ -641,11 +641,10 @@ class ColorMagnitude(Metric):
             newaxes = True
         else:
             newaxes = False
-            
+
         for i, c in enumerate(usecolors):
             for j in range(self.nzbins):
-
-                ax[i][j].contour(X, Y, cc[:,:,c,j].T,30,
+                ax[j][i].contour(X, Y, cc[:,:,c,j].T,30,
                                     **kwargs)
 
         if newaxes:
@@ -678,7 +677,7 @@ class ColorMagnitude(Metric):
                 assert(len(usecolors)==len(tocompare))
         else:
             usecolors = [None]*len(tocompare)
-        
+
         for i, m in enumerate(tocompare):
             if usecolors[i] is not None:
                 assert(len(usecolors[0])==len(usecolors[i]))
@@ -724,30 +723,30 @@ class FQuenched(Metric):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                qidx, = np.where((mapunit['luminosity'][zlidx:zhidx,0] 
+                qidx, = np.where((mapunit['luminosity'][zlidx:zhidx,0]
                                  - mapunit['luminosity'][zlidx:zhidx,1])
-                                > (self.m * mapunit['luminosity'][zlidx:zhidx,0] 
+                                > (self.m * mapunit['luminosity'][zlidx:zhidx,0]
                                    + self.b))
 
                 self.qscounts[i] = len(qidx)
                 self.tcounts[i] = zhidx-zlidx
 
         else:
-            qidx = np.where((mapunit['luminosity'][:,0] 
+            qidx = np.where((mapunit['luminosity'][:,0]
                              - mapunit['luminosity'][:,1])
-                            > (self.m * mapunit['luminosity'][:,0] 
+                            > (self.m * mapunit['luminosity'][:,0]
                                + self.b))
 
             self.qscounts[0] = len(qidx)
             self.tcounts[0] = len(mapunit['luminosity'])
-        
-                
+
+
     def reduce(self):
         self.fquenched = self.qscounts/self.tcounts
 
     def visualize(self, f=None, ax=None, compare=False, plotname=None,
                   **kwargs):
-        
+
         if f is None:
             f, ax = plt.subplots(1, figsize=(8,8))
             newaxes = True
@@ -755,7 +754,7 @@ class FQuenched(Metric):
             newaxes = False
 
         zm = (self.zbins[:-1] + self.zbins[1:])/2
-            
+
         ax.plot(zm, self.fquenched)
 
         if newaxes:
@@ -821,7 +820,7 @@ class FRed(Metric):
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-                
+
                 if self.zeroind:
                     qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx]-1,3]==1)
                 else:
@@ -838,13 +837,13 @@ class FRed(Metric):
 
             self.qscounts[0] = len(qidx)
             self.tcounts[0] = len(mapunit['ctcatid'])
-        
-                
+
+
     def reduce(self):
         self.fquenched = self.qscounts/self.tcounts
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
-        
+
         if f is None:
             f, ax = plt.subplots(1, figsize=(8,8))
             newaxes = True
@@ -852,7 +851,7 @@ class FRed(Metric):
             newaxes = False
 
         zm = (self.zbins[:-1] + self.zbins[1:])/2
-            
+
         ax.plot(zm, self.fquenched)
 
         if newaxes:
@@ -930,7 +929,7 @@ class FQuenchedLum(Metric):
                                     & (mapunit['luminosity'][zlidx:zhidx,0]<self.magbins[j+1]))
                     qidx, = np.where((mapunit['luminosity'][zlidx:zhidx,0][lidx]
                                      - mapunit['luminosity'][zlidx:zhidx,1][lidx])
-                                    > (self.m * mapunit['luminosity'][zlidx:zhidx,0][lidx] 
+                                    > (self.m * mapunit['luminosity'][zlidx:zhidx,0][lidx]
                                        + self.b))
 
                     self.qscounts[j,i] = len(qidx)
@@ -942,19 +941,19 @@ class FQuenchedLum(Metric):
                                 & (mapunit['luminosity'][:,0]<self.magbins[i+1]))
                 qidx, = np.where((mapunit['luminosity'][:,0][lidx]
                                  - mapunit['luminosity'][:,1][lidx])
-                                > (self.m * mapunit['luminosity'][:,0][lidx] 
+                                > (self.m * mapunit['luminosity'][:,0][lidx]
                                    + self.b))
 
                 self.qscounts[i] = len(qidx)
                 self.tcounts[i] = len(lidx)
-        
-                
+
+
     def reduce(self):
         self.fquenched = self.qscounts/self.tcounts
 
-    def visualize(self, f=None, ax=None, plotname=None, 
+    def visualize(self, f=None, ax=None, plotname=None,
                   compare=False, **kwargs):
-        
+
         if f is None:
             f, ax = plt.subplots(1,self.nzbins, figsize=(8,8))
             ax = np.atleast_2d(ax)
@@ -1004,12 +1003,12 @@ class FQuenchedLum(Metric):
 
 class AnalyticLuminosityFunction(LuminosityFunction):
     """
-    Class for generating luminosity functions from 
+    Class for generating luminosity functions from
     fitting functions.
     """
 
     def __init__(self, *args, **kwargs):
-        
+
         if 'nbands' in kwargs:
             self.nbands = kwargs.pop('nbands')
         else:
@@ -1053,16 +1052,16 @@ class AnalyticLuminosityFunction(LuminosityFunction):
             params[6] += Q * (1. / (1 + z) - 1. / 1.1)
         elif evol=='a0':
             params[4] += Q  / (1 + z)
-            params[6] += Q  / (1 + z) 
+            params[6] += Q  / (1 + z)
 
         return params
 
     def genBCCParams(self, evol='faber', Q=-0.866):
         """
-        Generate the parameters for the Buzzard_v1.1 
+        Generate the parameters for the Buzzard_v1.1
         luminosity function at specified redshifts assuming
         an evolution model.
-        
+
         Arguments
         ---------
         evol : str
@@ -1102,7 +1101,7 @@ class AnalyticLuminosityFunction(LuminosityFunction):
 
         for i, z in enumerate(zmeans):
             par[i,:] = copy(p)
-            
+
             if evol=='faber':
                 par[i,4] += Q * (np.log10(z) + 1)
                 par[i,6] += Q * (np.log10(z) + 1)
@@ -1138,7 +1137,7 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         z0 : float
             The redshift about which evolution is determined.
         """
-        
+
         zmeans = ( self.zbins[1:] + self.zbins[:-1] ) / 2
         par = np.zeros((len(zmeans), 3))
 
@@ -1148,13 +1147,13 @@ class AnalyticLuminosityFunction(LuminosityFunction):
             par[i,1] -= Q * (z - z0)
 
         return par
-        
+
 
     def calcNumberDensity(self,par,form='SchechterAmag'):
         """
         Evaluate an analytic form of a luminosity function
         given an array of parameters.
-        
+
         inputs:
         par -- An array of parameters. If one dimensional,
                assumes the same parameters for all z bins
@@ -1199,16 +1198,16 @@ class AnalyticLuminosityFunction(LuminosityFunction):
 
                 else:
                     raise(NotImplementedError("Luminosity form {0} is not implemented".format(form)))
-        
+
         self.y = self.luminosity_function
 
     def schechterFunctionAmag(self,m,p):
         """
         Single Schechter function appropriate for absolute magnitudes.
-        
+
         inputs:
         m -- An array of magnitudes.
-        p -- Schechter function parameters. Order 
+        p -- Schechter function parameters. Order
              should be phi^{star}, M^{star}, \alpha
         """
         phi = 0.4 * np.log(10) * p[0] * np.exp(-10 ** (0.4 * (p[1]-m))) \
@@ -1218,11 +1217,11 @@ class AnalyticLuminosityFunction(LuminosityFunction):
     def doubleSchechterFunctionAmag(self,m,p):
         """
         Double Schechter function appropriate for absolute magnitudes.
-        
+
         inputs:
         m -- An array of magnitudes.
-        p -- Schechter function parameters. Order 
-             should be phi^{star}_{1}, M^{star}, \alpha_{1}, 
+        p -- Schechter function parameters. Order
+             should be phi^{star}_{1}, M^{star}, \alpha_{1},
              phi^{star}_{2}, \alpha_{2}
         """
         phi = 0.4 * np.log(10) * (p[0] * 10 ** (0.4 * (p[2] + 1) * (p[1] - m)) \
@@ -1234,11 +1233,11 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         """
         Double Schechter with two m_star values
         appropriate for absolute magnitudes.
-        
+
         inputs:
         m -- An array of magnitudes.
-        p -- Schechter function parameters. Order 
-             should be phi^{star}_{1}, M^{star}_1, \alpha_{1}, 
+        p -- Schechter function parameters. Order
+             should be phi^{star}_{1}, M^{star}_1, \alpha_{1},
              phi^{star}_{2}, M^{star}_2, \alpha_{2}
         """
         phi = 0.4 * np.log(10) * (p[0] * 10 ** (0.4 * (p[2] + 1) * (p[1] - m)) \
@@ -1252,8 +1251,8 @@ class AnalyticLuminosityFunction(LuminosityFunction):
         """
         Sum of a double schechter function and a gaussian.
         m -- magnitudes at which to calculate the number density
-        p -- Function parameters. Order 
-             should be phi^{star}_{1}, M^{star}, \alpha_{1}, 
+        p -- Function parameters. Order
+             should be phi^{star}_{1}, M^{star}, \alpha_{1},
              phi^{star}_{2}, M^{star}, \alpha_{2}, \phi_{gauss},
              \M_{gauss}, \sigma_{gauss}
         """
@@ -1271,7 +1270,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
     """
 
     def __init__(self, *args, **kwargs):
-        
+
         if 'fname' in kwargs:
             self.fname = kwargs.pop('fname')
         else:
@@ -1320,7 +1319,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
                         self.luminosity_function = np.zeros((len(self.magmean), self.nbands, self.nzbins))
                     else:
                         assert((lf[:,0]==self.magmean).all())
-                    
+
                     for j in range(self.nbands):
                         self.luminosity_function[:,j,i] = lf[:,1]
 
@@ -1333,7 +1332,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
                             self.luminosity_function = np.zeros((len(self.magmean), self.nbands, self.nzbins))
                         else:
                             assert(self.magmean==lf[:,0])
-                        
+
                         self.luminosity_function[:,j,i] = lf[:,1]
 
         self.y = self.luminosity_function
