@@ -140,9 +140,9 @@ class BCCHaloCatalog(HaloCatalog):
         self.nside = nside
 
         if fieldmap is None:
-            self.fieldmap = {'mass':OrderedDict([('MVIR',['truth'])]),
-                             'occ':OrderedDict([('N19', ['truth'])]),
-                             'redshift':OrderedDict([('Z',['truth'])])}
+            self.fieldmap = {'mass':OrderedDict([('MVIR',['htruth'])]),
+                             'occ':OrderedDict([('N19', ['htruth'])]),
+                             'redshift':OrderedDict([('Z',['htruth'])])}
             self.hasz = True
         else:
             self.fieldmap = fieldmap
