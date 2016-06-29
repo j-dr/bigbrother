@@ -139,7 +139,7 @@ class AngularCorrelationFunction(Metric):
 class GalaxyRadialProfileBCC(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
-                 massbins=None, subjack=False, catalog_type=['galaxycatalog']
+                 massbins=None, subjack=False, catalog_type=['galaxycatalog'],
                  tag=None):
         """
         Radial profile of galaxies around their nearest halos.

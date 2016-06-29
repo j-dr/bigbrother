@@ -47,7 +47,7 @@ class GMetric(Metric):
     different bands or mass functions using various mass definitions
     """
 
-    def __init__(self, ministry, zbins=None, xbins=None, catalog_type=None
+    def __init__(self, ministry, zbins=None, xbins=None, catalog_type=None,
                     tag=None):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
