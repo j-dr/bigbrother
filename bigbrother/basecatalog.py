@@ -48,7 +48,7 @@ class BaseCatalog:
         if reader in BaseCatalog._valid_reader_types:
             self.reader = reader
         elif reader is None:
-            self.reader = None
+            self.reader = 'fits'
         else:
             raise(ValueError("Invalid reader type {0} specified".format(reader)))
 
