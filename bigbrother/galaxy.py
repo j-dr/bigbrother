@@ -105,13 +105,15 @@ class BCCCatalog(GalaxyCatalog):
                  filters=None, unitmap=None, goodpix=None):
         GalaxyCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
         self.min = ministry
-        self.metrics = [LuminosityFunction(self.ministry, zbins=zbins),
+        self.metrics = [LuminosityFunction(self.ministry, zbins=zbins,
+                            tag="AllLF"),
                         MagCounts(self.ministry, zbins=zbins),
-                        LuminosityFunction(self.ministry, zbins=zbins, central_only=True),
+                        LuminosityFunction(self.ministry, zbins=zbins, central_only=True, tag="CentralLF"),
                         LcenMass(self.ministry, zbins=zbins),
-                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1]),
-                        ColorMagnitude(self.ministry, zbins=zbins,                                            usebands=[0,1],
-                          central_only=True),
+                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1], tag="AllCM"),
+                        ColorMagnitude(self.ministry, zbins=zbins,
+                                        usebands=[0,1],
+                                        central_only=True, tag="CentralCM"),
                         ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2]),
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),
                         FQuenchedLum(self.ministry, zbins=zbins),
