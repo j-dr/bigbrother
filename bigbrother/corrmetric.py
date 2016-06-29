@@ -184,13 +184,9 @@ class GalaxyRadialProfileBCC(Metric):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             for j, l in enumerate(self.lumbins[:-1]):
-                lidx = (self.lumbins[i]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[i+1])
-                print(mapunit['rhalo'][zlidx:zhidx][lidx])
+                lidx = (self.lumbins[j]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[j+1])
                 c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][lidx], bins=self.rbins)
                 self.rprof[:,j,i] += c
-                print(c)
-                print(zhidx-zlidx)
-                print(np.sum(lidx))
 
     def reduce(self):
 
