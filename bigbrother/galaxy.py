@@ -88,9 +88,9 @@ class GalaxyCatalog(BaseCatalog):
 
         for i, b in enumerate(bands):
             if i==0:
-                idx = mapunit['appmag'][:,b]!=badval
+                idx = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b]))
             else:
-                idxi = mapunit['appmag'][:,b]!=badval
+                idxi = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b]))
                 idx = idx&idxi
 
         return idx
@@ -315,7 +315,7 @@ class DESGoldCatalog(GalaxyCatalog):
             self.unitmap = unitmap
 
         if filters is None:
-            self.filters = ['Modest']
+            self.filters = ['Modest', 'Appmag']
         else:
             self.filters = filters
 
