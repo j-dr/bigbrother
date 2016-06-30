@@ -232,7 +232,7 @@ class BaseCatalog:
 
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
-            if key not in self.fieldmap.keys():
+            if key.lower() not in self.fieldmap.keys():
                 continue
 
             if i==0:

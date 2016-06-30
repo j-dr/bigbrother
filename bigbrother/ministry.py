@@ -95,7 +95,7 @@ class Ministry:
 
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
                          unitmap=None, filters=None, zbins=None, maskfile=None,
-                         goodpix=1):
+                         goodpix=None):
         """
         Fill in the galaxy catalog information
         """
