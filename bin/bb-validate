@@ -11,7 +11,7 @@ import bigbrother.config as config
 
 
 if __name__=="__main__":
-    
+
     cfgfile = sys.argv[1]
     cfg = config.readCfg(cfgfile)
 
@@ -23,16 +23,15 @@ if __name__=="__main__":
             pickle.dump(mstry, fp)
 
     pnames = {}
-        
+
     for m in mstry.metrics:
         plt.clf()
         if m.__class__.__name__ in pnames.keys():
             pn = m.__class__.__name__ + "_{0}".format(pnames[m.__class__.__name__])
             pnames[m.__class__.__name__] += 1
         else:
-            pn = m.__class__.__name__ 
+            pn = m.__class__.__name__
             pnames[m.__class__.__name__] = 1
 
-        m.visualize(plotname="{0}_{1}.png".format(cfg['Ministry']['simname'],
+        m.visualize(plotname="{0}_{1}.png".format(cfg['Ministry']['ministry_name'],
                                                   pn))
-
