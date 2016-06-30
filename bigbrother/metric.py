@@ -145,7 +145,7 @@ class GMetric(Metric):
         nzbins = len(usez)
 
         #If want to plot fractional deviations, and ref_y
-        #uses different magnitude bins, interpolate ref_y to
+        #uses different bins, interpolate ref_y to
         #magniutdes given at mxs. Don't extrapolate!
         if fracdev & ((len(ref_x)!=len(mxs)) | ((ref_x[0]!=mxs[0]) | (ref_x[-1]!=mxs[-1]))):
             rls = ref_y.shape
@@ -186,8 +186,11 @@ class GMetric(Metric):
                             ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0]))
                         else:
                             ax[2*r].append(f.add_subplot(gs[2*r,c]))
-                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0],
-                                                           sharey=ax[1][0]))
+                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c],
+                              sharex=ax[0][0], sharey=ax[1][0]))
+                ax = np.array(ax)
+                ax = np.atleast_2d(ax)
+                
             newaxes = True
         else:
             newaxes = False
