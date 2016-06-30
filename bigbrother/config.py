@@ -120,11 +120,7 @@ def parseConfig(cfg):
                 if mcfg['metrics'][m][k] is 'None':
                     mcfg['metrics'][m][k] = None
 
-            if m in mcfg.keys():
-                mtr = mtr(mstry, **mcfg['metrics'][m])
-            else:
-                mtr = mtr(mstry)
-
+            mtr = mtr(mstry, **mcfg['metrics'][m])
             metrics.append(mtr)
 
         mstry.metrics = metrics
