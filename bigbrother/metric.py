@@ -188,9 +188,10 @@ class GMetric(Metric):
                             ax[2*r].append(f.add_subplot(gs[2*r,c]))
                             ax[2*r+1].append(f.add_subplot(gs[2*r+1,c],
                               sharex=ax[0][0], sharey=ax[1][0]))
-                ax = np.array(ax)
-                ax = np.atleast_2d(ax)
-                
+
+            ax = np.array(ax)
+            ax = np.atleast_2d(ax)
+
             newaxes = True
         else:
             newaxes = False
@@ -199,6 +200,7 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
                     if fracdev==False:
+                        print(ax.shape)
                         l1 = ax[i][j].semilogy(mxs, self.y[:,b,j],
                                           **kwargs)
                         if logx:
