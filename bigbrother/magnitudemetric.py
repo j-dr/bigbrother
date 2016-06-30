@@ -385,7 +385,7 @@ class ColorColor(Metric):
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'], usebands=None,
-                 amagcut=-19.0, tag=None):
+                 amagcut=-19.0, tag=None, appmag=False):
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=None)
 
         self.zbins = zbins
@@ -400,29 +400,34 @@ class ColorColor(Metric):
         else:
             self.cbins = cbins
 
-        if zbins is not None:
-            self.mapkeys = ['luminosity', 'redshift']
+        if appmag:
+            self.mkey = 'appmag'
         else:
-            self.mapkeys = ['luminosity']
+            self.mkey = self.mkey
+
+        if zbins is not None:
+            self.mapkeys = [mkey, 'redshift']
+        else:
+            self.mapkeys = [mkey]
 
         self.amagcut = amagcut
         self.usebands = usebands
         self.aschema = 'galaxyonly'
-        self.unitmap = {'luminosity':'mag'}
+        self.unitmap = {mkey:'mag'}
 
     def map(self, mapunit):
 
         if self.usebands is None:
-            self.nbands = mapunit['luminosity'].shape[1]
+            self.nbands = mapunit[self.mkey].shape[1]
             self.usebands = range(self.nbands)
         else:
             self.nbands = len(self.usebands)
 
         self.nclr = self.nbands-1
 
-        clr = np.zeros((len(mapunit['luminosity']),self.nbands-1))
+        clr = np.zeros((len(mapunit[self.mkey]),self.nbands-1))
         for i, b in enumerate(self.usebands[:-1]):
-            clr[:,i] = mapunit['luminosity'][:,self.usebands[i]] - mapunit['luminosity'][:,self.usebands[i+1]]
+            clr[:,i] = mapunit[self.mkey][:,self.usebands[i]] - mapunit[self.mkey][:,self.usebands[i+1]]
 
         if not hasattr(self, 'cc'):
             self.cc = np.zeros((len(self.cbins)-1, len(self.cbins)-1,
@@ -436,9 +441,9 @@ class ColorColor(Metric):
                 if self.amagcut!=None:
                     for e, j in enumerate(self.usebands):
                         if e==0:
-                            lidx = mapunit['luminosity'][zlidx:zhidx,j]<self.amagcut
+                            lidx = mapunit[self.mkey][zlidx:zhidx,j]<self.amagcut
                         else:
-                            lix = mapunit['luminosity'][zlidx:zhidx,j]<self.amagcut
+                            lix = mapunit[self.mkey][zlidx:zhidx,j]<self.amagcut
                             lidx = lidx & lix
 
                 for j in range(self.nclr-1):
@@ -529,7 +534,7 @@ class ColorMagnitude(Metric):
     def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None,
                  cbins=None, central_only=False, logscale=False,
                  catalog_type=['galaxycatalog'], usebands=None,
-                 tag=None):
+                 tag=None, appmag=False):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
 
@@ -540,11 +545,18 @@ class ColorMagnitude(Metric):
             self.nzbins = len(zbins)-1
             self.zbins = np.array(self.zbins)
 
+        if appmag:
+            self.mkey = 'appmag'
+            defmbins = np.linspace(15,28,60)
+        else:
+            self.mkey = 'luminosity'
+            defmbins = np.linspace(-25,-19,60)
+
         if (magbins is None) & (cbins is None):
-            self.magbins = np.linspace(-25, -19, 60)
+            self.magbins = defmbins
             self.cbins = np.linspace(-1,2,60)
         elif magbins is None:
-            self.magbins = np.linspace(-25,-19,60)
+            self.magbins = defmbins
             self.cbins = cbins
         elif cbins is None:
             self.magbins = magbins
@@ -552,6 +564,7 @@ class ColorMagnitude(Metric):
         else:
             self.magbins = magbins
             self.cbins = cbins
+
 
         self.usebands = usebands
         if self.usebands is not None:
@@ -561,19 +574,19 @@ class ColorMagnitude(Metric):
         self.logscale = logscale
 
         if central_only & (zbins is not None):
-            self.mapkeys = ['luminosity', 'redshift', 'central']
+            self.mapkeys = [self.mkey, 'redshift', 'central']
         elif (zbins is not None):
-            self.mapkeys = ['luminosity', 'redshift']
+            self.mapkeys = [self.mkey, 'redshift']
         else:
-            self.mapkeys = ['luminosity']
+            self.mapkeys = [self.mkey]
 
         self.aschema = 'galaxyonly'
-        self.unitmap = {'luminosity':'mag'}
+        self.unitmap = {self.mkey:'mag'}
 
     def map(self, mapunit):
 
         if self.usebands is None:
-            self.nbands = mapunit['luminosity'].shape[1]
+            self.nbands = mapunit[self.mkey].shape[1]
 
         mu = {}
         if self.central_only:
@@ -596,9 +609,9 @@ class ColorMagnitude(Metric):
                     for k in range(self.nbands):
                         if k<=j: continue
                         ind = k*(k-1)/2+j-1
-                        c, e0, e1 = np.histogram2d(mu['luminosity'][zlidx:zhidx,j],
-                                                   mu['luminosity'][zlidx:zhidx,j] -
-                                                   mu['luminosity'][zlidx:zhidx,k],
+                        c, e0, e1 = np.histogram2d(mu[self.mkey][zlidx:zhidx,j],
+                                                   mu[self.mkey][zlidx:zhidx,j] -
+                                                   mu[self.mkey][zlidx:zhidx,k],
                                                    bins=[self.magbins,self.cbins])
                         self.cc[:,:,ind,i] += c
         else:
@@ -606,9 +619,9 @@ class ColorMagnitude(Metric):
                 for k in range(self.nbands):
                     if k<=j: continue
                     ind = int(k*(k-1)/2+j-1)
-                    c, e0, e1 = np.histogram2d(mu['luminosity'][:,j],
-                                               mu['luminosity'][:,j] -
-                                               mu['luminosity'][:,k],
+                    c, e0, e1 = np.histogram2d(mu[self.mkey][:,j],
+                                               mu[self.mkey][:,j] -
+                                               mu[self.mkey][:,k],
                                                bins=[self.magbins,self.cbins])
                     self.cc[:,:,ind,0] += c
 
