@@ -134,8 +134,10 @@ class BCCHaloCatalog(HaloCatalog):
                              maskfile=maskfile, filters=filters,
                              goodpix=goodpix)
         self.ministry = ministry
-        self.metrics = [MassFunction(self.ministry, zbins=zbins),
-                        OccMass(self.ministry, zbins=zbins)]
+        self.metrics = [MassFunction(self.ministry, zbins=zbins,
+                                      lightcone=True),
+                        OccMass(self.ministry, zbins=zbins,
+                                      lightcone=True)]
 
         self.nside = nside
 
