@@ -227,10 +227,10 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 if fracdev==False:
                     try:
-                        l1 = ax[i].semilogy(mxs, self.y[:,b,0],
+                        l1 = ax[0][i].semilogy(mxs, self.y[:,b,0],
                                             **kwargs)
                         if logx:
-                            ax[i].set_xscale('log')
+                            ax[0][i].set_xscale('log')
 
                     except Exception as e:
                         print(e)

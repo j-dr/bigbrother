@@ -487,7 +487,7 @@ class ColorColor(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 10,
+                ax[i][j].contour(X, Y, self.cc[:,:,i,j].T, 10,
                                     **kwargs)
 
         if newaxes:
