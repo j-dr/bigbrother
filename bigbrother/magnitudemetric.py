@@ -403,17 +403,17 @@ class ColorColor(Metric):
         if appmag:
             self.mkey = 'appmag'
         else:
-            self.mkey = self.mkey
+            self.mkey = 'luminosity'
 
         if zbins is not None:
-            self.mapkeys = [mkey, 'redshift']
+            self.mapkeys = [self.mkey, 'redshift']
         else:
-            self.mapkeys = [mkey]
+            self.mapkeys = [self.mkey]
 
         self.amagcut = amagcut
         self.usebands = usebands
         self.aschema = 'galaxyonly'
-        self.unitmap = {mkey:'mag'}
+        self.unitmap = {self.mkey:'mag'}
 
     def map(self, mapunit):
 
