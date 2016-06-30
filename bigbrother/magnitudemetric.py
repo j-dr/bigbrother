@@ -196,7 +196,7 @@ class MagCounts(MagnitudeMetric):
         MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins,
                                  catalog_type=catalog_type, tag=None)
 
-        if zbins is not None:
+        if (zbins is not None):
             self.mapkeys = ['appmag', 'redshift']
         else:
             self.mapkeys = ['appmag']
@@ -405,7 +405,7 @@ class ColorColor(Metric):
         else:
             self.mkey = 'luminosity'
 
-        if zbins is not None:
+        if (zbins is not None):
             self.mapkeys = [self.mkey, 'redshift']
         else:
             self.mapkeys = [self.mkey]

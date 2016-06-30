@@ -116,6 +116,10 @@ def parseConfig(cfg):
             elif hasattr(crm, m):
                 mtr = getattr(crm, m)
 
+            for k in mcfg['metrics'][m]:
+                if mcfg['metrics'][m][k] is 'None':
+                    mcfg['metrics'][m][k] = None
+
             if m in mcfg.keys():
                 mtr = mtr(mstry, **mcfg['metrics'][m])
             else:
