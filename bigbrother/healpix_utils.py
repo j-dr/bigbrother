@@ -96,7 +96,7 @@ class Area(Metric):
 
 class HealpixMap(Metric):
 
-    def __init__(self, ministry, nside=64, cut=None, tag=None):
+    def __init__(self, ministry, nside=64, cuts=None, tag=None):
 
         Metric.__init__(self, ministry, tag=None)
 
