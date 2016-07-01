@@ -50,7 +50,7 @@ def parseFieldMap(cfm):
 def replaceNoneStr(cfg):
     for key in cfg.keys():
         if cfg[key] == 'None':
-            cfg[key] = None:
+            cfg[key] = None
         elif hasattr(cfg[key], 'keys'):
             cfg[key] = replaceNoneStr(cfg[key])
 
