@@ -47,7 +47,18 @@ def parseFieldMap(cfm):
 
     return fm
 
+def replaceNoneStr(cfg):
+    for key in cfg.keys():
+        if cfg[key] == 'None':
+            cfg[key] = None:
+        elif hasattr(cfg[key], 'keys'):
+            cfg[key] = replaceNoneStr(cfg[key])
+
+    return cfg
+
 def parseConfig(cfg):
+
+    replaceNoneStr(cfg)
 
     if 'Ministry' in cfg.keys():
         mcfg = cfg['Ministry']
