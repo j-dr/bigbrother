@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/nfs/slac/g/ki/ki21/cosmo/jderose/anaconda/bin/python
 from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
@@ -16,7 +16,6 @@ if __name__=="__main__":
 
     for i in range(ncfg):
         cfg   = config.readCfg(sys.argv[i+1])
-
         #only one config file should have
         #a Compare field. This defines
         #which catalogs should be compared
@@ -41,26 +40,26 @@ if __name__=="__main__":
 
     ccfg = cfgs[midx]['Compare']
 
-    for comp in ccfg.keys():
-        if 'tag' in ccfg[comp]:
-            for i, tag in enumerate(ccfg['tag']):
+    for comp in ccfg['metrics'].keys():
+        if 'tag' in ccfg['metrics'][comp]:
+            for i, tag in enumerate(ccfg['metrics'][comp]['tag']):
                 #set up comparison arguments
                 plotname = "{0}_{1}_{2}.png".format(comp, tag,
                             ccfg['compare_version'])
                 cmtrs = []
-                for j, mn in ccfg[comp]['ministry_name']:
+                for mn in ccfg['metrics'][comp]['ministry_name']:
                     mstry = mstrys[mn]
                     for mtr in mstry.metrics:
                         if mtr.tag is tag:
                             cmtrs.append(mtr)
 
-                if 'keywords' in ccfg[comp].keys():
+                if 'keywords' in ccfg['metrics'][comp].keys():
                     kw = ccfg['keywords'][i]
                 else:
                     kw = {}
 
                 if 'labels' not in kw.keys():
-                    kw['labels'] = ccfg[comp]['ministry_name']
+                    kw['labels'] = ccfg['metrics'][comp]['ministry_name']
 
                 if 'plotname' not in kw.keys():
                     kw['plotname'] = plotname
@@ -68,22 +67,23 @@ if __name__=="__main__":
                 mtr = cmtrs.pop(0)
                 mtr.compare(cmtrs, **kw)
         else:
-            plotname = "{0}_{2}.png".format(comp, tag,
-                        ccfg['compare_version'])
+            plotname = "{0}_{1}.png".format(comp, ccfg['compare_version'])
             cmtrs = []
-            for i, mn in ccfg[comp]['ministry_name']:
+            print(comp)
+            print(ccfg['metrics'][comp])
+            for i, mn in enumerate(ccfg['metrics'][comp]['ministry_name']):
                 mstry = mstrys[mn]
                 for mtr in mstry.metrics:
-                    if mtr.__class__.__name__ is comp:
+                    if mtr.__class__.__name__ == comp:
                         cmtrs.append(mtr)
 
-            if 'keywords' in ccfg[comp].keys():
+            if 'keywords' in ccfg['metrics'][comp].keys():
                 kw = ccfg['keywords'][0]
             else:
                 kw = {}
 
             if 'labels' not in kw.keys():
-                kw['labels'] = ccfg[comp]['ministry_name']
+                kw['labels'] = ccfg['metrics'][comp]['ministry_name']
 
             if 'plotname' not in kw.keys():
                 kw['plotname'] = plotname
