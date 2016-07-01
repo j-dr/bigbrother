@@ -499,13 +499,20 @@ class Ministry:
 
         if hasattr(m, '__iter__'):
             aschema = m[0].aschema
+            ct      = m[0].catalog_type[0]
         else:
             aschema = m.aschema
+            ct      = m.catalog_type[0]
 
         if aschema == 'galaxyonly':
             return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
         elif aschema == 'haloonly':
             return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+        elif aschema == 'singleonly':
+            if ct == 'galaxycatalog':
+                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
+            if ct == 'halocatalog':
+                return self.singleTypeMappable(fm, self.halocatalog.filestruct)
         elif aschema == 'galaxygalaxy':
             return self.galaxyGalaxyMappable(fm)
         elif aschema == 'halohalo':
