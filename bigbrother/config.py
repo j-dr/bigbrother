@@ -10,6 +10,7 @@ from .halo     import HaloCatalog
 import bigbrother.magnitudemetric as mam
 import bigbrother.massmetric      as msm
 import bigbrother.corrmetric      as crm
+import bigbrother.healpix_utils   as hpm
 
 _eval_keys = ['zbins']
 
@@ -115,6 +116,8 @@ def parseConfig(cfg):
                 mtr = getattr(msm, m)
             elif hasattr(crm, m):
                 mtr = getattr(crm, m)
+            elif hasattr(hpm, m):
+                mtr = getattr(hpm, m)
 
             for k in mcfg['metrics'][m]:
                 if mcfg['metrics'][m][k] == 'None':
