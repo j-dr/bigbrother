@@ -247,3 +247,16 @@ class BaseCatalog:
                     mapunit[key] = mapunit[key][idx]
 
         return mapunit
+
+class PlaceHolder(BaseCatalog):
+
+    def __init__(self, ministry, filestruct, fieldmap=None,
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None,
+                 reader=None):
+
+        self.ctype = 'placeholder'
+        BaseCatalog.__init__(self, ministry, filestruct,
+                                fieldmap=fieldmap, nside=nside,
+                                maskfile=maskfile, filters=filters,
+                                unitmap=unitmap, reader=reader)

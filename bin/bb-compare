@@ -50,7 +50,7 @@ if __name__=="__main__":
                 for mn in ccfg['metrics'][comp]['ministry_name']:
                     mstry = mstrys[mn]
                     for mtr in mstry.metrics:
-                        if mtr.tag is tag:
+                        if mtr.tag == tag:
                             cmtrs.append(mtr)
 
                 if 'keywords' in ccfg['metrics'][comp].keys():

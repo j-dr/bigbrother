@@ -113,6 +113,8 @@ class Ministry:
             self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile,
                                                 goodpix=goodpix, fieldmap=fieldmap,
                                                 unitmap=unitmap, filters=filters)
+        elif catalog_type == "PlaceHolder":
+            self.galaxycatalog = PlaceHolder(self, None)
 
     def setHaloCatalog(self, catalog_type, filestruct, fieldmap=None,
                        zbins=None, maskfile=None, goodpix=1, unitmap=None,
@@ -125,6 +127,8 @@ class Ministry:
             self.halocatalog = BCCHaloCatalog(self, filestruct, zbins=zbins,
                                               fieldmap=fieldmap, maskfile=maskfile,
                                               goodpix=goodpix)
+        elif catalog_type == "PlaceHolder":
+            self.galaxycatalog = PlaceHolder(self, None)
 
     def getMetricDependencies(self, metric):
 

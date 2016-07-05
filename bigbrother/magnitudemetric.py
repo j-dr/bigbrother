@@ -194,7 +194,7 @@ class MagCounts(MagnitudeMetric):
             magbins = np.linspace(10, 30, 60)
 
         MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins,
-                                 catalog_type=catalog_type, tag=None)
+                                 catalog_type=catalog_type, tag=tag)
 
         if (zbins is not None):
             self.mapkeys = ['appmag', 'redshift']
@@ -386,7 +386,7 @@ class ColorColor(Metric):
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'], usebands=None,
                  amagcut=-19.0, tag=None, appmag=False):
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=None)
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
 
         self.zbins = zbins
         if zbins is None:
@@ -1305,9 +1305,24 @@ class TabulatedLuminosityFunction(LuminosityFunction):
             raise(ValueError("Please supply a path to the tabulated luminosity function using the fname kwarg!"))
 
         if 'nbands' in kwargs:
-            self.nbands = kwargs.pop('fname')
+            self.nbands = kwargs.pop('nbands')
         else:
             self.nbands = 5
+
+        if 'xcol' in kwargs:
+            self.xcol = int(kwargs.pop('xcol'))
+        else:
+            self.xcol = 0
+
+        if 'ycol' in kwargs:
+            self.xcol = int(kwargs.pop('ycol'))
+        else:
+            self.xcol = 1
+
+        if 'ecol' in kwargs:
+            self.ecol = int(kwargs.pop('ecol'))
+        else:
+            self.ecol = None
 
         LuminosityFunction.__init__(self,*args,**kwargs)
 
@@ -1323,16 +1338,16 @@ class TabulatedLuminosityFunction(LuminosityFunction):
             tab = np.loadtxt(self.fname[0])
             self.luminosity_function = np.zeros((tab.shape[0], self.nbands, self.nzbins))
             if len(tab.shape)==2:
-                self.magmean = tab[:,0]
-                if tab.shape[1]==2:
+                self.magmean = tab[:,self.xcol]
+                if self.nzbins==1:
                     for i in range(self.nzbins):
                         for j in range(self.nbands):
-                            self.luminosity_function[:,j,i] = tab[:,1]
+                            self.luminosity_function[:,j,i] = tab[:,self.ycol]
                 else:
                     assert((tab.shape[1]-1)==self.nzbins)
                     for i in range(self.nzbins):
                         for j in range(self.nbands):
-                            self.luminosity_function[:,j,i] = tab[:,i+1]
+                            self.luminosity_function[:,j,i] = tab[:,i+self.ycol]
 
             elif len(tab.shape)==3:
                 self.magmean = tab[:,0,0]
