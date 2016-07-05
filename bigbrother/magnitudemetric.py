@@ -478,16 +478,22 @@ class ColorColor(Metric):
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
                                  sharex=True, sharey=True, figsize=(8,8))
-            ax = np.atleast_2d(ax).T
+            ax = np.array(ax)
+            ax = ax.reshape(self.nzbins, len(usecolors))
             newaxes = True
         else:
             newaxes = False
 
         X, Y = np.meshgrid(mclr, mclr)
 
+        print(usecolors)
+        print(self.nzbins)
+        print(ax.shape)
+        print(self.cc.shape)
+
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[i][j].contour(X, Y, self.cc[:,:,i,j].T, 10,
+                ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 10,
                                     **kwargs)
 
         if newaxes:
@@ -552,6 +558,7 @@ class ColorMagnitude(Metric):
             self.mkey = 'luminosity'
             defmbins = np.linspace(-25,-19,60)
 
+
         if (magbins is None) & (cbins is None):
             self.magbins = defmbins
             self.cbins = np.linspace(-1,2,60)
@@ -570,8 +577,10 @@ class ColorMagnitude(Metric):
         if self.usebands is not None:
             self.nbands = len(self.usebands)
 
+
         self.central_only = central_only
         self.logscale = logscale
+
 
         if central_only & (zbins is not None):
             self.mapkeys = [self.mkey, 'redshift', 'central']
@@ -580,6 +589,7 @@ class ColorMagnitude(Metric):
         else:
             self.mapkeys = [self.mkey]
 
+
         self.aschema = 'galaxyonly'
         self.unitmap = {self.mkey:'mag'}
 
@@ -587,6 +597,7 @@ class ColorMagnitude(Metric):
 
         if self.usebands is None:
             self.nbands = mapunit[self.mkey].shape[1]
+            self.usebands = range(self.nbands)
 
         mu = {}
         if self.central_only:
@@ -605,27 +616,25 @@ class ColorMagnitude(Metric):
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mu['redshift'].searchsorted(self.zbins[i])
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
-                for j in range(self.nbands):
-                    for k in range(self.nbands):
+                for j, b1 in enumerate(self.usebands):
+                    for k, b2 in enumerate(self.usebands):
                         if k<=j: continue
                         ind = k*(k-1)/2+j-1
-                        c, e0, e1 = np.histogram2d(mu[self.mkey][zlidx:zhidx,j],
-                                                   mu[self.mkey][zlidx:zhidx,j] -
-                                                   mu[self.mkey][zlidx:zhidx,k],
+                        c, e0, e1 = np.histogram2d(mu[self.mkey][zlidx:zhidx,b1],
+                                                   mu[self.mkey][zlidx:zhidx,b1] -
+                                                   mu[self.mkey][zlidx:zhidx,b2],
                                                    bins=[self.magbins,self.cbins])
                         self.cc[:,:,ind,i] += c
         else:
-            for j in range(self.nbands):
-                for k in range(self.nbands):
+            for j, b1 in enumerate(self.usebands):
+                for k, b2 in enumerate(self.usebands):
                     if k<=j: continue
                     ind = int(k*(k-1)/2+j-1)
-                    c, e0, e1 = np.histogram2d(mu[self.mkey][:,j],
-                                               mu[self.mkey][:,j] -
-                                               mu[self.mkey][:,k],
+                    c, e0, e1 = np.histogram2d(mu[self.mkey][:,b1],
+                                               mu[self.mkey][:,b1] -
+                                               mu[self.mkey][:,b2],
                                                bins=[self.magbins,self.cbins])
                     self.cc[:,:,ind,0] += c
-
-
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
@@ -650,11 +659,16 @@ class ColorMagnitude(Metric):
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
                                  sharex=True, sharey=True, figsize=(8,8))
-            ax = np.atleast_2d(ax).T
-
+            ax = np.array(ax)
+            ax = ax.reshape(self.nzbins, len(usecolors))
             newaxes = True
         else:
             newaxes = False
+
+        print(usecolors)
+        print(self.nzbins)
+        print(ax.shape)
+        print(cc.shape)
 
         for i, c in enumerate(usecolors):
             for j in range(self.nzbins):
