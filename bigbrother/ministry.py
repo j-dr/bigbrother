@@ -659,7 +659,7 @@ class Ministry:
                     sbz = True
 
             for i, mappable in enumerate(self.genMappables(mg)):
-                if (nmap is not None) & (i>nmap): break
+                if (nmap is not None) & (i>=nmap): break
 
                 mapunit = self.readMappable(mappable, fm)
 

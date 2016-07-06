@@ -43,44 +43,58 @@ class DNDz(Metric):
             self.cutband = cutband
 
         if magbins is None:
-            self.magbins = defmbins
+            self.magbins = None
+            self.nmagbins = 0
+            self.nomags = True
         else:
             self.magbins = magbins
+            if self.lower_limit:
+                self.nmagbins = len(self.magbins)
+            else:
+                self.nmagbins = len(self.magbins) - 1
 
         self.lower_limit = lower_limit
 
-        if self.lower_limit:
-            self.nmagbins = len(self.magbins)
-        else:
-            self.nmagbins = len(self.magbins) - 1
-
         self.aschema = 'galaxyonly'
 
-        self.mapkeys = [self.mkey, 'redshift']
-        self.unitmap = {self.mkey :'mag'}
+        if self.nmagbins > 0:
+            self.mapkeys = [self.mkey, 'redshift']
+            self.unitmap = {self.mkey :'mag'}
+        else:
+            self.mapkeys = ['redshift']
+            self.unitmap = {}
 
     def map(self, mapunit):
 
-        if not hasattr(self, 'dndz'):
-            self.dndz = np.zeros((self.nzbins, self.nmagbins))
+        if self.nmagbins>0:
+            if not hasattr(self, 'dndz'):
+                self.dndz = np.zeros((self.nzbins, self.nmagbins))
 
-        for i in range(self.nmagbins):
-            if self.lower_limit:
-                if len(mapunit[self.mkey].shape)>1:
-                    idx = mapunit[self.mkey][:,self.cutband]>self.magbins[i]
+            for i in range(self.nmagbins):
+                if self.lower_limit:
+                    if len(mapunit[self.mkey].shape)>1:
+                        idx = mapunit[self.mkey][:,self.cutband]>self.magbins[i]
+                    else:
+                        idx = mapunit[self.mkey]>self.magbins[i]
                 else:
-                    idx = mapunit[self.mkey]>self.magbins[i]
-            else:
-                if i==self.nmagbins: continue
+                    if i==self.nmagbins: continue
 
-                if len(mapunit[self.mkey].shape)>1:
-                    idx = (self.magbins[i]<mapunit[self.mkey][:,self.cutband]) & (mapunit[self.mkey][:,self.cutband]<self.magbins[i+1])
-                else:
-                    idx = (self.magbins[i]<mapunit[self.mkey]) & (mapunit[self.mkey]<self.magbins[i+1])
+                    if len(mapunit[self.mkey].shape)>1:
+                        idx = (self.magbins[i]<mapunit[self.mkey][:,self.cutband]) & (mapunit[self.mkey][:,self.cutband]<self.magbins[i+1])
+                    else:
+                        idx = (self.magbins[i]<mapunit[self.mkey]) & (mapunit[self.mkey]<self.magbins[i+1])
 
-            c, e = np.histogram(mapunit['redshift'][idx],
+                c, e = np.histogram(mapunit['redshift'][idx],
+                                      bins=self.zbins)
+                self.dndz[:,i] = c
+        else:
+            if not hasattr(self, 'dndz'):
+                self.dndz = np.zeros((self.nzbins,1))
+
+            c, e = np.histogram(mapunit['redshift'],
                                   bins=self.zbins)
             self.dndz[:,i] = c
+
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
@@ -93,8 +107,10 @@ class DNDz(Metric):
         if not hasattr(self, 'zmean'):
             self.zmean = (self.zbins[:-1]+self.zbins[1:])/2
 
-        if usecuts is None:
+        if (usecuts is None) & (not self.nomags):
             usecuts = range(self.nmagbins)
+        elif self.nomags:
+            usecuts = [0]
 
         if f is None:
             if not onepanel:
