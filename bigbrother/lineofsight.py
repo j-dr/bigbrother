@@ -117,7 +117,8 @@ class DNDz(Metric):
             sax.set_xlabel(r'$z$')
 
         for i, c in enumerate(usecuts):
-            l1 = ax[i].step(self.zmean, self.dndz[:,i])
+            l1 = ax[i].step(self.zbins, np.hstack(self.dndz[:,c],
+                              self.dndz[-1,c]), where='post')
 
         plt.tight_layout()
 
@@ -155,4 +156,49 @@ class DNDz(Metric):
         return f, ax
 
 
-#class TabulatedDNDz(Metric)
+class TabulatedDNDz(DNDz):
+
+    def __init__(self, *args, **kwargs):
+
+        if 'fname' in kwargs:
+            self.fname = kwargs.pop('fname')
+        else:
+            raise(ValueError("Please supply a path to the tabulated luminosity function using the fname kwarg!"))
+
+        if 'ncuts' in kwargs:
+            self.ncuts = kwargs.pop('ncuts')
+        else:
+            self.ncuts = 1
+
+        if 'lowzcol' in kwargs:
+            self.lowzcol = int(kwargs.pop('lowzcol'))
+        else:
+            self.lowzcol = 0
+
+        if 'highzcol' in kwargs:
+            self.highzcol = int(kwargs.pop('highzcol'))
+        else:
+            self.highzcol = 0
+
+        if 'ycol' in kwargs:
+            self.ycol = int(kwargs.pop('ycol'))
+        else:
+            self.ycol = 1
+
+        DNDz.__init__(self,*args,**kwargs)
+
+        #don't need to map this guy
+        self.nomap = True
+        self.loadDNDz()
+
+    def loadDNDz(self):
+        tab = np.genfromtxt(self.fname)
+        self.dndz = np.zeros((tab.shape[0], self.ncuts))
+
+        lowz = tab[:,self.lowzcol]
+        highz = tab[:,self.highzcol]
+        self.zbins = np.zeros(len(lowz)+1)
+        self.zbins[:-1] = lowz
+        self.zbins[-1] = highz[-1]
+        for i in range(self.ncuts):
+            self.dndz[:,i] = tab[:,i+self.ycol]
