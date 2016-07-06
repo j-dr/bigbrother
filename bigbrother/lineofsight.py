@@ -62,7 +62,7 @@ class DNDz(Metric):
     def map(self, mapunit):
 
         if not hasattr(self, 'dndz'):
-            self.dndz = np.zeros(self.nzbins, self.nmagbins)
+            self.dndz = np.zeros((self.nzbins, self.nmagbins))
 
         for i in range(self.nmagbins):
             if self.lower_limit:
