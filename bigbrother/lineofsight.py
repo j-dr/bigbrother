@@ -6,6 +6,8 @@ import matplotlib.pylab as plt
 import treecorr as tc
 import numpy as np
 
+from metric import Metric
+
 
 class DNDz(Metric):
 
