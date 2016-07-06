@@ -49,6 +49,7 @@ class DNDz(Metric):
             self.nmagbins = 0
             self.nomags = True
         else:
+            self.nomags = False
             self.magbins = magbins
             if self.lower_limit:
                 self.nmagbins = len(self.magbins)
@@ -75,9 +76,9 @@ class DNDz(Metric):
             for i in range(self.nmagbins):
                 if self.lower_limit:
                     if len(mapunit[self.mkey].shape)>1:
-                        idx = mapunit[self.mkey][:,self.cutband]>self.magbins[i]
+                        idx = mapunit[self.mkey][:,self.cutband]<self.magbins[i]
                     else:
-                        idx = mapunit[self.mkey]>self.magbins[i]
+                        idx = mapunit[self.mkey]<self.magbins[i]
                 else:
                     if i==self.nmagbins: continue
 
