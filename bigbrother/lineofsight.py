@@ -13,7 +13,7 @@ class DNDz(Metric):
 
     def __init__(self, ministry, zbins=None, magbins=None,
                   catalog_type=['galaxycatalog'], tag=None, appmag=True,
-                  lower_limit=True, cutband=None):
+                  lower_limit=True, cutband=None, normed=False):
         """
         Angular Number density of objects as a function of redshift.
         """
@@ -42,6 +42,8 @@ class DNDz(Metric):
         else:
             self.cutband = cutband
 
+        self.lower_limit = lower_limit
+
         if magbins is None:
             self.magbins = None
             self.nmagbins = 0
@@ -53,7 +55,7 @@ class DNDz(Metric):
             else:
                 self.nmagbins = len(self.magbins) - 1
 
-        self.lower_limit = lower_limit
+        self.normed = normed
 
         self.aschema = 'galaxyonly'
 
@@ -85,15 +87,15 @@ class DNDz(Metric):
                         idx = (self.magbins[i]<mapunit[self.mkey]) & (mapunit[self.mkey]<self.magbins[i+1])
 
                 c, e = np.histogram(mapunit['redshift'][idx],
-                                      bins=self.zbins)
+                                      bins=self.zbins, normed=self.normed)
                 self.dndz[:,i] = c
         else:
             if not hasattr(self, 'dndz'):
                 self.dndz = np.zeros((self.nzbins,1))
 
             c, e = np.histogram(mapunit['redshift'],
-                                  bins=self.zbins)
-            self.dndz[:,i] = c
+                                  bins=self.zbins, normed=self.normed)
+            self.dndz[:,0] = c
 
 
     def reduce(self):
