@@ -78,8 +78,9 @@ class DNDz(Metric):
                 else:
                     idx = (self.magbins[i]<mapunit[self.mkey]) & (mapunit[self.mkey]<self.magbins[i+1])
 
-            self.dndz[:,i] = np.histogram(mapunit['redshift'][idx],
-                                            bins=self.zbins)
+            c, e = np.histogram(mapunit['redshift'][idx],
+                                  bins=self.zbins)
+            self.dndz[:,i] = c
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
