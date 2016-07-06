@@ -695,7 +695,7 @@ class ColorMagnitude(Metric):
 
         for i, c in enumerate(usecolors):
             for j in range(self.nzbins):
-                ax[j][i].contour(X, Y, cc[:,:,c,j].T,10,
+                l1 = ax[j][i].contour(X, Y, cc[:,:,c,j].T,10,
                                     **kwargs)
 
         if newaxes:
@@ -715,9 +715,10 @@ class ColorMagnitude(Metric):
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
 
-        return f, ax
+        return f, ax, l1
 
-    def compare(self, othermetrics, plotname=None, usecolors=None, **kwargs):
+    def compare(self, othermetrics, plotname=None, usecolors=None,
+                 labels=None, **kwargs):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
@@ -729,15 +730,24 @@ class ColorMagnitude(Metric):
         else:
             usecolors = [None]*len(tocompare)
 
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
         for i, m in enumerate(tocompare):
             if usecolors[i] is not None:
                 assert(len(usecolors[0])==len(usecolors[i]))
             if i==0:
-                f, ax = m.visualize(usecolors=usecolors[i], compare=True,
+                f, ax, l1 = m.visualize(usecolors=usecolors[i], compare=True,
                                     **kwargs)
             else:
-                f, ax = m.visualize(usecolors=usecolors[i], compare=True,
+                f, ax, l1 = m.visualize(usecolors=usecolors[i], compare=True,
                                     f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
 
         if plotname is not None:
             plt.savefig(plotname)
