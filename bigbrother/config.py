@@ -23,6 +23,9 @@ def readCfg(filename):
 
 def parseFileStruct(cfs):
 
+    if cfs is None:
+        return None
+
     fs = {}
 
     for key in cfs.keys():
@@ -32,6 +35,9 @@ def parseFileStruct(cfs):
     return fs
 
 def parseFieldMap(cfm):
+
+    if cfm is None:
+        return None
 
     fm = {}
 
