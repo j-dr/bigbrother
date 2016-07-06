@@ -82,7 +82,7 @@ class Ministry:
             self.lightcone = False
             self.boxsize = boxsize
 
-        self.volume = self.calculate_volume(area,self.minz,self.maxz)
+        self.volume = self.calculate_volume(self.area,self.minz,self.maxz)
 
 
     def calculate_volume(self,area,minz,maxz):

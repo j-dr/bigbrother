@@ -80,6 +80,10 @@ class DNDz(Metric):
             self.dndz[:,i] = np.histogram(mapunit['redshift'][idx],
                                             bins=self.zbins)
 
+    def reduce(self):
+        area = self.ministry.galaxycatalog.getArea()
+        self.dndz = self.dndz/area
+
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
                   usecuts=None, **kwargs):
