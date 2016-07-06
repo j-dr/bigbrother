@@ -49,12 +49,9 @@ if __name__=="__main__":
                             ccfg['compare_version'])
                 cmtrs = []
                 for mn in ccfg['metrics'][comp]['ministry_name']:
-                    print('Getting metric for {0}'.format(mn))
                     mstry = mstrys[mn]
                     for mtr in mstry.metrics:
-                        print('Looking at {0}'.format(mtr.tag))
                         if (mtr.__class__.__name__ == comp) & (mtr.tag == tag):
-                            print('Found!')
                             cmtrs.append(mtr)
 
                 if 'keywords' in ccfg['metrics'][comp].keys():
@@ -74,8 +71,7 @@ if __name__=="__main__":
         else:
             plotname = "{0}_{1}.png".format(comp, ccfg['compare_version'])
             cmtrs = []
-            print(comp)
-            print(ccfg['metrics'][comp])
+            print('Comparing {0}'.format(comp))
             for i, mn in enumerate(ccfg['metrics'][comp]['ministry_name']):
                 mstry = mstrys[mn]
                 for mtr in mstry.metrics:

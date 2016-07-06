@@ -486,11 +486,6 @@ class ColorColor(Metric):
 
         X, Y = np.meshgrid(mclr, mclr)
 
-        print(usecolors)
-        print(self.nzbins)
-        print(ax.shape)
-        print(self.cc.shape)
-
         for i in usecolors:
             for j in range(self.nzbins):
                 l1 = ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 10,
@@ -687,11 +682,6 @@ class ColorMagnitude(Metric):
             newaxes = True
         else:
             newaxes = False
-
-        print(usecolors)
-        print(self.nzbins)
-        print(ax.shape)
-        print(cc.shape)
 
         for i, c in enumerate(usecolors):
             for j in range(self.nzbins):
