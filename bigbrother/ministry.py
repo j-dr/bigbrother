@@ -645,6 +645,9 @@ class Ministry:
 
                 metrics = self.metrics
 
+        #get rid of metrics that don't need to be mapped
+        metrics = [m for m in metrics if not m.nomap]
+
         self.metric_groups = self.genMetricGroups(metrics)
 
         for mg in self.metric_groups:

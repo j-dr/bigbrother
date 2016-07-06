@@ -1067,6 +1067,7 @@ class AnalyticLuminosityFunction(LuminosityFunction):
 
         LuminosityFunction.__init__(self,*args,**kwargs)
 
+        self.nomap = True
 
     def genDSGParams(self, z, evol='faber', Q=-0.866):
         """
@@ -1348,6 +1349,9 @@ class TabulatedLuminosityFunction(LuminosityFunction):
             self.ecol = None
 
         LuminosityFunction.__init__(self,*args,**kwargs)
+
+        #don't need to map this guy
+        self.nomap = True
 
     def loadLuminosityFunction(self):
         """
