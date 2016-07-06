@@ -39,8 +39,8 @@ class Ministry:
     A class which owns all the other catalog data
     """
 
-    _known_galaxy_catalog_types = ['BCC', 'S82Phot', 'S82Spec', 'DESGold']
-    _known_halo_catalog_types   = ['BCC']
+    _known_galaxy_catalog_types = ['BCC', 'S82Phot', 'S82Spec', 'DESGold', 'PlaceHolder']
+    _known_halo_catalog_types   = ['BCC', 'PlaceHolder']
 
     def __init__(self, omega_m, omega_l, h, minz, maxz, area=None,
                  boxsize=None):
