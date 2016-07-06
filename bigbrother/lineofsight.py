@@ -117,8 +117,8 @@ class DNDz(Metric):
             sax.set_xlabel(r'$z$')
 
         for i, c in enumerate(usecuts):
-            l1 = ax[i].step(self.zbins, np.hstack(self.dndz[:,c],
-                              self.dndz[-1,c]), where='post')
+            l1 = ax[i].step(self.zbins, np.hstack([self.dndz[:,c],
+                              self.dndz[-1,c]]), where='post')
 
         plt.tight_layout()
 
