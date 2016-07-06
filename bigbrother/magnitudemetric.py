@@ -543,7 +543,7 @@ class ColorColor(Metric):
                 f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
                                         ax=ax, f=f, **kwargs)
 
-            lines.append(l[0])
+            lines.append(l)
 
 
         if labels[0]!=None:
