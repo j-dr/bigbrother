@@ -523,8 +523,8 @@ class ColorColor(Metric):
         tocompare.extend(othermetrics)
 
         if usecolors!=None:
-            if not hasattr(usecols[0], '__iter__'):
-                usecolors = [usecols]*len(tocompare)
+            if not hasattr(usecolors[0], '__iter__'):
+                usecolors = [usecolors]*len(tocompare)
             else:
                 assert(len(usecolors)==len(tocompare))
         else:
