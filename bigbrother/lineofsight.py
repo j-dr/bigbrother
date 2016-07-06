@@ -96,6 +96,7 @@ class DNDz(Metric):
         if f is None:
             f, ax = plt.subplots(len(usecuts), sharex=True, sharey=True,
                                    figsize=(15,15))
+            ax = np.atleast_1d(ax)
             newaxes = True
         else:
             newaxes = False
