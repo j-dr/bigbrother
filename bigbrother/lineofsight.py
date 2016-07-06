@@ -11,8 +11,9 @@ from metric import Metric
 
 class DNDz(Metric):
 
-    def __init__(self, ministry, magbins=None, catalog_type=['galaxycatalog'],
-                    tag=None, appmag=True, lower_limit=True, cutband=None):
+    def __init__(self, ministry, zbins=None, magbins=None,
+                  catalog_type=['galaxycatalog'], tag=None, appmag=True,
+                  lower_limit=True, cutband=None):
         """
         Angular Number density of objects as a function of redshift.
         """
