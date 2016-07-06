@@ -24,9 +24,9 @@ class GalaxyCatalog(BaseCatalog):
 
         self.ctype = 'galaxycatalog'
         BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=None, nside=8,
-                                maskfile=None, filters=None,
-                                unitmap=None, goodpix=1,
+                                fieldmap=fieldmap, nside=nside,
+                                maskfile=maskfile, filters=filters,
+                                unitmap=unitmap, goodpix=goodpix,
                                 reader=reader)
 
     def calculateArea(self, pixels, nside):
