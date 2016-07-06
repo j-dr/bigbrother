@@ -1363,7 +1363,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
         """
 
         if len(self.fname)==1:
-            tab = np.loadtxt(self.fname[0])
+            tab = np.genfromtxt(self.fname[0])
             self.luminosity_function = np.zeros((tab.shape[0], self.nbands, self.nzbins))
             if len(tab.shape)==2:
                 self.magmean = tab[:,self.xcol]
@@ -1384,7 +1384,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
             if len(self.fname.shape)==1:
                 assert(self.fname.shape[0]==self.nzbins)
                 for i in range(len(self.fname)):
-                    lf = np.loadtxt(self.fname[i])
+                    lf = np.genfromtxt(self.fname[i])
                     if i==0:
                         self.magmean = lf[:,0]
                         self.luminosity_function = np.zeros((len(self.magmean), self.nbands, self.nzbins))
@@ -1397,7 +1397,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
             elif len(self.fname.shape)==2:
                 for i in range(self.fname.shape[0]):
                     for j in range(self.fname.shape[1]):
-                        lf = np.loadtxt(self.fname[i,j])
+                        lf = np.genfromtxt(self.fname[i,j])
                         if (i==0) & (j==0):
                             self.magmean = lf[:,0]
                             self.luminosity_function = np.zeros((len(self.magmean), self.nbands, self.nzbins))
