@@ -84,7 +84,11 @@ class GalaxyCatalog(BaseCatalog):
     def filterAppmag(self, mapunit, bands=None, badval=99.):
 
         if bands is None:
-            bands = range(mapunit['appmag'].shape[1])
+            if len(mapunit['appmag'].shape)>1:
+                bands = range(mapunit['appmag'].shape[1])
+            else:
+                bands = [0]
+                mapunit['appmag'] = np.atleast_2d(mapunit['appmag']).T
 
         for i, b in enumerate(bands):
             if i==0:

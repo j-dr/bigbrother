@@ -88,7 +88,7 @@ class DNDz(Metric):
 
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
-                  usecuts=None, **kwargs):
+                  usecuts=None, onepanel=False, **kwargs):
 
         if not hasattr(self, 'zmean'):
             self.zmean = (self.zbins[:-1]+self.zbins[1:])/2
@@ -97,8 +97,12 @@ class DNDz(Metric):
             usecuts = range(self.nmagbins)
 
         if f is None:
-            f, ax = plt.subplots(len(usecuts), sharex=True, sharey=True,
-                                   figsize=(15,15))
+            if not onepanel:
+                f, ax = plt.subplots(len(usecuts), sharex=True, sharey=True,
+                                    figsize=(15,15))
+            else:
+                f, ax = plt.subplots(1, figsize=(15,15))
+
             ax = np.atleast_1d(ax)
             newaxes = True
         else:
@@ -117,8 +121,12 @@ class DNDz(Metric):
             sax.set_xlabel(r'$z$')
 
         for i, c in enumerate(usecuts):
-            l1 = ax[i].step(self.zbins, np.hstack([self.dndz[:,c],
-                              self.dndz[-1,c]]), where='post')
+            if onepanel:
+                l1 = ax[0].step(self.zbins, np.hstack([self.dndz[:,c],
+                                self.dndz[-1,c]]), where='post')
+            else:
+                l1 = ax[i].step(self.zbins, np.hstack([self.dndz[:,c],
+                                self.dndz[-1,c]]), where='post')
 
         plt.tight_layout()
 
