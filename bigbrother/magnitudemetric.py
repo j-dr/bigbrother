@@ -1352,6 +1352,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
 
         #don't need to map this guy
         self.nomap = True
+        self.loadLuminosityFunction()
 
     def loadLuminosityFunction(self):
         """
