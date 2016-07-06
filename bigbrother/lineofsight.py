@@ -90,6 +90,9 @@ class DNDz(Metric):
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
                   usecuts=None, **kwargs):
 
+        if not hasattr(self, 'zmean'):
+            self.zmean = (self.zbins[:-1]+self.zbins[1:])/2
+
         if usecuts is None:
             usecuts = range(self.nmagbins)
 
@@ -110,11 +113,11 @@ class DNDz(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$\frac{dN}{dZ}\, [deg^{-2}]$')
-            sax.set_ylabel(r'$z$')
+            sax.set_ylabel(r'$\frac{dN}{dZ}\, [deg^{-2}]$')
+            sax.set_xlabel(r'$z$')
 
         for i, c in enumerate(usecuts):
-            l1 = ax[i].step(self.zbins, self.dndz[:,i])
+            l1 = ax[i].step(self.zmean, self.dndz[:,i])
 
         plt.tight_layout()
 
