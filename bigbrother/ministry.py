@@ -2,6 +2,7 @@ from __future__ import print_function, division
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
+from .basecatalog import PlaceHolder
 from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
 from .halo import HaloCatalog, BCCHaloCatalog
 from copy import copy, deepcopy
