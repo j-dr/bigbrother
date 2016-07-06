@@ -108,7 +108,7 @@ class BCCCatalog(GalaxyCatalog):
         self.metrics = [LuminosityFunction(self.ministry, zbins=zbins,
                             tag="AllLF"),
                         MagCounts(self.ministry, zbins=zbins, tag="BinZ"),
-                        MagCounts(self.ministry, zbins=zbins, tag="AllZ"),
+                        MagCounts(self.ministry, zbins=None, tag="AllZ"),
                         LuminosityFunction(self.ministry, zbins=zbins, central_only=True, tag="CentralLF"),
                         LcenMass(self.ministry, zbins=zbins),
                         ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1], tag="AllCMBinZ"),
