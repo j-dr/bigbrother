@@ -1339,9 +1339,9 @@ class TabulatedLuminosityFunction(LuminosityFunction):
             self.xcol = 0
 
         if 'ycol' in kwargs:
-            self.xcol = int(kwargs.pop('ycol'))
+            self.ycol = int(kwargs.pop('ycol'))
         else:
-            self.xcol = 1
+            self.ycol = 1
 
         if 'ecol' in kwargs:
             self.ecol = int(kwargs.pop('ecol'))
