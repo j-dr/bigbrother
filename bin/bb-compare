@@ -1,4 +1,4 @@
-#!/nfs/slac/g/ki/ki21/cosmo/jderose/anaconda/bin/python
+#!/bin/env python
 from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
@@ -69,6 +69,7 @@ if __name__=="__main__":
                     kw['plotname'] = plotname
 
                 mtr = cmtrs.pop(0)
+                plt.clf()
                 mtr.compare(cmtrs, **kw)
         else:
             plotname = "{0}_{1}.png".format(comp, ccfg['compare_version'])
@@ -93,4 +94,5 @@ if __name__=="__main__":
                 kw['plotname'] = plotname
 
             mtr = cmtrs.pop(0)
+            plt.clf()
             mtr.compare(cmtrs, **kw)
