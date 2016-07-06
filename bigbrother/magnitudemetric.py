@@ -493,8 +493,8 @@ class ColorColor(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 10,
-                                    **kwargs)
+                l1 = ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 10,
+                                        **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -514,22 +514,45 @@ class ColorColor(Metric):
             plt.savefig(plotname)
 
 
-        return f, ax
+        return f, ax, l1
 
-    def compare(self, othermetric, plotname=None, usecolors=None, **kwargs):
-        if usecolors is not None:
-            assert(len(usecolors[0])==len(usecolors[1]))
-            f, ax = self.visualize(usecolors=usecolors[0], compare=True,
-                                   **kwargs)
-            f, ax = othermetric.visualize(usecolors=usecolors[1], compare=True,
-                                          f=f, ax=ax, **kwargs)
+    def compare(self, othermetrics, plotname=None, usecolors=None,
+                  labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecolors!=None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecolors = [usecols]*len(tocompare)
+            else:
+                assert(len(usecolors)==len(tocompare))
         else:
-            f, ax = self.visualize(usecolors=usecolors, compare=True, **kwargs)
-            f, ax = othermetric[0].visualize(usecolors=usecolors, compare=True,
-                                          f=f, ax=ax, **kwargs)
+            usecolors = [None]*len(tocompare)
+
+        if labels is None:
+            labels = [None] * len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
+                                    **kwargs)
+            else:
+                f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
+                                        ax=ax, f=f, **kwargs)
+
+            lines.append(l[0])
+
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
 
         if plotname is not None:
             plt.savefig(plotname)
+
+        return f, ax
 
 
 
