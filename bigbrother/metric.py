@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
+from scipy.interpolate import InterpolatedUnivariateSpline
 #if __name__=='__main__':
 import matplotlib as mpl
 mpl.use('Agg')
