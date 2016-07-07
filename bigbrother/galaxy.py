@@ -9,6 +9,7 @@ import time
 
 from .basecatalog     import BaseCatalog
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum
+from .healpix_utils   import Area
 from .corrmetric      import GalaxyRadialProfileBCC
 
 
@@ -109,7 +110,8 @@ class BCCCatalog(GalaxyCatalog):
                  filters=None, unitmap=None, goodpix=None):
         GalaxyCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
         self.min = ministry
-        self.metrics = [LuminosityFunction(self.ministry, zbins=zbins,
+        self.metrics = [Area(self.ministry),
+                        LuminosityFunction(self.ministry, zbins=zbins,
                             tag="AllLF"),
                         MagCounts(self.ministry, zbins=zbins, tag="BinZ"),
                         MagCounts(self.ministry, zbins=None, tag="AllZ"),
@@ -304,7 +306,8 @@ class DESGoldCatalog(GalaxyCatalog):
         self.ministry = ministry
         self.parseFileStruct(filestruct)
         self.nside = nside
-        self.metrics = [MagCounts(self.ministry, zbins=None),
+        self.metrics = [Area(self.ministry),
+                        MagCounts(self.ministry, zbins=None),
                         ColorColor(self.ministry, zbins=None)]
         if fieldmap==None:
             self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']),

@@ -65,13 +65,13 @@ class PixMetric(Metric):
 
 class Area(Metric):
 
-    def __init__(self, ministry, nside=64, tag=None):
+    def __init__(self, ministry, nside=256, tag=None):
 
         Metric.__init__(self, ministry, tag=tag)
 
         self.nside = nside
 
-        self.mapkeys = ['polar_ang', 'azim_ang']
+        self.mapkeys = ['polar_ang', 'azim_ang', 'appmag']
         self.aschema = 'galaxyonly'
         self.catalog_type = ['galaxycatalog']
         self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
