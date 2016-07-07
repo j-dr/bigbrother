@@ -62,7 +62,8 @@ if __name__=="__main__":
                 for mn in ccfg['metrics'][comp]['ministry_name']:
                     mstry = mstrys[mn]
                     for mtr in mstry.metrics:
-                        if (mtr.__class__.__name__ == comp) & (mtr.tag == tag):
+                        if ( (mtr.__class__.__name__ in comp) | 
+                             ( comp in mtr.__class__.__name__) ) & (mtr.tag == tag):
                             cmtrs.append(mtr)
 
                 if 'keywords' in ccfg['metrics'][comp].keys():
@@ -86,7 +87,8 @@ if __name__=="__main__":
             for i, mn in enumerate(ccfg['metrics'][comp]['ministry_name']):
                 mstry = mstrys[mn]
                 for mtr in mstry.metrics:
-                    if mtr.__class__.__name__ == comp:
+                    if ( (mtr.__class__.__name__ in comp) | 
+                         ( comp in mtr.__class__.__name__) ):
                         cmtrs.append(mtr)
 
             if 'keywords' in ccfg['metrics'][comp].keys():
