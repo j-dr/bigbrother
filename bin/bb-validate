@@ -16,7 +16,7 @@ if __name__=="__main__":
     cfg = config.readCfg(cfgfile)
 
     try:
-        os.makedirs(cfg['outdir'])
+        os.makedirs(cfg['Ministry']['outdir'])
     except OSError as e:
         pass
 
