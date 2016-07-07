@@ -5,6 +5,7 @@ mpl.use('Agg')
 import matplotlib.pylab as plt
 import pickle
 import sys
+import os
 
 import bigbrother.config as config
 
@@ -25,10 +26,13 @@ if __name__=="__main__":
         #If there is a save file in the cfg
         #use this instead of running validations
         #over again.
-        if 'savefile' in cfg['Validate']:
-            with open(cfg['Validate']['savefile'], 'r') as fp:
+
+        #look for pickle of ministry, otherwise rerun validations
+        try:
+            with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'], 
+                                                    cfg['Ministry']['ministry_name']), 'r') as fp:
                 mstry = pickle.load(fp)
-        else:
+        except:
             mstry = config.parseConfig(cfg)
             mstry.validate()
 
@@ -39,14 +43,21 @@ if __name__=="__main__":
     #each tag under a key in compare corresponds to one plot
 
     ccfg = cfgs[midx]['Compare']
+    
+    try:
+        os.makedirs(ccfg['outdir'])
+    except OSError:
+        pass
 
     for comp in ccfg['metrics'].keys():
         if 'tag' in ccfg['metrics'][comp]:
             for i, tag in enumerate(ccfg['metrics'][comp]['tag']):
                 print('Comparing {0} with tag {1}'.format(comp, tag))
                 #set up comparison arguments
-                plotname = "{0}_{1}_{2}.png".format(comp, tag,
-                            ccfg['compare_version'])
+                plotname = "{0}/{1}_{2}_{3}.png".format(ccfg['outdir'], 
+                                                          comp, tag, 
+                                                          ccfg['compare_version'])
+
                 cmtrs = []
                 for mn in ccfg['metrics'][comp]['ministry_name']:
                     mstry = mstrys[mn]
@@ -69,9 +80,9 @@ if __name__=="__main__":
                 plt.clf()
                 mtr.compare(cmtrs, **kw)
         else:
-            plotname = "{0}_{1}.png".format(comp, ccfg['compare_version'])
+            print('Comparing {0}}'.format(comp, tag))            
+            plotname = "{0}/{1}_{2}.png".format(ccfg['outdir'], comp, ccfg['compare_version'])
             cmtrs = []
-            print('Comparing {0}'.format(comp))
             for i, mn in enumerate(ccfg['metrics'][comp]['ministry_name']):
                 mstry = mstrys[mn]
                 for mtr in mstry.metrics:
