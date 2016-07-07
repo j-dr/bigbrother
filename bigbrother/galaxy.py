@@ -307,8 +307,10 @@ class DESGoldCatalog(GalaxyCatalog):
         self.parseFileStruct(filestruct)
         self.nside = nside
         self.metrics = [Area(self.ministry),
-                        MagCounts(self.ministry, zbins=None),
-                        ColorColor(self.ministry, zbins=None)]
+                        MagCounts(self.ministry, tag='AllZ',
+                                    zbins=None),
+                        ColorColor(self.ministry, appmag=True,
+                                    tag='AllZ', zbins=None)]
         if fieldmap==None:
             self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']),
                                                    ('FLUX_AUTO_R',['auto']),

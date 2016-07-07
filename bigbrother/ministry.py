@@ -139,9 +139,9 @@ class Ministry:
         fieldmap = {}
         valid = {}
         for ctype in metric.catalog_type:
-            if not hasattr(self, ctype):
-                raise ValueError("This Ministry does not have"
-                                 "a catalog of type {0} as required"
+            if (getattr(self, ctype) is None):
+                raise ValueError("This Ministry does not have "
+                                 "a catalog of type {0} as required "
                                  "by {1}".format(ctype, metric.__class__.__name__))
             else:
                 cat = getattr(self, ctype)
@@ -253,6 +253,22 @@ class Ministry:
         else:
             return False
 
+    def compUnits(self, mg0, mg1):
+        """
+        Check if metrics have compatible unit
+        requirements
+        """
+        #ugly loop, but small data structure so okay
+        for m0 in mg0:
+            for m1 in mg1:
+                for k0 in m0.unitmap.keys():
+                    for k1 in m1.unitmap.keys():
+                        if k0 == k1:
+                            if m0.unitmap[k0] != m1.unitmap[k1]:
+                                return False
+        return True
+
+
     def genMetricGroups(self, metrics):
         """
         Given a list of metrics, group them together based
@@ -294,7 +310,7 @@ class Ministry:
             node = nodes[i]
             nomerge = True
             for edge in graph[node]:
-                if self.compFieldMaps(fms[node][0], fms[edge][0]) &  self.compAssoc(fms[node][1], fms[edge][1]):
+                if self.compFieldMaps(fms[node][0], fms[edge][0]) & self.compAssoc(fms[node][1], fms[edge][1]) & self.compUnits(fms[node][1], fms[edge][1]):
                     nomerge=False
                     m = [node, edge]
                     mg0 = fms[node]
@@ -540,9 +556,9 @@ class Ministry:
 
 
     def readMappable(self, mappable, fieldmap):
-        if hasattr(self, 'halocatalog') and (mappable.dtype in self.halocatalog.filetypes):
+        if (self.halocatalog is not None) and (mappable.dtype in self.halocatalog.filetypes):
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
-        elif hasattr(self, 'galaxycatalog') and (mappable.dtype in self.galaxycatalog.filetypes):
+        elif (self.galaxycatalog is not None) and (mappable.dtype in self.galaxycatalog.filetypes):
             mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
 
         if len(mappable.children)>0:
@@ -622,18 +638,18 @@ class Ministry:
 
     def convert(self, mapunit, metrics):
 
-        if hasattr(self,'galaxycatalog'):
+        if (self.galaxycatalog is not None):
             mapunit = self.galaxycatalog.convert(mapunit, metrics)
-        if hasattr(self,'halocatalog'):
+        if (self.halocatalog is not None):
             mapunit = self.halocatalog.convert(mapunit, metrics)
 
         return mapunit
 
     def filter(self, mapunit):
 
-        if hasattr(self,'galaxycatalog'):
+        if (self.galaxycatalog is not None):
             mapunit = self.galaxycatalog.filter(mapunit, self.galaxycatalog.fieldmap)
-        if hasattr(self,'halocatalog'):
+        if (self.halocatalog is not None):
             mapunit = self.halocatalog.filter(mapunit, self.halocatalog.fieldmap)
 
         return mapunit
@@ -651,9 +667,9 @@ class Ministry:
                 metrics = self.metrics
             except AttributeError as e:
                 self.metrics = []
-                if hasattr(self,'galaxycatalog'):
+                if (self.galaxycatalog is not None):
                     self.metrics.extend(self.galaxycatalog.metrics)
-                if hasattr(self,'halocatalog'):
+                if (self.halocatalog is not None):
                     self.metrics.extend(self.halocatalog.metrics)
 
                 metrics = self.metrics

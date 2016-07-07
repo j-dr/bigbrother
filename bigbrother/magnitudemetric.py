@@ -208,7 +208,6 @@ class MagCounts(MagnitudeMetric):
 
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
-
         if not hasattr(self, 'magcounts'):
             self.magcounts = np.zeros((len(self.magbins)-1,
                                        self.nbands, self.nzbins))

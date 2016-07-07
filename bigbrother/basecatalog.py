@@ -207,13 +207,14 @@ class BaseCatalog:
         Convert a map unit from the units given in the catalog
         to those required in metrics
         """
-
+        beenconverted = []
         for m in metrics:
             if self.ctype not in m.catalog_type:
                 continue
             for key in m.unitmap:
-                if key not in mapunit.keys():
-                    continue
+                if key in beenconverted: continue
+                if key not in mapunit.keys(): continue
+
                 elif self.unitmap[key]==m.unitmap[key]:
                     continue
 
@@ -223,6 +224,7 @@ class BaseCatalog:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
 
                 mapunit[key] = conversion(mapunit[key])
+                beenconverted.append(key)
 
         return mapunit
 
