@@ -16,7 +16,7 @@ if __name__=="__main__":
     cfg = config.readCfg(cfgfile)
 
     try:
-        os.makedirs(cfg['Ministry']['outdir'])
+        os.makedirs(cfg['Validate']['outdir'])
     except OSError as e:
         pass
 
@@ -31,6 +31,8 @@ if __name__=="__main__":
     pnames = {}
 
     for m in mstry.metrics:
+        if m.novis: continue
+
         plt.clf()
         if m.__class__.__name__ in pnames.keys():
             pn = m.__class__.__name__ + "_{0}".format(pnames[m.__class__.__name__])

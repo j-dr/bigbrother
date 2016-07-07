@@ -75,6 +75,7 @@ class Area(Metric):
         self.aschema = 'galaxyonly'
         self.catalog_type = ['galaxycatalog']
         self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
+        self.novis = True
         self.area = 0.0
 
     def map(self, mapunit):
