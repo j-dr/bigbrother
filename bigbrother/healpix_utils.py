@@ -67,7 +67,7 @@ class Area(Metric):
 
     def __init__(self, ministry, nside=256, tag=None):
 
-        Metric.__init__(self, ministry, tag=tag)
+        Metric.__init__(self, ministry, tag=tag, novis=True)
 
         self.nside = nside
 
@@ -75,7 +75,6 @@ class Area(Metric):
         self.aschema = 'galaxyonly'
         self.catalog_type = ['galaxycatalog']
         self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
-        self.novis = True
         self.area = 0.0
 
     def map(self, mapunit):

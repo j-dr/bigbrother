@@ -15,7 +15,8 @@ class Metric(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, ministry, catalog_type=None, tag=None, nomap=False):
+    def __init__(self, ministry, catalog_type=None, tag=None, nomap=False,
+                   novis=False):
         """
         Simple init method. At the very least, init methods for subclasses
         should take a ministry object as an argument.
@@ -24,6 +25,7 @@ class Metric(object):
         self.catalog_type = catalog_type
         self.tag = tag
         self.nomap = nomap
+        self.novis = novis
 
     @abstractmethod
     def map(self, mapunit):

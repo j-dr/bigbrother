@@ -23,7 +23,7 @@ if __name__=="__main__":
     mstry = config.parseConfig(cfg)
     mstry.validate(nmap=cfg['Validate']['nmap'])
 
-    if 'savefile' in cfg['Validate'].keys():
+    if 'outdir' in cfg['Validate'].keys():
         with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'], 
                     cfg['Ministry']['ministry_name']), 'w') as fp:
             pickle.dump(mstry, fp)
@@ -40,6 +40,10 @@ if __name__=="__main__":
         else:
             pn = m.__class__.__name__
             pnames[m.__class__.__name__] = 1
+
+        print("{0}/{1}_{2}.png".format(cfg['Validate']['outdir'],
+                                                      cfg['Ministry']['ministry_name'],
+                                                      pn))
 
         m.visualize(plotname="{0}/{1}_{2}.png".format(cfg['Validate']['outdir'],
                                                       cfg['Ministry']['ministry_name'],
