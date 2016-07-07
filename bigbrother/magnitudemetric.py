@@ -1418,4 +1418,5 @@ class TabulatedLuminosityFunction(LuminosityFunction):
 
                         self.luminosity_function[:,j,i] = lf[:,1]
 
+        self.xmean = self.magmean
         self.y = self.luminosity_function
