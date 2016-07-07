@@ -174,6 +174,7 @@ class LuminosityFunction(MagnitudeMetric):
 
         if xlabel is None:
             xlabel = "Mag"
+            
         if ylabel is None:
             ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
 
@@ -241,8 +242,12 @@ class MagCounts(MagnitudeMetric):
 
         if xlabel is None:
             xlabel = "Mag"
-        if ylabel is None:
-            ylabel = r'$n \, [mag^{-1}\, deg^{-2}]$'
+        if self.cumulative:
+            if ylabel is None:
+                ylabel = r'$N(>m) \, [deg^{-2}]$'
+        else:
+            if ylabel is None:
+                ylabel = r'$n \, [mag^{-1}\, deg^{-2}]$'
 
         return MagnitudeMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                                          fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,

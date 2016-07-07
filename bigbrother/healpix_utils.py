@@ -79,7 +79,8 @@ class Area(Metric):
 
     def map(self, mapunit):
 
-        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
+        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'],
+                         nest=True)
         upix = np.unique(pix)
         area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
         self.area += area

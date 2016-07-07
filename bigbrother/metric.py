@@ -273,7 +273,7 @@ class GMetric(Metric):
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
             sax.set_xlabel(r'%s' % xlabel, fontsize=18)
             sax.set_ylabel(r'%s' % ylabel, fontsize=20)
-            plt.tight_layout()
+            #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -343,10 +343,10 @@ class GMetric(Metric):
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                         fylim=fylim, f=f, ax=ax, fracdev=False,
                                         compare=True, label=labels[i], **kwargs)
-            lines.append(l[0])
+            lines.extend(l)
 
         if labels[0]!=None:
-            f.legend(lines, labels)
+            f.legend(lines, labels, 'best')
 
         if plotname!=None:
             plt.savefig(plotname)

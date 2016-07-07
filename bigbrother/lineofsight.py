@@ -151,7 +151,7 @@ class DNDz(Metric):
                 l1 = ax[i].step(self.zbins, np.hstack([self.dndz[:,c],
                                 self.dndz[-1,c]]), where='post')
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if (plotname is not None) and (not compare):
             plt.savefig(plotname)
@@ -183,10 +183,10 @@ class DNDz(Metric):
             else:
                 f, ax, l1 = m.visualize(usecuts=usecuts[i], compare=True,
                                     f=f, ax=ax, **kwargs)
-            lines.append(l1)
+            lines.extend(l1)
 
         if labels[0]!=None:
-            f.legend(lines, labels)
+            f.legend(lines, labels, 'best')
 
         if plotname is not None:
             plt.savefig(plotname)
