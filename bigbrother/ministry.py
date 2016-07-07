@@ -71,6 +71,8 @@ class Ministry:
         self.minz = minz
         self.maxz = maxz
         self.one_metric_group = one_metric_group
+        self.galaxycatalog = None
+        self.halocatalog = None
 
         if area is None:
             self.area = 0.0
