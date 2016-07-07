@@ -4,12 +4,12 @@ from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
 import healpy as hp
 import numpy as np
-import helpers
 import fitsio
 import time
 
 from .basecatalog     import BaseCatalog
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum
+from .healpix_utils   import Area
 from .corrmetric      import GalaxyRadialProfileBCC
 
 
@@ -19,15 +19,15 @@ class GalaxyCatalog(BaseCatalog):
     """
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=1,
-                 reader='fits'):
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None,
+                 reader=None):
 
         self.ctype = 'galaxycatalog'
         BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=None, nside=8,
-                                maskfile=None, filters=None,
-                                unitmap=None, goodpix=1,
+                                fieldmap=fieldmap, nside=nside,
+                                maskfile=maskfile, filters=filters,
+                                unitmap=unitmap, goodpix=goodpix,
                                 reader=reader)
 
     def calculateArea(self, pixels, nside):
@@ -85,13 +85,17 @@ class GalaxyCatalog(BaseCatalog):
     def filterAppmag(self, mapunit, bands=None, badval=99.):
 
         if bands is None:
-            bands = range(mapunit['appmag'].shape[1])
+            if len(mapunit['appmag'].shape)>1:
+                bands = range(mapunit['appmag'].shape[1])
+            else:
+                bands = [0]
+                mapunit['appmag'] = np.atleast_2d(mapunit['appmag']).T
 
         for i, b in enumerate(bands):
             if i==0:
-                idx = mapunit['appmag'][:,b]!=badval
+                idx = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b]))
             else:
-                idxi = mapunit['appmag'][:,b]!=badval
+                idxi = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b]))
                 idx = idx&idxi
 
         return idx
@@ -102,18 +106,24 @@ class BCCCatalog(GalaxyCatalog):
     """
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=1):
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None):
         GalaxyCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
         self.min = ministry
-        self.metrics = [LuminosityFunction(self.ministry, zbins=zbins),
-                        MagCounts(self.ministry, zbins=zbins),
-                        LuminosityFunction(self.ministry, zbins=zbins, central_only=True),
+        self.metrics = [Area(self.ministry),
+                        LuminosityFunction(self.ministry, zbins=zbins,
+                            tag="AllLF"),
+                        MagCounts(self.ministry, zbins=zbins, tag="BinZ"),
+                        MagCounts(self.ministry, zbins=None, tag="AllZ"),
+                        LuminosityFunction(self.ministry, zbins=zbins, central_only=True, tag="CentralLF"),
                         LcenMass(self.ministry, zbins=zbins),
-                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1]),
-                        ColorMagnitude(self.ministry, zbins=zbins,                                            usebands=[0,1],
-                          central_only=True),
-                        ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2]),
+                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1], tag="AllCMBinZ"),
+                        ColorMagnitude(self.ministry, zbins=zbins,
+                                        usebands=[0,1],
+                                        central_only=True, tag="CentralCMBinZ"),
+                        ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2], tag="BinZ"),
+                        ColorColor(self.ministry, zbins=None,
+                         usebands=[0,1,2], tag="AllZ"),
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),
                         FQuenchedLum(self.ministry, zbins=zbins),
                         GalaxyRadialProfileBCC(self.ministry, zbins=zbins)]
@@ -124,14 +134,15 @@ class BCCCatalog(GalaxyCatalog):
         else:
             self.filters = filters
 
-        self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh'}
+        self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
+                          'azim_ang':'ra', 'polar_ang':'dec'}
 
         if fieldmap is None:
-            self.fieldmap = {'luminosity':OrderedDict([('AMAG',['truth'])]),
+            self.fieldmap = {'luminosity':OrderedDict([('AMAG',['gtruth'])]),
                              'appmag':OrderedDict([('MAG_G',['obs']), ('MAG_R',['obs']),
                                                    ('MAG_I',['obs']), ('MAG_Z',['obs']),
                                                    ('MAG_Y',['obs'])]),
-                             'redshift':OrderedDict([('Z',['truth'])])}
+                             'redshift':OrderedDict([('Z',['gtruth'])])}
             self.sortbyz = True
         else:
             self.fieldmap = fieldmap
@@ -172,8 +183,6 @@ class BCCCatalog(GalaxyCatalog):
                     self.filestruct[ft] = [self.filestruct[ft][idx]]
                 else:
                     self.filestruct[ft] = self.filestruct[ft][idx]
-
-                print(len(self.filestruct[ft]))
 
     def pixelVal(self,mappable):
         """
@@ -297,8 +306,11 @@ class DESGoldCatalog(GalaxyCatalog):
         self.ministry = ministry
         self.parseFileStruct(filestruct)
         self.nside = nside
-        self.metrics = [MagCounts(self.ministry, zbins=None),
-                        ColorColor(self.ministry, zbins=None)]
+        self.metrics = [Area(self.ministry),
+                        MagCounts(self.ministry, tag='AllZ',
+                                    zbins=None),
+                        ColorColor(self.ministry, appmag=True,
+                                    tag='AllZ', zbins=None)]
         if fieldmap==None:
             self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']),
                                                    ('FLUX_AUTO_R',['auto']),
@@ -316,7 +328,7 @@ class DESGoldCatalog(GalaxyCatalog):
             self.unitmap = unitmap
 
         if filters is None:
-            self.filters = ['Modest']
+            self.filters = ['Modest', 'Appmag']
         else:
             self.filters = filters
 

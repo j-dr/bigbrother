@@ -13,12 +13,12 @@ class AngularCorrelationFunction(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, mintheta=1e-2,
                  maxtheta=1, nabins=15, subjack=False,
-                 catalog_type=['galaxycatalog']):
+                 catalog_type=['galaxycatalog'], tag=None):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
         """
-        Metric.__init__(self, ministry)
+        Metric.__init__(self, ministry, tag=tag)
         self.catalog_type = catalog_type
 
         if zbins is None:
@@ -139,12 +139,13 @@ class AngularCorrelationFunction(Metric):
 class GalaxyRadialProfileBCC(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
-                 massbins=None, subjack=False, catalog_type=['galaxycatalog']):
+                 massbins=None, subjack=False, catalog_type=['galaxycatalog'],
+                 tag=None):
         """
         Radial profile of galaxies around their nearest halos.
         """
 
-        Metric.__init__(self, ministry)
+        Metric.__init__(self, ministry, tag=tag)
 
         self.catalog_type = catalog_type
 
@@ -184,13 +185,9 @@ class GalaxyRadialProfileBCC(Metric):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             for j, l in enumerate(self.lumbins[:-1]):
-                lidx = (self.lumbins[i]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[i+1])
-                print(mapunit['rhalo'][zlidx:zhidx][lidx])
+                lidx = (self.lumbins[j]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[j+1])
                 c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][lidx], bins=self.rbins)
                 self.rprof[:,j,i] += c
-                print(c)
-                print(zhidx-zlidx)
-                print(np.sum(lidx))
 
     def reduce(self):
 
@@ -243,47 +240,3 @@ class GalaxyRadialProfileBCC(Metric):
 
     def compare(self):
         pass
-
-
-class NofZ(Metric):
-
-    def __init__(self, ministry, magbins=None, catalog_type=['galaxycatalog']):
-        """
-        Number density of objects as a function of redshift.
-        """
-
-        Metric.__init__(self, ministry)
-
-        self.catalog_type = catalog_type
-
-        if zbins is None:
-            self.zbins = [0.0, 0.2]
-        else:
-            self.zbins = zbins
-            self.zbins = np.array(self.zbins)
-
-        self.nzbins = len(self.zbins)-1
-
-        if lumbins is None:
-            self.lumbins = np.array([-22, -21, -20, -19])
-        else:
-            self.lumbins = lumbins
-
-        self.nlumbins = len(self.lumbins)-1
-
-        if rbins is None:
-            self.rbins = np.logspace(-2, 1, 21)
-        else:
-            self.rbins = rbins
-
-        self.nrbins = len(self.rbins)-1
-
-        self.aschema = 'galaxyonly'
-
-        self.mapkeys = ['luminosity', 'redshift', 'rhalo']
-        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
-
-    def map(self, mapunit):
-
-        if not hasattr(self, 'rprof'):
-            self.rprof = np.zeros((self.nrbins, self.nlumbins, self.nzbins))

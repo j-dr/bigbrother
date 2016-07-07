@@ -2,12 +2,12 @@ from __future__ import print_function, division
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
+from .basecatalog import PlaceHolder
 from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
 from .halo import HaloCatalog, BCCHaloCatalog
 from copy import copy, deepcopy
 import numpy as np
 import healpy as hp
-import helpers
 import fitsio
 import time
 
@@ -23,9 +23,9 @@ class Mappable(object):
     """
     A tree which contains information on the order in which files should be read
     """
-    
+
     def __init__(self, name, dtype, children=None, childtype=None):
-        
+
         self.name = name
         self.dtype = dtype
         if children==None:
@@ -37,17 +37,17 @@ class Mappable(object):
 
 class Ministry:
     """
-    A class which owns all the other catalog data 
+    A class which owns all the other catalog data
     """
 
-    _known_galaxy_catalog_types = ['BCC', 'S82Phot', 'S82Spec', 'DESGold']
-    _known_halo_catalog_types   = ['BCC']
-    
-    def __init__(self, omega_m, omega_l, h, minz, maxz, area=0.0,
-                 boxsize=None):
+    _known_galaxy_catalog_types = ['BCC', 'S82Phot', 'S82Spec', 'DESGold', 'PlaceHolder']
+    _known_halo_catalog_types   = ['BCC', 'PlaceHolder']
+
+    def __init__(self, omega_m, omega_l, h, minz, maxz, area=None,
+                 boxsize=None, one_metric_group=False):
         """
         Initialize a ministry object
-        
+
         Arguments
         ---------
         omega_m : float
@@ -70,14 +70,22 @@ class Ministry:
         self.cosmo = FlatLambdaCDM(H0=100*h, Om0=omega_m)
         self.minz = minz
         self.maxz = maxz
+        self.one_metric_group = one_metric_group
+        self.galaxycatalog = None
+        self.halocatalog = None
+
+        if area is None:
+            self.area = 0.0
+        else:
+            self.area = area
+
         if minz!=maxz:
             self.lightcone = True
         else:
             self.lightcone = False
             self.boxsize = boxsize
 
-        self.area = area
-        self.volume = self.calculate_volume(area,self.minz,self.maxz)
+        self.volume = self.calculate_volume(self.area,self.minz,self.maxz)
 
 
     def calculate_volume(self,area,minz,maxz):
@@ -87,17 +95,17 @@ class Ministry:
             return (area/41253)*(4/3*np.pi)*(rmax**3-rmin**3)
         else:
             return (self.boxsize*self.h)**3
-        
-        
+
+
     def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
                          unitmap=None, filters=None, zbins=None, maskfile=None,
-                         goodpix=1):
+                         goodpix=None):
         """
         Fill in the galaxy catalog information
         """
 
         if catalog_type == "BCC":
-            self.galaxycatalog = BCCCatalog(self, filestruct,  zbins=zbins, 
+            self.galaxycatalog = BCCCatalog(self, filestruct,  zbins=zbins,
                                             fieldmap=fieldmap, unitmap=unitmap,
                                             filters=filters, maskfile=maskfile,
                                             goodpix=goodpix)
@@ -106,9 +114,11 @@ class Ministry:
         elif catalog_type == "S82Spec":
             self.galaxycatalog = S82SpecCatalog(self, None)
         elif catalog_type == "DESGold":
-            self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile, 
+            self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile,
                                                 goodpix=goodpix, fieldmap=fieldmap,
                                                 unitmap=unitmap, filters=filters)
+        elif catalog_type == "PlaceHolder":
+            self.galaxycatalog = PlaceHolder(self, None)
 
     def setHaloCatalog(self, catalog_type, filestruct, fieldmap=None,
                        zbins=None, maskfile=None, goodpix=1, unitmap=None,
@@ -118,24 +128,26 @@ class Ministry:
         """
 
         if catalog_type == "BCC":
-            self.halocatalog = BCCHaloCatalog(self, filestruct, zbins=zbins, 
-                                              fieldmap=fieldmap, maskfile=maskfile, 
+            self.halocatalog = BCCHaloCatalog(self, filestruct, zbins=zbins,
+                                              fieldmap=fieldmap, maskfile=maskfile,
                                               goodpix=goodpix)
+        elif catalog_type == "PlaceHolder":
+            self.galaxycatalog = PlaceHolder(self, None)
 
     def getMetricDependencies(self, metric):
-        
+
         fieldmap = {}
         valid = {}
         for ctype in metric.catalog_type:
-            if not hasattr(self, ctype):
-                raise ValueError("This Ministry does not have"
-                                 "a catalog of type {0} as required"
+            if (getattr(self, ctype) is None):
+                raise ValueError("This Ministry does not have "
+                                 "a catalog of type {0} as required "
                                  "by {1}".format(ctype, metric.__class__.__name__))
             else:
                 cat = getattr(self, ctype)
 
-            #go through metric dependencies, checking if 
-            #this catalog satisfies them. If it does, create 
+            #go through metric dependencies, checking if
+            #this catalog satisfies them. If it does, create
             #the map from the metric dependency to the catalog
             #fields as specified by the catalog's field map
 
@@ -166,14 +178,14 @@ class Ministry:
                                     fieldmap[ft][mapkey] = [fieldmap[ft][mapkey],field]
                             else:
                                 fieldmap[ft][mapkey] = field
-                                
+
                             valid[mapkey] = True
-        
+
         notavail = []
         for key in valid.keys():
             if not valid[key]:
                 notavail.append(key)
-        
+
         if len(notavail)>0:
             raise Exception("Mapkeys {0} are not available. Required by {1}!".format(notavail, metric.__class__.__name__))
 
@@ -230,7 +242,7 @@ class Ministry:
             m0 = mg0[0]
         else:
             m0 = mg0
-            
+
         if hasattr(mg1, '__iter__'):
             m1 = mg1[0]
         else:
@@ -240,18 +252,34 @@ class Ministry:
             return True
         else:
             return False
-        
+
+    def compUnits(self, mg0, mg1):
+        """
+        Check if metrics have compatible unit
+        requirements
+        """
+        #ugly loop, but small data structure so okay
+        for m0 in mg0:
+            for m1 in mg1:
+                for k0 in m0.unitmap.keys():
+                    for k1 in m1.unitmap.keys():
+                        if k0 == k1:
+                            if m0.unitmap[k0] != m1.unitmap[k1]:
+                                return False
+        return True
+
+
     def genMetricGroups(self, metrics):
         """
         Given a list of metrics, group them together based
-        on what types of data they require so that 
+        on what types of data they require so that
         groups of metrics can be run on the same mappables
 
         inputs
         ------
         metrics -- list
         A list of Metric objects to be grouped together
-        
+
         outputs
         ------
         fms -- list
@@ -259,41 +287,49 @@ class Ministry:
         of metrics. The second element are the groups of metrics
         themselves, formatted in lists.
         """
-        
+
         fieldmaps = [self.getMetricDependencies(m) for m in metrics]
         metrics = [[m] for m in metrics]
         fms = zip(fieldmaps, metrics)
+
+        if self.one_metric_group:
+            fm = fms.pop()
+            while len(fms)>0:
+                fm = self.combineFieldMaps(fm, fms.pop())
+                
+            return [fm]
+
         nodes = range(len(fms))
         snodes = set(nodes)
         graph = {f:snodes.difference(set([f])) for f in snodes}
-        
+
         i = 0
         while i < len(nodes)-1:
-            #iterate through nodes, figuring out 
+            #iterate through nodes, figuring out
             #which nodes to merge
             node = nodes[i]
             nomerge = True
             for edge in graph[node]:
-                if self.compFieldMaps(fms[node][0], fms[edge][0]) &  self.compAssoc(fms[node][1], fms[edge][1]):
+                if self.compFieldMaps(fms[node][0], fms[edge][0]) & self.compAssoc(fms[node][1], fms[edge][1]) & self.compUnits(fms[node][1], fms[edge][1]):
                     nomerge=False
                     m = [node, edge]
                     mg0 = fms[node]
                     mg1 = fms[edge]
-                    
+
                     #store new metric group in nfm to be added
                     #to graph later
                     nfm = self.combineFieldMaps(mg0, mg1)
-                    
-                    #pop the one with the lower index first so 
+
+                    #pop the one with the lower index first so
                     #we know where the second element is afterwards
                     fms.pop(min(m))
                     nodes.pop(min(m))
                     fms.pop(max(m)-1)
                     nodes.pop(max(m)-1)
-                    
+
                     fms.append(nfm)
-                    
-                    #reconstruct graph with merged nodes 
+
+                    #reconstruct graph with merged nodes
                     nodes = range(len(fms))
                     snodes = set(nodes)
                     graph = {f:snodes.difference(set([f])) for f in snodes}
@@ -307,13 +343,13 @@ class Ministry:
     def combineFieldMaps(self, fm1, fm2):
         """
         Combine field maps associated with two different metrics.
-        The field maps must be compatible in the sense that 
+        The field maps must be compatible in the sense that
         comparing them using compFieldMaps returns True
         """
         #make sure compatible
 
-        if not self.compFieldMaps(fm1[0], fm2[0]):
-            raise ValueError("Field maps are not compatible!")
+        #if not self.compFieldMaps(fm1[0], fm2[0]):
+        #    raise ValueError("Field maps are not compatible!")
 
         cfm = {}
         ft1 = set(fm1[0].keys())
@@ -331,12 +367,14 @@ class Ministry:
         fm1 = fm1[0]
         fm2 = fm2[0]
 
-
-            
         ift = ft1-ft2
 
         for ft in ft2:
-            mk1 = set(fm1[ft].keys())
+            if ft not in fm1.keys():
+                mk1 = set([])
+            else:
+                mk1 = set(fm1[ft].keys())
+
             mk2 = set(fm2[ft].keys())
             umk = mk1.union(mk2)
             f = []
@@ -383,7 +421,7 @@ class Ministry:
                 zft.append(ft)
             else:
                 nzft.append(ft)
-        
+
         filetypes = zft
         filetypes.extend(nzft)
 
@@ -402,7 +440,7 @@ class Ministry:
             mappables.append(root)
 
         return mappables
-         
+
     def galaxyGalaxyMappable(self, fieldmap):
 
         raise NotImplementedError
@@ -413,17 +451,17 @@ class Ministry:
 
     def haloGalaxyMappable(self, fieldmap, nside=8):
 
-        #combine file structures for halo 
+        #combine file structures for halo
         #and galaxy catalogs
         fs  = self.galaxycatalog.filestruct
         hfs = self.halocatalog.filestruct
         fs.update(hfs)
 
-        gft = [ft for ft in fieldmap.keys() if ft 
+        gft = [ft for ft in fieldmap.keys() if ft
                in self.galaxycatalog.filestruct.keys()]
-        hft = [ft for ft in fieldmap.keys() if ft 
+        hft = [ft for ft in fieldmap.keys() if ft
                in self.halocatalog.filestruct.keys()]
-        
+
         #get a filetype necessary for halo catalog
         hkey = hft[0]
 
@@ -462,7 +500,7 @@ class Ministry:
         """
         Given an association schema, determine which files intersect
         """
-        
+
         idx = []
 
         if aschema=='halogalaxy':
@@ -471,10 +509,10 @@ class Ministry:
                 nbrs = hp.get_all_neighbours(nside, p, nest=nest)
                 pix.append(nbrs)
                 pix = np.array(pix)
-                
+
                 #iterate through pixel lists of secondary file
-                #type. If any pixels in these files are 
-                #neighbors of the primary pixel then we 
+                #type. If any pixels in these files are
+                #neighbors of the primary pixel then we
                 #need to read this file
                 for i, ip in enumerate(p2):
                     fidx = np.in1d(ip, pix)
@@ -495,13 +533,20 @@ class Ministry:
 
         if hasattr(m, '__iter__'):
             aschema = m[0].aschema
+            ct      = m[0].catalog_type[0]
         else:
             aschema = m.aschema
+            ct      = m.catalog_type[0]
 
         if aschema == 'galaxyonly':
             return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
         elif aschema == 'haloonly':
             return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+        elif aschema == 'singleonly':
+            if ct == 'galaxycatalog':
+                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
+            if ct == 'halocatalog':
+                return self.singleTypeMappable(fm, self.halocatalog.filestruct)
         elif aschema == 'galaxygalaxy':
             return self.galaxyGalaxyMappable(fm)
         elif aschema == 'halohalo':
@@ -511,9 +556,9 @@ class Ministry:
 
 
     def readMappable(self, mappable, fieldmap):
-        if hasattr(self, 'halocatalog') and (mappable.dtype==self.halocatalog.filetypes):
+        if (self.halocatalog is not None) and (mappable.dtype in self.halocatalog.filetypes):
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
-        elif hasattr(self, 'galaxycatalog') and (mappable.dtype in self.galaxycatalog.filetypes):
+        elif (self.galaxycatalog is not None) and (mappable.dtype in self.galaxycatalog.filetypes):
             mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
 
         if len(mappable.children)>0:
@@ -529,9 +574,9 @@ class Ministry:
         are working with doesn't, turn the tree
         into the old dict structure
         """
-        
+
         mu = {}
-        
+
         while len(mapunit.children)>0:
             if len(mapunit.children)>1:
                 raise ValueError("mapunit has more than one branch!")
@@ -540,12 +585,12 @@ class Ministry:
                 if key in mu.keys():
                     shp0 = mu[key].shape
                     shp1 = mapunit.data[key].shape
-                    
+
                     if os[0]!=ns[0]:
                         raise ValueError("Sizes of data for same mapkey {0} do not match!".format(key))
 
                     nshp = [shp0[0], shp0[1]+shp1[1]]
-                    
+
                     d = np.ndarray(nshp)
                     d[:,:shp0[1]] = mu[key]
                     d[:,shp0[1]:] = mapunit.data[key]
@@ -558,25 +603,25 @@ class Ministry:
             if key in mu.keys():
                 shp0 = mu[key].shape
                 shp1 = mapunit.data[key].shape
-                
+
                 if os[0]!=ns[0]:
                     raise ValueError("Sizes of data for same mapkey {0} do not match!".format(key))
-                
+
                 nshp = [shp0[0], shp0[1]+shp1[1]]
-                
+
                 d = np.ndarray(nshp)
                 d[:,:shp0[1]] = mu[key]
                 d[:,shp0[1]:] = mapunit.data[key]
             else:
                 mu[key] = mapunit.data[key]
-            
+
         return mu
 
     def sortByZ(self, mappable, fieldmap, idx):
         """
         Sort a mappable by redshift for each galaxy type
         """
-        
+
         if 'redshift' in fieldmap[mappable.dtype].keys():
             idx = mappable.data['redshift'].argsort()
 
@@ -585,26 +630,26 @@ class Ministry:
         if len(idx)==len(mappable.data[dk[0]]):
             for k in dk:
                 mappable.data[k] = mappable.data[k][idx]
-                
-        
+
+
         if len(mappable.children)>0:
             for child in mappable.children:
                 self.sortByZ(child, fieldmap, idx)
 
     def convert(self, mapunit, metrics):
 
-        if hasattr(self,'galaxycatalog'):
+        if (self.galaxycatalog is not None):
             mapunit = self.galaxycatalog.convert(mapunit, metrics)
-        if hasattr(self,'halocatalog'):
+        if (self.halocatalog is not None):
             mapunit = self.halocatalog.convert(mapunit, metrics)
 
         return mapunit
 
     def filter(self, mapunit):
 
-        if hasattr(self,'galaxycatalog'):
+        if (self.galaxycatalog is not None):
             mapunit = self.galaxycatalog.filter(mapunit, self.galaxycatalog.fieldmap)
-        if hasattr(self,'halocatalog'):
+        if (self.halocatalog is not None):
             mapunit = self.halocatalog.filter(mapunit, self.halocatalog.fieldmap)
 
         return mapunit
@@ -613,24 +658,27 @@ class Ministry:
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
-        which are reduced at the end of the iteration into observables 
+        which are reduced at the end of the iteration into observables
         that we care about
         """
-        
+
         if metrics==None:
             try:
                 metrics = self.metrics
             except AttributeError as e:
                 self.metrics = []
-                if hasattr(self,'galaxycatalog'):                
+                if (self.galaxycatalog is not None):
                     self.metrics.extend(self.galaxycatalog.metrics)
-                if hasattr(self,'halocatalog'):                
+                if (self.halocatalog is not None):
                     self.metrics.extend(self.halocatalog.metrics)
 
                 metrics = self.metrics
-        
+
+        #get rid of metrics that don't need to be mapped
+        metrics = [m for m in metrics if not m.nomap]
+
         self.metric_groups = self.genMetricGroups(metrics)
-        
+
         for mg in self.metric_groups:
             sbz = False
             ms  = mg[1]
@@ -638,9 +686,9 @@ class Ministry:
             for ft in fm.keys():
                 if 'redshift' in fm[ft].keys():
                     sbz = True
-                    
+
             for i, mappable in enumerate(self.genMappables(mg)):
-                if (nmap is not None) & (i>nmap): break
+                if (nmap is not None) & (i>=nmap): break
 
                 mapunit = self.readMappable(mappable, fm)
 
@@ -659,7 +707,7 @@ class Ministry:
                 for m in ms:
                     print('*****{0}*****'.format(m.__class__.__name__))
                     m.map(mapunit)
-                    
+
                 del mapunit
 
         for mg in self.metric_groups:

@@ -1,0 +1,105 @@
+#!/bin/env python
+from __future__ import print_function, division
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pylab as plt
+import pickle
+import sys
+import os
+
+import bigbrother.config as config
+
+if __name__=="__main__":
+
+    cfgs   = []
+    mstrys = {}
+    ncfg = len(sys.argv)-1
+
+    for i in range(ncfg):
+        cfg   = config.readCfg(sys.argv[i+1])
+        #only one config file should have
+        #a Compare field. This defines
+        #which catalogs should be compared
+        if 'Compare' in cfg.keys():
+            midx = i
+
+        #If there is a save file in the cfg
+        #use this instead of running validations
+        #over again.
+
+        #look for pickle of ministry, otherwise rerun validations
+        try:
+            with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'], 
+                                                    cfg['Ministry']['ministry_name']), 'r') as fp:
+                mstry = pickle.load(fp)
+        except:
+            mstry = config.parseConfig(cfg)
+            mstry.validate()
+
+        cfgs.append( cfg )
+        mstrys[cfg['Ministry']['ministry_name']] = mstry
+
+    #Make comparisons specified by by the Compare field
+    #each tag under a key in compare corresponds to one plot
+
+    ccfg = cfgs[midx]['Compare']
+    
+    try:
+        os.makedirs(ccfg['outdir'])
+    except OSError:
+        pass
+
+    for comp in ccfg['metrics'].keys():
+        if 'tag' in ccfg['metrics'][comp]:
+            for i, tag in enumerate(ccfg['metrics'][comp]['tag']):
+                print('Comparing {0} with tag {1}'.format(comp, tag))
+                #set up comparison arguments
+                plotname = "{0}/{1}_{2}_{3}.png".format(ccfg['outdir'], 
+                                                          comp, tag, 
+                                                          ccfg['compare_version'])
+
+                cmtrs = []
+                for mn in ccfg['metrics'][comp]['ministry_name']:
+                    mstry = mstrys[mn]
+                    for mtr in mstry.metrics:
+                        if (mtr.__class__.__name__ == comp) & (mtr.tag == tag):
+                            cmtrs.append(mtr)
+
+                if 'keywords' in ccfg['metrics'][comp].keys():
+                    kw = ccfg['metrics'][comp]['keywords'][tag]
+                else:
+                    kw = {}
+
+                if 'labels' not in kw.keys():
+                    kw['labels'] = ccfg['metrics'][comp]['ministry_name']
+
+                if 'plotname' not in kw.keys():
+                    kw['plotname'] = plotname
+
+                mtr = cmtrs.pop(0)
+                plt.clf()
+                mtr.compare(cmtrs, **kw)
+        else:
+            print('Comparing {0}}'.format(comp, tag))            
+            plotname = "{0}/{1}_{2}.png".format(ccfg['outdir'], comp, ccfg['compare_version'])
+            cmtrs = []
+            for i, mn in enumerate(ccfg['metrics'][comp]['ministry_name']):
+                mstry = mstrys[mn]
+                for mtr in mstry.metrics:
+                    if mtr.__class__.__name__ == comp:
+                        cmtrs.append(mtr)
+
+            if 'keywords' in ccfg['metrics'][comp].keys():
+                kw = ccfg['metrics'][comp]['keywords']
+            else:
+                kw = {}
+
+            if 'labels' not in kw.keys():
+                kw['labels'] = ccfg['metrics'][comp]['ministry_name']
+
+            if 'plotname' not in kw.keys():
+                kw['plotname'] = plotname
+
+            mtr = cmtrs.pop(0)
+            plt.clf()
+            mtr.compare(cmtrs, **kw)

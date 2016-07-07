@@ -11,9 +11,9 @@ class MassMetric(GMetric):
     """
     Restruct GMetric to magnitudes
     """
-    
+
     def __init__(self, ministry, zbins=None, massbins=None,
-                 catalog_type=None):
+                 catalog_type=None, tag=None):
         """
         Initialize a MassMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -24,10 +24,10 @@ class MassMetric(GMetric):
         ministry : Ministry
             The ministry object that this metric is associated with.
         zbins : array-like
-            An 1-d array containing the edges of the redshift bins to 
+            An 1-d array containing the edges of the redshift bins to
             measure the metric in.
         massbins : array-like
-            A 1-d array containing the edges of the mass bins to 
+            A 1-d array containing the edges of the mass bins to
             measure the metric in.
         """
 
@@ -44,18 +44,18 @@ class MassMetric(GMetric):
 
 
         GMetric.__init__(self, ministry, zbins=zbins, xbins=massbins,
-                         catalog_type=catalog_type)
+                         catalog_type=catalog_type, tag=tag)
 
 class MassFunction(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog']):
+                 catalog_type=['halocatalog'], tag=None):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type)
+                            catalog_type=catalog_type, tag=tag)
 
         self.aschema = 'haloonly'
 
@@ -80,21 +80,21 @@ class MassFunction(MassMetric):
         #temporary fix for plotting w/ GMetric functions
         self.nbands = self.ndefs
 
-        #Want to count galaxies in bins of luminosity for 
+        #Want to count galaxies in bins of luminosity for
         #self.nbands different bands in self.nzbins
         #redshift bins
         if not hasattr(self, 'masscounts'):
-            self.masscounts = np.zeros((len(self.massbins)-1, self.ndefs, 
+            self.masscounts = np.zeros((len(self.massbins)-1, self.ndefs,
                                        self.nzbins))
 
         if self.lightcone:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-                
+
                 #Count galaxies in bins of luminosity
                 for j in range(self.ndefs):
-                    c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j], 
+                    c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j],
                                         bins=self.massbins)
                     self.masscounts[:,j,i] += c
         else:
@@ -120,8 +120,8 @@ class MassFunction(MassMetric):
 
         self.y = self.mass_function
 
-    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
-                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
 
         if xlabel is None:
@@ -139,13 +139,13 @@ class MassFunction(MassMetric):
 class SimpleHOD(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog']):
+                 catalog_type=['halocatalog'], tag=None):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type)
+                            catalog_type=catalog_type, tag=tag)
 
         self.aschema = 'haloonly'
 
@@ -170,11 +170,11 @@ class SimpleHOD(MassMetric):
         #temporary fix for plotting w/ GMetric functions
         self.nbands = self.ndefs
 
-        #Want to count galaxies in bins of luminosity for 
+        #Want to count galaxies in bins of luminosity for
         #self.nbands different bands in self.nzbins
         #redshift bins
         if not hasattr(self, 'occcounts'):
-            self.occcounts = np.zeros((len(self.massbins)-1, self.ndefs, 
+            self.occcounts = np.zeros((len(self.massbins)-1, self.ndefs,
                                        self.nzbins))
             self.sqocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
                                          self.nzbins))
@@ -185,7 +185,7 @@ class SimpleHOD(MassMetric):
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-                
+
                 #Count galaxies in bins of mass
                 for j in range(self.ndefs):
                     mb = np.digitize(mu['mass'][zlidx:zhidx,j], bins=self.massbins)-1
@@ -221,13 +221,13 @@ class SimpleHOD(MassMetric):
 class OccMass(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog']):
+                 catalog_type=['halocatalog'], tag=None):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type)
+                            catalog_type=catalog_type, tag=tag)
 
         if lightcone:
             self.mapkeys   = ['mass', 'occ', 'redshift']
@@ -246,7 +246,7 @@ class OccMass(MassMetric):
         else:
             self.ndefs = 1
             mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
-        
+
         self.nbands = self.ndefs
 
         if not hasattr(self, 'occmass'):
@@ -265,7 +265,7 @@ class OccMass(MassMetric):
                     self.occ[k,j,i]   += np.sum(o)
                     self.occsq[k,j,i] += np.sum(o**2)
                     self.count[k,j,i] += np.sum(mb==k)
-                
+
     def reduce(self):
 
         self.occmass = self.occ/self.count
@@ -275,8 +275,8 @@ class OccMass(MassMetric):
         self.ye = np.sqrt(self.occvar)
 
 
-    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False, 
-                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None, 
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
 
         if xlabel is None:

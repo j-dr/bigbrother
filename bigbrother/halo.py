@@ -2,9 +2,9 @@ from __future__ import print_function, division
 from collections import OrderedDict
 from .massmetric import SimpleHOD, MassFunction, OccMass
 from .basecatalog import BaseCatalog
+from helpers import SimulationAnalysis
 import numpy as np
 import healpy as hp
-import helpers
 
 
 class HaloCatalog(BaseCatalog):
@@ -13,15 +13,15 @@ class HaloCatalog(BaseCatalog):
     """
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=1,
-                 reader='fits'):
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None,
+                 reader=None):
 
         self.ctype = 'halocatalog'
         BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=None, nside=8,
-                                maskfile=None, filters=None,
-                                unitmap=None, goodpix=1,
+                                fieldmap=fieldmap, nside=nside,
+                                maskfile=maskfile, filters=filters,
+                                unitmap=unitmap, goodpix=goodpix,
                                 reader=reader)
 
 
@@ -54,6 +54,16 @@ class HaloCatalog(BaseCatalog):
             return self.ministry.area
         else:
             return self.area
+
+    def parseFileStruct(self, filestruct):
+        """
+        Given a filestruct object, namely a list of truth
+        and/or obs files, map fields in these files
+        to generalized observables which our map functions
+        know how to deal with
+        """
+        self.filestruct = filestruct
+        self.filetypes = self.filestruct.keys()
 
     def unitConversion(self, mapunit):
 
@@ -95,8 +105,8 @@ class HaloCatalog(BaseCatalog):
 	            fields.extend(val)
 	        else:
 	            fields.extend([val])
-	
-	data = readHlist(fname, fields)
+
+	data = SimulationAnalysis.readHlist(fname, fields)
 
 	for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
@@ -114,8 +124,8 @@ class BCCHaloCatalog(HaloCatalog):
     """
 
     def __init__(self, ministry, filestruct, unitmap=None, fieldmap=None,
-                 nside=8, zbins=None, maskfile=None, filters=None,
-                 goodpix=1):
+                 nside=None, zbins=None, maskfile=None, filters=None,
+                 goodpix=None):
 
         if unitmap is None:
             unitmap = {'mass':'msunh'}
@@ -124,15 +134,17 @@ class BCCHaloCatalog(HaloCatalog):
                              maskfile=maskfile, filters=filters,
                              goodpix=goodpix)
         self.ministry = ministry
-        self.metrics = [MassFunction(self.ministry, zbins=zbins),
-                        OccMass(self.ministry, zbins=zbins)]
+        self.metrics = [MassFunction(self.ministry, zbins=zbins,
+                                      lightcone=True),
+                        OccMass(self.ministry, zbins=zbins,
+                                      lightcone=True)]
 
         self.nside = nside
 
         if fieldmap is None:
-            self.fieldmap = {'mass':OrderedDict([('MVIR',['truth'])]),
-                             'occ':OrderedDict([('N19', ['truth'])]),
-                             'redshift':OrderedDict([('Z',['truth'])])}
+            self.fieldmap = {'mass':OrderedDict([('MVIR',['htruth'])]),
+                             'occ':OrderedDict([('N19', ['htruth'])]),
+                             'redshift':OrderedDict([('Z',['htruth'])])}
             self.hasz = True
         else:
             self.fieldmap = fieldmap

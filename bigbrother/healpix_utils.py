@@ -27,7 +27,7 @@ def sortHpixFileStruct(filestruct):
 
 class PixMetric(Metric):
 
-    def __init__(self, ministry, nside):
+    def __init__(self, ministry, nside, tag=None):
         """
         Initialize a PixMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -38,7 +38,7 @@ class PixMetric(Metric):
         ministry : Ministry
             The ministry object that this metric is associated with.
         """
-        Metric.__init__(self, ministry)
+        Metric.__init__(self, ministry, tag=tag)
 
         self.nside = nside
 
@@ -65,13 +65,13 @@ class PixMetric(Metric):
 
 class Area(Metric):
 
-    def __init__(self, ministry, nside=64):
+    def __init__(self, ministry, nside=256, tag=None):
 
-        Metric.__init__(self, ministry)
+        Metric.__init__(self, ministry, tag=tag, novis=True)
 
         self.nside = nside
 
-        self.mapkeys = ['polar_ang', 'azim_ang']
+        self.mapkeys = ['polar_ang', 'azim_ang', 'appmag']
         self.aschema = 'galaxyonly'
         self.catalog_type = ['galaxycatalog']
         self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
@@ -79,7 +79,8 @@ class Area(Metric):
 
     def map(self, mapunit):
 
-        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
+        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'],
+                         nest=True)
         upix = np.unique(pix)
         area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
         self.area += area
@@ -96,9 +97,9 @@ class Area(Metric):
 
 class HealpixMap(Metric):
 
-    def __init__(self, ministry, nside=64, cut=None):
+    def __init__(self, ministry, nside=64, cuts=None, tag=None):
 
-        Metric.__init__(self, ministry)
+        Metric.__init__(self, ministry, tag=None)
 
         self.nside = nside
         self.cuts  = cuts

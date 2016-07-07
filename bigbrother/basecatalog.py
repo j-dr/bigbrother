@@ -1,11 +1,10 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
-from .helpers import PixMetric
+from .healpix_utils import PixMetric
 from astropy.cosmology import FlatLambdaCDM
 import units
 import numpy as np
 import healpy as hp
-import helpers
 import fitsio
 import time
 
@@ -17,8 +16,9 @@ class BaseCatalog:
     _valid_reader_types = ['fits', 'rockstar']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, nside=8, maskfile=None,
-                 filters=None, goodpix=1, reader='fits'):
+                 unitmap=None, nside=None, maskfile=None,
+                 filters=None, goodpix=None, reader=None,
+                 area=None):
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
@@ -27,13 +27,28 @@ class BaseCatalog:
         self.parseFileStruct(filestruct)
         self.maskfile = maskfile
         self.mask = None
-        self.area = 0.0
-        self.nside = nside
-        self.goodpix = goodpix
+        if area is None:
+            self.area = 0.0
+        else:
+            self.area = area
+
+        if nside is None:
+            self.nside = 8
+        else:
+            self.nside = nside
+
+        if goodpix is None:
+            self.goodpix = 1
+        else:
+            self.goodpix = goodpix
+
         self.necessaries = []
         self.filters = []
-        if reader in _valid_reader_types:
+
+        if reader in BaseCatalog._valid_reader_types:
             self.reader = reader
+        elif reader is None:
+            self.reader = 'fits'
         else:
             raise(ValueError("Invalid reader type {0} specified".format(reader)))
 
@@ -192,13 +207,14 @@ class BaseCatalog:
         Convert a map unit from the units given in the catalog
         to those required in metrics
         """
-
+        beenconverted = []
         for m in metrics:
             if self.ctype not in m.catalog_type:
                 continue
             for key in m.unitmap:
-                if key not in mapunit.keys():
-                    continue
+                if key in beenconverted: continue
+                if key not in mapunit.keys(): continue
+
                 elif self.unitmap[key]==m.unitmap[key]:
                     continue
 
@@ -208,6 +224,7 @@ class BaseCatalog:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
 
                 mapunit[key] = conversion(mapunit[key])
+                beenconverted.append(key)
 
         return mapunit
 
@@ -217,7 +234,7 @@ class BaseCatalog:
 
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
-            if key not in self.fieldmap.keys():
+            if key.lower() not in mapunit.keys():
                 continue
 
             if i==0:
@@ -232,3 +249,16 @@ class BaseCatalog:
                     mapunit[key] = mapunit[key][idx]
 
         return mapunit
+
+class PlaceHolder(BaseCatalog):
+
+    def __init__(self, ministry, filestruct, fieldmap=None,
+                 nside=None, zbins=None, maskfile=None,
+                 filters=None, unitmap=None, goodpix=None,
+                 reader=None):
+
+        self.ctype = 'placeholder'
+        BaseCatalog.__init__(self, ministry, filestruct,
+                                fieldmap=fieldmap, nside=nside,
+                                maskfile=maskfile, filters=filters,
+                                unitmap=unitmap, reader=reader)
