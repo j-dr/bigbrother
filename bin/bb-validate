@@ -19,7 +19,8 @@ if __name__=="__main__":
     mstry.validate(nmap=cfg['Validate']['nmap'])
 
     if 'savefile' in cfg['Validate'].keys():
-        with open(cfg['Validate']['savefile'], 'w') as fp:
+        with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'], 
+                    cfg['Ministry']['ministry_name']), 'w') as fp:
             pickle.dump(mstry, fp)
 
     pnames = {}
@@ -33,5 +34,6 @@ if __name__=="__main__":
             pn = m.__class__.__name__
             pnames[m.__class__.__name__] = 1
 
-        m.visualize(plotname="{0}_{1}.png".format(cfg['Ministry']['ministry_name'],
-                                                  pn))
+        m.visualize(plotname="{0}/{1}_{2}.png".format(cfg['Validate']['outdir'],
+                                                      cfg['Ministry']['ministry_name'],
+                                                      pn))
