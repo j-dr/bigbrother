@@ -3,7 +3,13 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
-import treecorr as tc
+
+try:
+    import treecorr as tc
+    hastreecorr = True
+except:
+    hastreecorr = False
+
 import numpy as np
 
 from .metric import Metric, GMetric
@@ -50,7 +56,10 @@ class AngularCorrelationFunction(Metric):
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
+
     def map(self, mapunit):
+        if not hastreecorr:
+            return
 
         self.jsamples += 1
 
@@ -190,6 +199,8 @@ class GalaxyRadialProfileBCC(Metric):
                 self.rprof[:,j,i] += c
 
     def reduce(self):
+        if not hastreecorr:
+            return
 
         self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
         vol = 4*np.pi*(self.rmean**3)/3
@@ -200,7 +211,8 @@ class GalaxyRadialProfileBCC(Metric):
 
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
-
+        if not hastreecorr: 
+            return
         if f is None:
             f, ax = plt.subplots(self.nlumbins, self.nzbins,
                                  sharex=True, sharey=True,
@@ -239,4 +251,6 @@ class GalaxyRadialProfileBCC(Metric):
 
 
     def compare(self):
+        if not hastreecorr:
+            return
         pass
