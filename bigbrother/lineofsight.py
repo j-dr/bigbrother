@@ -88,20 +88,24 @@ class DNDz(Metric):
                         idx = (self.magbins[i]<mapunit[self.mkey]) & (mapunit[self.mkey]<self.magbins[i+1])
 
                 c, e = np.histogram(mapunit['redshift'][idx],
-                                      bins=self.zbins, normed=self.normed)
-                self.dndz[:,i] = c
+                                      bins=self.zbins)
+                self.dndz[:,i] += c
         else:
             if not hasattr(self, 'dndz'):
                 self.dndz = np.zeros((self.nzbins,1))
 
             c, e = np.histogram(mapunit['redshift'],
-                                  bins=self.zbins, normed=self.normed)
-            self.dndz[:,0] = c
+                                  bins=self.zbins)
+            self.dndz[:,0] += c
 
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
-        self.dndz = self.dndz/area
+        if self.normed:
+            dz = self.zbins[1:]-self.zbins[:-1]
+            self.dndz = self.dndz/area/dz
+        else:
+            self.dndz = self.dndz/area
 
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
