@@ -6,14 +6,19 @@ mpl.use('Agg')
 import matplotlib.pylab as plt
 import pickle
 import sys
+import os
 
 import bigbrother.config as config
-
 
 if __name__=="__main__":
 
     cfgfile = sys.argv[1]
     cfg = config.readCfg(cfgfile)
+
+    try:
+        os.makedirs(cfg['outdir'])
+    except OSError as e:
+        pass
 
     mstry = config.parseConfig(cfg)
     mstry.validate(nmap=cfg['Validate']['nmap'])
