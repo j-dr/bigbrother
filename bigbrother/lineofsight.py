@@ -158,10 +158,13 @@ class DNDz(Metric):
 
         return f, ax, l1
 
-    def compare(self, othermetrics, plotname=None, usecuts=None, **kwargs):
+    def compare(self, othermetrics, plotname=None, usecuts=None, labels=None,
+                  **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
+
+        lines = []
 
         if usecuts is not None:
             if not hasattr(usecuts[0], '__iter__'):
@@ -175,11 +178,15 @@ class DNDz(Metric):
             if usecuts[i] is not None:
                 assert(len(usecuts[0])==len(usecuts[i]))
             if i==0:
-                f, ax = m.visualize(usecuts=usecuts[i], compare=True,
+                f, ax, l1 = m.visualize(usecuts=usecuts[i], compare=True,
                                     **kwargs)
             else:
-                f, ax = m.visualize(usecuts=usecuts[i], compare=True,
+                f, ax, l1 = m.visualize(usecuts=usecuts[i], compare=True,
                                     f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
 
         if plotname is not None:
             plt.savefig(plotname)
