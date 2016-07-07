@@ -44,7 +44,7 @@ class Ministry:
     _known_halo_catalog_types   = ['BCC', 'PlaceHolder']
 
     def __init__(self, omega_m, omega_l, h, minz, maxz, area=None,
-                 boxsize=None):
+                 boxsize=None, one_metric_group=False):
         """
         Initialize a ministry object
 
@@ -70,6 +70,7 @@ class Ministry:
         self.cosmo = FlatLambdaCDM(H0=100*h, Om0=omega_m)
         self.minz = minz
         self.maxz = maxz
+        self.one_metric_group = one_metric_group
 
         if area is None:
             self.area = 0.0
@@ -272,6 +273,14 @@ class Ministry:
         fieldmaps = [self.getMetricDependencies(m) for m in metrics]
         metrics = [[m] for m in metrics]
         fms = zip(fieldmaps, metrics)
+
+        if self.one_metric_group:
+            fm = fms.pop()
+            while len(fms)>0:
+                fm = self.combineFieldMaps(fm, fms.pop())
+                
+            return [fm]
+
         nodes = range(len(fms))
         snodes = set(nodes)
         graph = {f:snodes.difference(set([f])) for f in snodes}
@@ -321,8 +330,8 @@ class Ministry:
         """
         #make sure compatible
 
-        if not self.compFieldMaps(fm1[0], fm2[0]):
-            raise ValueError("Field maps are not compatible!")
+        #if not self.compFieldMaps(fm1[0], fm2[0]):
+        #    raise ValueError("Field maps are not compatible!")
 
         cfm = {}
         ft1 = set(fm1[0].keys())
@@ -340,12 +349,14 @@ class Ministry:
         fm1 = fm1[0]
         fm2 = fm2[0]
 
-
-
         ift = ft1-ft2
 
         for ft in ft2:
-            mk1 = set(fm1[ft].keys())
+            if ft not in fm1.keys():
+                mk1 = set([])
+            else:
+                mk1 = set(fm1[ft].keys())
+
             mk2 = set(fm2[ft].keys())
             umk = mk1.union(mk2)
             f = []

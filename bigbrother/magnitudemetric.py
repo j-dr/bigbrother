@@ -188,7 +188,7 @@ class MagCounts(MagnitudeMetric):
     """
 
     def __init__(self, ministry, zbins=[0.0, 0.2],  magbins=None,
-                 catalog_type=['galaxycatalog'], tag=None):
+                 catalog_type=['galaxycatalog'], tag=None, cumulative=False):
 
         if magbins is None:
             magbins = np.linspace(10, 30, 60)
@@ -200,6 +200,8 @@ class MagCounts(MagnitudeMetric):
             self.mapkeys = ['appmag', 'redshift']
         else:
             self.mapkeys = ['appmag']
+
+        self.cumulative = cumulative
 
         self.aschema = 'galaxyonly'
 
@@ -225,7 +227,12 @@ class MagCounts(MagnitudeMetric):
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
-        self.magcounts = self.magcounts/area
+
+        if not self.cumulative:
+            self.magcounts = self.magcounts/area
+        else:
+            self.magcounts = np.cumsum(self.magcounts, axis=0)/area
+
         self.y = self.magcounts
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
@@ -343,7 +350,7 @@ class LcenMass(Metric):
                     ax[i].semilogx(mmass, self.lcen_mass[:,b,j],
                                    **kwargs)
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if (plotname is not None) and (not compare):
             plt.savefig(plotname)
@@ -503,7 +510,7 @@ class ColorColor(Metric):
             sax.set_xlabel(r'$Color$')
             sax.set_ylabel(r'$Color$')
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -700,7 +707,7 @@ class ColorMagnitude(Metric):
             sax.set_xlabel(r'$Color$')
             sax.set_ylabel(r'$Mag$')
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -820,7 +827,7 @@ class FQuenched(Metric):
             sax.set_xlabel(r'$z$')
             sax.set_ylabel(r'$f_{red}$')
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -917,7 +924,7 @@ class FRed(Metric):
             sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
             sax.set_ylabel(r'$L_{cen}\, [mag]$')
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -1028,7 +1035,7 @@ class FQuenchedLum(Metric):
             sax.set_xlabel(r'$Mag$')
             sax.set_ylabel(r'$f_{red}$')
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
