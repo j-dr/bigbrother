@@ -122,6 +122,7 @@ class BCCCatalog(GalaxyCatalog):
                                         usebands=[0,1],
                                         central_only=True, tag="CentralCMBinZ"),
                         ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2], tag="BinZ"),
+                        ColorColor(self.ministry, zbins=np.linspace(0.0, 0.2, 5), usebands=[0,1,2], tag="SDSSZ")
                         ColorColor(self.ministry, zbins=None,
                          usebands=[0,1,2], tag="AllZ"),
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),

@@ -88,11 +88,11 @@ class CorrelationFunction(Metric):
 
        #randomly generate angles within region bounded by catalog angles
        grand = np.zeros(rsize, dtype=rdtype)
-       grand['azim_ang'] = np.random.uniform(low=np.min(cat['RA']),
-                                             high=np.max(cat['RA']),
+       grand['azim_ang'] = np.random.uniform(low=np.min(cat['azim_ang']),
+                                             high=np.max(cat['azim_ang']),
                                              size=rsize)
-       grand['polar_ang'] = np.random.uniform(low=np.min(cat['DEC']),
-                                              high=np.max(cat['DEC']),
+       grand['polar_ang'] = np.random.uniform(low=np.min(cat['polar_ang']),
+                                              high=np.max(cat['polar_ang']),
                                               size=rsize)
        if selectz:
            grand['redshift'] = np.random.choice(cat['redshift'], size=rsize)
@@ -100,7 +100,7 @@ class CorrelationFunction(Metric):
            grand = grand[zidx]
 
        #only keep points which fall within the healpix cells overlapping the catalog
-       cpix = hp.ang2pix(nside, *radec2rad(cat['DEC'], cat['RA']), nest=nest)
+       cpix = hp.ang2pix(nside, cat['polar_ang'], cat['azim_ang']), nest=nest)
        ucpix = np.unique(cpix)
        rpix = hp.ang2pix(nside, *radec2rad(grand['DEC'], grand['RA']), nest=nest)
        inarea = np.in1d(rpix, ucpix)
