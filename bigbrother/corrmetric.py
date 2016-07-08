@@ -10,22 +10,31 @@ try:
 except:
     hastreecorr = False
 
+try:
+    import Corrfunc._countpairs_mocks as countpairs
+    hascorrfunc = True
+except:
+    hascorrfunc = False
+
 import numpy as np
 
 from .metric import Metric, GMetric
 
+class CorrelationFunction(Metric):
 
-class AngularCorrelationFunction(Metric):
-
-    def __init__(self, ministry, zbins=None, lumbins=None, mintheta=1e-2,
-                 maxtheta=1, nabins=15, subjack=False,
-                 catalog_type=['galaxycatalog'], tag=None):
+    def __init__(self, ministry, zbins=None, lumbins=None,
+                   nrbins=None, subjack=False,
+                   catalog_type=None,
+                   tag=None):
         """
-        Angular correlation function, w(theta), for use with non-periodic
-        data. All angles should be specified in degrees.
+        Generic correlation function.
         """
         Metric.__init__(self, ministry, tag=tag)
-        self.catalog_type = catalog_type
+
+        if catalog_type is None:
+            self.catalog_type = ['galaxycatalog']
+        else:
+            self.catalog_type = catalog_type
 
         if zbins is None:
             self.zbins = [0.0, 0.2]
@@ -42,68 +51,24 @@ class AngularCorrelationFunction(Metric):
 
         self.nlumbins = len(self.lumbins)-1
 
-        self.mintheta = mintheta
-        self.maxtheta = maxtheta
-        self.nabins = 15
+        if nrbins is None:
+            self.nrbins = 15
+        else:
+            self.nrbins = nrbins
 
         self.subjack = subjack
-        self.aschema = 'galaxygalaxy'
+
+        if 'galaxycatalog' in self.catalog_type:
+            self.aschema = 'galaxygalaxy'
+        else:
+            self.aschema = 'halohalo'
 
         if self.subjack:
             raise NotImplementedError
 
         self.jsamples = 0
-        self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
-        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
-
-    def map(self, mapunit):
-        if not hastreecorr:
-            return
-
-        self.jsamples += 1
-
-        if not hasattr(self, 'wthetaj'):
-            self.wthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
-            self.varwthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
-
-        #putting this outside loop maybe faster, inside loop
-        #lower memory usage
-
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-
-            for j in range(self.nlumbins):
-                #luminosity should be at least 2d
-                lidx = np.where((self.lumbins[i] < mapunit['luminosity'][zlidx:zhidx,0]) &
-                                (mapunit['luminosity'][zlidx:zhidx,0] <= self.lumbins[i+1]))
-                cat  = {key:mapunit[key][zlidx:zhidx][lidx] for key in mapunit.keys()}
-                rand = self.generate_randoms(cat, nside=128)
-
-                d  = treecorr.Catalog(x=cat['azim_ang'], y=cat['polar_ang'])
-                r = treecorr.Catalog(x=rand['azim_ang'], y=rand['polar_ang'])
-
-                dd = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees',
-                                            bin_slop=0.001)
-                dr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees',
-                                            bin_slop=0.001)
-                rr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees',
-                                            bin_slop=0.001)
-                dd.process(d)
-                dr.process(d,r)
-                rr.process(r)
-                xi,varXi = dd.calculateXi(rr,dr)
-                self.wthetaj[:,j,i] = xi
-                self.varwthetaj[:,j,i] = varXi
-
-    def reduce(self):
-       pass
-
-    def generate_randoms(self, cat, rand_factor=10, nside=8, nest=True, selectz=False):
+    def generate_angular_randoms(self, cat, rand_factor=10, nside=8, nest=True, selectz=False):
        """
        Generate a set of randoms from a catalog by pixelating the input
        catalog and uniformly distributing random points within the pixels
@@ -143,6 +108,123 @@ class AngularCorrelationFunction(Metric):
        grand = grand[inarea]
 
        return grand
+
+class AngularCorrelationFunction(CorrelationFunction):
+
+    def __init__(self, ministry, zbins=None, lumbins=None, mintheta=None,
+                 maxtheta=None, nabins=None, subjack=False,
+                 catalog_type=None, tag=None):
+        """
+        Angular correlation function, w(theta), for use with non-periodic
+        data. All angles should be specified in degrees.
+        """
+        CorrelationFunction.__init__(self, ministry, zbins=zbins,
+                                      lumbins=lumbins, nrbins=nabins,
+                                      subjack=subjack,
+                                      catalog_type=catalog_type, tag=tag)
+
+        if mintheta is None:
+            self.mintheta = 1e-2
+        else:
+            self.mintheta = mintheta
+
+        if maxtheta is None:
+            self.maxtheta = 1
+        else:
+            self.maxtheta = maxtheta
+
+        self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+
+    def map(self, mapunit):
+        if not hastreecorr:
+            return
+
+        self.jsamples += 1
+
+        if not hasattr(self, 'wthetaj'):
+            self.wthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
+            self.varwthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
+
+        #putting this outside loop maybe faster, inside loop
+        #lower memory usage
+
+        for i, z in enumerate(self.zbins[:-1]):
+            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+
+            for j in range(self.nlumbins):
+                #luminosity should be at least 2d
+                lidx = np.where((self.lumbins[i] < mapunit['luminosity'][zlidx:zhidx,0]) &
+                                (mapunit['luminosity'][zlidx:zhidx,0] <= self.lumbins[i+1]))
+                cat  = {key:mapunit[key][zlidx:zhidx][lidx] for key in mapunit.keys()}
+                rand = self.generate_angular_randoms(cat, nside=128)
+
+                d  = treecorr.Catalog(x=cat['azim_ang'], y=cat['polar_ang'])
+                r = treecorr.Catalog(x=rand['azim_ang'], y=rand['polar_ang'])
+
+                dd = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
+                                            max_sep=self.maxtheta, sep_units='degrees',
+                                            bin_slop=0.001)
+                dr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
+                                            max_sep=self.maxtheta, sep_units='degrees',
+                                            bin_slop=0.001)
+                rr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
+                                            max_sep=self.maxtheta, sep_units='degrees',
+                                            bin_slop=0.001)
+                dd.process(d)
+                dr.process(d,r)
+                rr.process(r)
+                xi,varXi = dd.calculateXi(rr,dr)
+                self.wthetaj[:,j,i] = xi
+                self.varwthetaj[:,j,i] = varXi
+
+    def reduce(self):
+       pass
+
+    def visualize(self):
+        pass
+
+    def compare(self):
+        pass
+
+
+class WPrp(CorrelationFunction):
+
+    def __init__(self, ministry, zbins=None, lumbins=None, minr=None,
+                 maxr=None, nrbins=None, subjack=False,
+                 catalog_type=None, tag=None):
+        """
+        Angular correlation function, w(theta), for use with non-periodic
+        data. All angles should be specified in degrees.
+        """
+        CorrelationFunction.__init__(self, ministry, zbins=zbins,
+                                      lumbins=lumbins, nrbins=nrbins,
+                                      subjack=subjack,
+                                      catalog_type=catalog_type, tag=tag)
+
+        if minr is None:
+            self.minr = 1e-1
+        else:
+            self.minr = minr
+
+        if maxr is None:
+            self.maxr = 10
+        else:
+            self.maxr = maxr
+
+        self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+
+    def map(self, mapunit):
+        if not hastreecorr:
+            return
+
+        if not hasattr(self, 'wthetaj'):
+            self.wthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
+            self.varwthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
+
+
 
 
 class GalaxyRadialProfileBCC(Metric):
@@ -199,7 +281,7 @@ class GalaxyRadialProfileBCC(Metric):
                 self.rprof[:,j,i] += c
 
     def reduce(self):
-        if not hastreecorr:
+        if not hascorrfunc:
             return
 
         self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
@@ -211,7 +293,7 @@ class GalaxyRadialProfileBCC(Metric):
 
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
-        if not hastreecorr: 
+        if not hascorrfunc:
             return
         if f is None:
             f, ax = plt.subplots(self.nlumbins, self.nzbins,
@@ -251,6 +333,4 @@ class GalaxyRadialProfileBCC(Metric):
 
 
     def compare(self):
-        if not hastreecorr:
-            return
         pass
