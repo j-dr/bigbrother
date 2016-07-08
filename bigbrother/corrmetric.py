@@ -100,7 +100,7 @@ class CorrelationFunction(Metric):
            grand = grand[zidx]
 
        #only keep points which fall within the healpix cells overlapping the catalog
-       cpix = hp.ang2pix(nside, cat['polar_ang'], cat['azim_ang']), nest=nest)
+       cpix = hp.ang2pix(nside, cat['polar_ang'], cat['azim_ang'], nest=nest)
        ucpix = np.unique(cpix)
        rpix = hp.ang2pix(nside, *radec2rad(grand['DEC'], grand['RA']), nest=nest)
        inarea = np.in1d(rpix, ucpix)
