@@ -317,18 +317,22 @@ class TinkerMassFunction(MassMetric):
 
     def calcMassFunction(self, a=1, delta=200):
 
-	self.ndefs = len(self.massbins)
-	self.nbands = self.ndefs
+        if hasattr(delta, '__iter__'):
+            self.ndefs = len(delta)
+        else:
+            self.ndefs = 1
+            delta = [delta]
 
-        mass_fn_n      = []
-	mass_fn_error = []
+        mass_fn_n      = np.zeros((len(self.massbins), self.ndefs, self.nzbins))
+	mass_fn_error = np.zeros((len(self.massbins), self.ndefs, self.nzbins))
+        
+        for j in range(self.ndefs):
+            for i in range(len(self.massbins)-1):
+                integral = quad(lambda mass: tink(mass, a, delta[j]), self.massbins[i], self.massbins[i+1])
+                mass_fn_n.append(integral[0])
+                mass_fn_error.append(integral[1])
 
-        for i in range(len(self.massbins)-1):
-	    integral = quad(lambda mass: tink(mass, a, delta), self.massbins[i], self.massbins[i+1])
-	    mass_fn_n.append(integral[0])
-	    mass_fn_error.append(integral[1])
-
-	self.y = mass_fn_n
+	self.y = np.array(mass_fn_n)
 
     def map(self, mapunit):
         self.map(mapunit)
