@@ -19,6 +19,7 @@ class BaseCatalog:
                  unitmap=None, nside=None, maskfile=None,
                  filters=None, goodpix=None, reader=None,
                  area=None):
+
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
@@ -234,6 +235,7 @@ class BaseCatalog:
 
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
+
             if key.lower() not in mapunit.keys():
                 continue
 
