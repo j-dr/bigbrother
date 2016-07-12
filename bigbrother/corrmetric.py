@@ -17,6 +17,7 @@ except:
     hascorrfunc = False
 
 import numpy as np
+import healpy as hp
 
 from .metric import Metric, GMetric
 
@@ -102,12 +103,43 @@ class CorrelationFunction(Metric):
        #only keep points which fall within the healpix cells overlapping the catalog
        cpix = hp.ang2pix(nside, (cat['polar_ang']+90)*np.pi/180., cat['azim_ang']*np.pi/180., nest=nest)
        ucpix = np.unique(cpix)
-       rpix = hp.ang2pix(nside, (grand['polar_ang']+90)*np.pi/180, grand['azim_ang']*np.pi/180.), nest=nest)
+       rpix = hp.ang2pix(nside, (grand['polar_ang']+90)*np.pi/180, grand['azim_ang']*np.pi/180., nest=nest)
        inarea = np.in1d(rpix, ucpix)
 
        grand = grand[inarea]
 
        return grand
+
+    def genbins(self, minb, maxb, nb):
+
+        if self.logbins:
+            bins = np.logspace(np.log10(minb), np.log10(maxb), nb)
+        else:
+            bins = np.linspace(minb, maxb, nb)
+
+        return bins
+
+    def writeCorrfuncBinFile(self, binedges,
+      binfilename='bb_corrfunc_rbins.txt'):
+        """
+        Write a bin file for corrfunc.
+
+        inputs
+        ---------
+        binedges -- np.array
+            If 1d, should be array of length nbins+1 of all binedges
+            If 2d, should be array of length nbins where the 1st column
+            is the left edge of the bins and the 2nd column is the right
+            edge.
+        """
+        if len(binedges.shape)==1:
+            binarray = np.array([[binedges[i], binedges[i+1]]
+                                  for i in range(len(binedges)-1)])
+        elif len(binedges.shape)==2:
+            binarray = binedges
+
+        np.savetxt(binfilename, binarray, fmt='%.12f', delimiter='\t')
+
 
 class AngularCorrelationFunction(CorrelationFunction):
 
@@ -191,9 +223,9 @@ class AngularCorrelationFunction(CorrelationFunction):
 
 class WPrp(CorrelationFunction):
 
-    def __init__(self, ministry, zbins=None, lumbins=None, minr=None,
-                 maxr=None, nrbins=None, subjack=False,
-                 catalog_type=None, tag=None):
+    def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
+                  minr=None, maxr=None, logbins=True, nrbins=None,
+                  subjack=False, catalog_type=None, tag=None):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -203,15 +235,26 @@ class WPrp(CorrelationFunction):
                                       subjack=subjack,
                                       catalog_type=catalog_type, tag=tag)
 
-        if minr is None:
-            self.minr = 1e-1
-        else:
-            self.minr = minr
+        self.logbins = logbins
 
-        if maxr is None:
+        if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
+            self.minr = 1e-1
             self.maxr = 10
-        else:
+            self.nrbins = 15
+            self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
+        elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
+            self.minr = minr
             self.maxr = maxr
+            self.nrbins = nrbins
+            self.rbins = self.genbins(minr, maxr, nrbins)
+        else:
+            self.rbins = rbins
+            self.minr = rbins[0]
+            self.maxr = rbins[1]
+            self.nrbins = len(rbins)-1
+
+        self.writeCorrfuncBinFile(self.rbins)
+        self.binfilename = 'bb_corrfunc_rbins.txt'
 
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
@@ -223,6 +266,15 @@ class WPrp(CorrelationFunction):
         if not hasattr(self, 'wthetaj'):
             self.wthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
             self.varwthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
+
+    def reduce(self):
+        pass
+
+    def visualize(self):
+        pass
+
+    def compare(self):
+        pass
 
 
 
