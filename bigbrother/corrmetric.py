@@ -25,7 +25,7 @@ class CorrelationFunction(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None,
                    nrbins=None, subjack=False,
-                   catalog_type=None,
+                   catalog_type=None, lcutind=None,
                    tag=None):
         """
         Generic correlation function.
@@ -56,6 +56,11 @@ class CorrelationFunction(Metric):
             self.nrbins = 15
         else:
             self.nrbins = nrbins
+
+        if lcutind is None:
+            self.lcutind = 0
+        else:
+            self.lcutind = lcutind
 
         self.subjack = subjack
 
@@ -140,19 +145,18 @@ class CorrelationFunction(Metric):
 
         np.savetxt(binfilename, binarray, fmt='%.12f', delimiter='\t')
 
-
 class AngularCorrelationFunction(CorrelationFunction):
 
     def __init__(self, ministry, zbins=None, lumbins=None, mintheta=None,
                  maxtheta=None, nabins=None, subjack=False,
-                 catalog_type=None, tag=None):
+                 catalog_type=None, tag=None, lcutind=None):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
         """
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
                                       lumbins=lumbins, nrbins=nabins,
-                                      subjack=subjack,
+                                      subjack=subjack, lcutind=lcutind,
                                       catalog_type=catalog_type, tag=tag)
 
         if mintheta is None:
@@ -221,21 +225,23 @@ class AngularCorrelationFunction(CorrelationFunction):
         pass
 
 
-class WPrp(CorrelationFunction):
+class WPrpLightcone(CorrelationFunction):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
-                  subjack=False, catalog_type=None, tag=None):
+                  pimax=None, subjack=False, catalog_type=None, tag=None
+                  njack=None, lcutind=None):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
         """
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
                                       lumbins=lumbins, nrbins=nrbins,
-                                      subjack=subjack,
+                                      subjack=subjack, lcutind=lcutind,
                                       catalog_type=catalog_type, tag=tag)
 
         self.logbins = logbins
+        self.c = 299792458
 
         if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
             self.minr = 1e-1
@@ -253,6 +259,14 @@ class WPrp(CorrelationFunction):
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
 
+        if pimax is None:
+            self.pimax = 20.0
+
+        if njack is None:
+            self.njack = 1
+
+        self.jcount = 0
+
         self.writeCorrfuncBinFile(self.rbins)
         self.binfilename = 'bb_corrfunc_rbins.txt'
 
@@ -260,12 +274,60 @@ class WPrp(CorrelationFunction):
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
     def map(self, mapunit):
-        if not hastreecorr:
-            return
+
+        if not hascorrfunc:
+            raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if not hasattr(self, 'wthetaj'):
-            self.wthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
-            self.varwthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
+            self.DD = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
+            self.DR = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
+            self.RR = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
+
+        #calculate DD
+        for i in range(self.nzbins):
+            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+
+            #generate one set of randoms per redshift bin
+            rands = self.generateAngularRandoms(mapunit[zlidx:zhidx])
+
+            for j in range(self.nlumbins):
+                lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+
+                #data data
+                results = rp_pi_mocks(1, 1, 4, self.pimax, self.binfilename,
+                                        mapunit[zlidx:zhidx][lidx]['azim_ang'],
+                                        mapunit[zlidx:zhidx][lidx]['polar_ang'],
+                                        mapunit[zlidx:zhidx][lidx]['redshift']*self.c,
+                                        mapunit[zlidx:zhidx][lidx]['azim_ang'],
+                                        mapunit[zlidx:zhidx][lidx]['polar_ang'],
+                                        mapunit[zlidx:zhidx][lidx]['redshift']*self.c)
+
+                self.DD[:,j,i,self.jcount] = np.array([results[i][4] for i in range(self.nrbins)])
+
+                #data randoms
+                results = rp_pi_mocks(0, 1, 4, self.pimax, self.binfilename,
+                                        mapunit[zlidx:zhidx][lidx]['azim_ang'],
+                                        mapunit[zlidx:zhidx][lidx]['polar_ang'],
+                                        mapunit[zlidx:zhidx][lidx]['redshift']*self.c,
+                                        rands['azim_ang'],
+                                        rands['polar_ang'],
+                                        rands['redshift']*self.c)
+
+                self.DR[:,j,i,self.jcount] = np.array([results[i][4] for i in range(self.nrbins)])
+
+                #randoms randoms
+                results = rp_pi_mocks(1, 1, 4, self.pimax, self.binfilename,
+                                        rands['azim_ang'],
+                                        rands['polar_ang'],
+                                        rands['redshift']*self.c)
+                                        rands['azim_ang'],
+                                        rands['polar_ang'],
+                                        rands['redshift']*self.c)
+
+                self.RR[:,j,i,self.jcount] = np.array([results[i][4] for i in range(self.nrbins)])
+
+                self.jcount += 1
 
     def reduce(self):
         pass
