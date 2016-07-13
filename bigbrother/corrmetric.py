@@ -38,7 +38,7 @@ class CorrelationFunction(Metric):
             self.catalog_type = catalog_type
 
         if zbins is None:
-            self.zbins = [0.0, 0.2]
+            self.zbins = np.array([0.0, 0.2])
         else:
             self.zbins = zbins
             self.zbins = np.array(self.zbins)
@@ -74,7 +74,7 @@ class CorrelationFunction(Metric):
 
         self.jsamples = 0
 
-    def generate_angular_randoms(self, cat, rand_factor=10, nside=8, nest=True, selectz=False):
+    def generateAngularRandoms(self, cat, rand_factor=10, nside=8, nest=True, selectz=False):
        """
        Generate a set of randoms from a catalog by pixelating the input
        catalog and uniformly distributing random points within the pixels
@@ -182,22 +182,26 @@ class AngularCorrelationFunction(CorrelationFunction):
             self.wthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
             self.varwthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
 
+
         #putting this outside loop maybe faster, inside loop
         #lower memory usage
+        rand = self.generateAngularRandoms(cat, nside=128)
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+            zrlidx = rand['redshift'].searchsorted(self.zbins[i])
+            zrhidx = rand['redshift'].searchsorted(self.zbins[i+1])
 
             for j in range(self.nlumbins):
                 #luminosity should be at least 2d
                 lidx = np.where((self.lumbins[i] < mapunit['luminosity'][zlidx:zhidx,0]) &
                                 (mapunit['luminosity'][zlidx:zhidx,0] <= self.lumbins[i+1]))
                 cat  = {key:mapunit[key][zlidx:zhidx][lidx] for key in mapunit.keys()}
-                rand = self.generate_angular_randoms(cat, nside=128)
+
 
                 d  = treecorr.Catalog(x=cat['azim_ang'], y=cat['polar_ang'])
-                r = treecorr.Catalog(x=rand['azim_ang'], y=rand['polar_ang'])
+                r = treecorr.Catalog(x=rand[zrlidx:zrhidx]['azim_ang'], y=rand['polar_ang'])
 
                 dd = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
                                             max_sep=self.maxtheta, sep_units='degrees',
@@ -229,7 +233,7 @@ class WPrpLightcone(CorrelationFunction):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
-                  pimax=None, subjack=False, catalog_type=None, tag=None
+                  pimax=None, subjack=False, catalog_type=None, tag=None,
                   njack=None, lcutind=None):
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -241,7 +245,7 @@ class WPrpLightcone(CorrelationFunction):
                                       catalog_type=catalog_type, tag=tag)
 
         self.logbins = logbins
-        self.c = 299792458
+        self.c = 299792.458
 
         if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
             self.minr = 1e-1
@@ -260,7 +264,7 @@ class WPrpLightcone(CorrelationFunction):
             self.nrbins = len(rbins)-1
 
         if pimax is None:
-            self.pimax = 20.0
+            self.pimax = 40.0
 
         if njack is None:
             self.njack = 1
@@ -268,7 +272,7 @@ class WPrpLightcone(CorrelationFunction):
         self.jcount = 0
 
         self.writeCorrfuncBinFile(self.rbins)
-        self.binfilename = 'bb_corrfunc_rbins.txt'
+        self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
@@ -283,19 +287,33 @@ class WPrpLightcone(CorrelationFunction):
             self.DR = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
             self.RR = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
 
+
+
+
         #calculate DD
         for i in range(self.nzbins):
+            print('Finding redshift indices')
+
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-            #generate one set of randoms per redshift bin
-            rands = self.generateAngularRandoms(mapunit[zlidx:zhidx])
+            print('Generating randoms')
+            rands = self.generateAngularRandoms(mapunit[zlidx:zhidx], selectz=True, nside=128)
+
+            #zrlidx = rands['redshift'].searchsorted(self.zbins[i])
+            #zrhidx = rands['redshift'].searchsorted(self.zbins[i+1])
 
             for j in range(self.nlumbins):
+                print('Finding luminosity indices')
                 lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+                print(len(mapunit[zlidx:zhidx][lidx]))
+                print(len(rands))
+                print('Calculating pairs')
 
                 #data data
-                results = rp_pi_mocks(1, 1, 4, self.pimax, self.binfilename,
+                print('calculating data data pairs')
+                results = countpairs.countpairs_rp_pi_mocks(1, 1, 1, self.pimax,
+                                        self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
                                         mapunit[zlidx:zhidx][lidx]['redshift']*self.c,
@@ -303,10 +321,12 @@ class WPrpLightcone(CorrelationFunction):
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
                                         mapunit[zlidx:zhidx][lidx]['redshift']*self.c)
 
-                self.DD[:,j,i,self.jcount] = np.array([results[i][4] for i in range(self.nrbins)])
+                self.DD[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
 
                 #data randoms
-                results = rp_pi_mocks(0, 1, 4, self.pimax, self.binfilename,
+                print('calculating data random pairs')
+                results = countpairs.countpairs_rp_pi_mocks(0, 1, 1, self.pimax,
+                                        self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
                                         mapunit[zlidx:zhidx][lidx]['redshift']*self.c,
@@ -314,18 +334,20 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.DR[:,j,i,self.jcount] = np.array([results[i][4] for i in range(self.nrbins)])
+                self.DR[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
 
                 #randoms randoms
-                results = rp_pi_mocks(1, 1, 4, self.pimax, self.binfilename,
+                print('calculating random random pairs')
+                results = countpairs.countpairs_rp_pi_mocks(1, 1, 1, self.pimax,
+                                        self.binfilename,
                                         rands['azim_ang'],
                                         rands['polar_ang'],
-                                        rands['redshift']*self.c)
+                                        rands['redshift']*self.c,
                                         rands['azim_ang'],
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.RR[:,j,i,self.jcount] = np.array([results[i][4] for i in range(self.nrbins)])
+                self.RR[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
 
                 self.jcount += 1
 
