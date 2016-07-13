@@ -74,7 +74,7 @@ class CorrelationFunction(Metric):
 
         self.jsamples = 0
 
-    def generateAngularRandoms(self, cat, rand_factor=10, nside=8, nest=True, selectz=False):
+    def generateAngularRandoms(self, cat, rand_factor=20, nside=8, nest=True, selectz=False):
        """
        Generate a set of randoms from a catalog by pixelating the input
        catalog and uniformly distributing random points within the pixels
@@ -264,7 +264,9 @@ class WPrpLightcone(CorrelationFunction):
             self.nrbins = len(rbins)-1
 
         if pimax is None:
-            self.pimax = 40.0
+            self.pimax = 80.0
+        else:
+            self.pimax = pimax
 
         if njack is None:
             self.njack = 1
