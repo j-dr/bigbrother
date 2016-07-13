@@ -3,7 +3,6 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
-import treecorr as tc
 import numpy as np
 
 from metric import Metric
