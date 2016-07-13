@@ -283,12 +283,11 @@ class WPrpLightcone(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if not hasattr(self, 'wthetaj'):
-            self.DD = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
-            self.DR = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
-            self.RR = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
-
-
-
+            self.dd = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
+            self.dr = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
+            self.rr = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
+            self.nd = np.zeros((self.nlumbins, self.nzbins, self.njack))
+            self.nr = np.zeros((self.nlumbins, self.nzbins, self.njack))
 
         #calculate DD
         for i in range(self.nzbins):
@@ -297,18 +296,18 @@ class WPrpLightcone(CorrelationFunction):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-            print('Generating randoms')
-            rands = self.generateAngularRandoms(mapunit[zlidx:zhidx], selectz=True, nside=128)
-
             #zrlidx = rands['redshift'].searchsorted(self.zbins[i])
             #zrhidx = rands['redshift'].searchsorted(self.zbins[i+1])
 
             for j in range(self.nlumbins):
                 print('Finding luminosity indices')
                 lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
-                print(len(mapunit[zlidx:zhidx][lidx]))
-                print(len(rands))
-                print('Calculating pairs')
+
+                print('Generating Randoms')
+                rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
+
+                self.nd[j,i,self.jcount] = len(mapunit[zlidx:zhidx][lidx])
+                self.nr[j,i,self.jcount] = len(rands)
 
                 #data data
                 print('calculating data data pairs')
@@ -321,7 +320,7 @@ class WPrpLightcone(CorrelationFunction):
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
                                         mapunit[zlidx:zhidx][lidx]['redshift']*self.c)
 
-                self.DD[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.dd[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
 
                 #data randoms
                 print('calculating data random pairs')
@@ -334,7 +333,7 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.DR[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.dr[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
 
                 #randoms randoms
                 print('calculating random random pairs')
@@ -347,12 +346,43 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.RR[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.rr[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
 
                 self.jcount += 1
 
     def reduce(self):
-        pass
+
+        self.jwprp = np.zeros(self.dd.shape)
+
+        if self.njack>1:
+            for i in range(self.njack):
+                idx = [j for j in range(self.njack) if i!=j]
+                nd = np.sum(self.nd[:,:,idx],axis=-1)
+                nr = np.sum(self.nr[:,:,idx],axis=-1)
+
+                DD = np.sum(self.dd[:,:,:,idx],axis=-1) / (nd * (nd - 1) / 2)
+                RR = np.sum(self.rr[:,:,:,idx],axis=-1) / (nr * (nr - 1) / 2)
+                DR = np.sum(self.dr[:,:,:,idx],axis=-1) / (nd * nr)
+
+                self.jwprp[:,:,:,i] = (DD - 2 * DR + RR) / RR
+
+            self.wprp = np.sum(self.jwprp, axis=-1)/self.njack
+            self.varwprp = np.sum((self.jwprp-self.wprp)**2, axis=-1) * (self.njack - 1)/self.njack
+        else:
+            #no jackknife
+            nd = np.sum(self.nd,axis=-1)
+            nr = np.sum(self.nr,axis=-1)
+
+            DD = np.sum(self.dd,axis=-1) / (nd * (nd - 1) / 2)
+            RR = np.sum(self.rr,axis=-1) / (nr * (nr - 1) / 2)
+            DR = np.sum(self.dr,axis=-1) / (nd * nr)
+
+            self.jwprp = None
+            self.varwprp = None
+
+            self.wprp = (DD - 2 * DR + RR) / RR
+
+
 
     def visualize(self):
         pass
