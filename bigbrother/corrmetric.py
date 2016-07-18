@@ -313,12 +313,9 @@ class WPrpLightcone(CorrelationFunction):
 
             for li, j in enumerate(self.luminds):
                 print('Finding luminosity indices')
-                if self.inv_lum:
-                    lidx = (self.lumbins[j+1] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j])
-                else:
-                    lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+                lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
 
-                if (li==0) | (~same_rand):
+                if (li==0) | (~self.same_rand):
                     print('Generating Randoms')
                     rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
 
@@ -355,7 +352,7 @@ class WPrpLightcone(CorrelationFunction):
 
                 #randoms randoms
                 print('calculating random random pairs')
-                if (li==0) | (~same_rand):
+                if (li==0) | (~self.same_rand):
                     rrresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
                                         self.pimax,
                                         self.binfilename,
@@ -368,7 +365,7 @@ class WPrpLightcone(CorrelationFunction):
 
                 self.rr[:,j,i,self.jcount] = np.array([rrresults[k][4] for k in range(self.nrbins)])
 
-                self.jcount += 1
+        self.jcount += 1
 
     def reduce(self):
 
