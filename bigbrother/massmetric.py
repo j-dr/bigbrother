@@ -5,7 +5,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
 import numpy as np
-from cosmocalc import tinker2008_mass_function as tink
+import cosmocalc
 from scipy.integrate import quad
 
 
@@ -313,26 +313,53 @@ class TinkerMassFunction(MassMetric):
 
         self.unitmap = {'mass':'msunh'}
         self.nomap = True
-        self.calcMassFunction()
+        self.calcMassFunction(z=zbins)
 
-    def calcMassFunction(self, a=1, delta=200):
+    def calcMassFunction(self, z=0, delta=200):
+        
+	# mass bins, definitions, z bins
 
-        if hasattr(delta, '__iter__'):
+	if hasattr(delta, '__iter__'):
             self.ndefs = len(delta)
         else:
             self.ndefs = 1
-            delta = [delta]
+	    delta = [delta]
 
-        mass_fn_n      = np.zeros((len(self.massbins), self.ndefs, self.nzbins))
-	mass_fn_error = np.zeros((len(self.massbins), self.ndefs, self.nzbins))
+	if hasattr(z , '__iter__'):
+            self.nzbins = len(z)
+	else:
+	    z=[z]
+            self.nzbins = 1
+      
+	self.nbands = self.ndefs
+	
+	cd = {
+               	"OmegaM":0.286,
+               "OmegaB":0.05,
+               "OmegaDE":0.714,
+               "OmegaK":0.0,
+               "h":0.7,
+               "Sigma8":0.82,
+               "SpectralIndex":0.96,
+               "w0":-1.0,
+               "wa":0.0
+               #,"As":2.1e-9,
+               #"As_pivot":0.05
+	}
+	cosmocalc.set_cosmology(cd)
+
+	mass_fn_n     = np.zeros((len(self.massbins)-1, self.ndefs, self.nzbins))
+	mass_fn_error = np.zeros((len(self.massbins)-1, self.ndefs, self.nzbins))
         
-        for j in range(self.ndefs):
-            for i in range(len(self.massbins)-1):
-                integral = quad(lambda mass: tink(mass, a, delta[j]), self.massbins[i], self.massbins[i+1])
-                mass_fn_n.append(integral[0])
-                mass_fn_error.append(integral[1])
+        for k in range(self.nzbins):
+		for j in range(self.ndefs):
+	            for i in range(len(self.massbins)-1):
+        	        integral = quad(lambda mass: cosmocalc.tinker2008_mass_function(mass, 1/(1+z[k]), delta[j]), self.massbins[i], self.massbins[i+1])
+                	mass_fn_n[i][j][k] = integral[0]
+                	mass_fn_error[i][j][k] = integral[1]
 
-	self.y = np.array(mass_fn_n)
+	self.y  = mass_fn_n
+	self.ye = mass_fn_error
 
     def map(self, mapunit):
         self.map(mapunit)
@@ -347,7 +374,7 @@ class TinkerMassFunction(MassMetric):
         if xlabel is None:
             xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
         if ylabel is None:
-            ylabel = r'$\N \, [Mpc^{-3}\, h^{3}]$'
+            ylabel = r"$\N \, [Mpc^{-3}\, h^{3}]$"
 
         MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
