@@ -401,13 +401,83 @@ class WPrpLightcone(CorrelationFunction):
 
 
 
-    def visualize(self):
-        pass
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, **kwargs):
 
-    def compare(self):
-        pass
+        if usecols is None:
+            usecols = range(self.nlumbins)
+
+        if usez=None:
+            usez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                l1 = ax[j][i].loglog(self.rbins, self.wprp[:,i,j])
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$w_{p}(r_{p})$')
+            sax.set_ylabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1
 
 
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], compare=True,
+                                    **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], compare=True,
+                                    f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
 
 
 class GalaxyRadialProfileBCC(Metric):

@@ -286,7 +286,7 @@ class OccMass(MassMetric):
         if ylabel is None:
             ylabel = r'$<N>$'
 
-        MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
                              ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
                              ylabel=ylabel, compare=compare,logx=True,**kwargs)
@@ -376,7 +376,7 @@ class TinkerMassFunction(MassMetric):
         if ylabel is None:
             ylabel = r"$N \, [Mpc^{-3}\, h^{3}]$"
 
-        MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
                              ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
                              ylabel=ylabel, compare=compare,logx=True,**kwargs)
