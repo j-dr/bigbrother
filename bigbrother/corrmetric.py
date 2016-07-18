@@ -26,7 +26,7 @@ class CorrelationFunction(Metric):
     def __init__(self, ministry, zbins=None, lumbins=None,
                    nrbins=None, subjack=False,
                    catalog_type=None, lcutind=None,
-                   tag=None):
+                   tag=None, same_rand=False, inv_lum=True):
         """
         Generic correlation function.
         """
@@ -43,6 +43,7 @@ class CorrelationFunction(Metric):
             self.zbins = zbins
             self.zbins = np.array(self.zbins)
 
+
         self.nzbins = len(self.zbins)-1
 
         if lumbins is None:
@@ -51,6 +52,14 @@ class CorrelationFunction(Metric):
             self.lumbins = lumbins
 
         self.nlumbins = len(self.lumbins)-1
+
+        if same_rand & inv_lum:
+            self.luminds = np.arange(self.nlumbins)[::-1]
+        else:
+            self.luminds = np.arange(self.nlumbins)
+
+        self.same_rand = same_rand
+        self.inv_lum = inv_lum
 
         if nrbins is None:
             self.nrbins = 15
@@ -234,7 +243,7 @@ class WPrpLightcone(CorrelationFunction):
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, subjack=False, catalog_type=None, tag=None,
-                  njack=None, lcutind=None):
+                  njack=None, lcutind=None, same_rand=False, inv_lum=True):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -242,6 +251,7 @@ class WPrpLightcone(CorrelationFunction):
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
                                       lumbins=lumbins, nrbins=nrbins,
                                       subjack=subjack, lcutind=lcutind,
+                                      same_rand=same_rand, inv_lum=inv_lum,
                                       catalog_type=catalog_type, tag=tag)
 
         self.logbins = logbins
@@ -301,19 +311,24 @@ class WPrpLightcone(CorrelationFunction):
             #zrlidx = rands['redshift'].searchsorted(self.zbins[i])
             #zrhidx = rands['redshift'].searchsorted(self.zbins[i+1])
 
-            for j in range(self.nlumbins):
+            for li, j in enumerate(self.luminds):
                 print('Finding luminosity indices')
-                lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+                if self.inv_lum:
+                    lidx = (self.lumbins[j+1] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j])
+                else:
+                    lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
 
-                print('Generating Randoms')
-                rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
+                if li==0:
+                    print('Generating Randoms')
+                    rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
 
                 self.nd[j,i,self.jcount] = len(mapunit[zlidx:zhidx][lidx])
                 self.nr[j,i,self.jcount] = len(rands)
 
                 #data data
                 print('calculating data data pairs')
-                results = countpairs.countpairs_rp_pi_mocks(1, 1, 1, self.pimax,
+                ddresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
+                                        self.pimax,
                                         self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
@@ -322,11 +337,12 @@ class WPrpLightcone(CorrelationFunction):
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
                                         mapunit[zlidx:zhidx][lidx]['redshift']*self.c)
 
-                self.dd[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.dd[:,j,i,self.jcount] = np.array([ddresults[k][4] for k in range(self.nrbins)])
 
                 #data randoms
                 print('calculating data random pairs')
-                results = countpairs.countpairs_rp_pi_mocks(0, 1, 1, self.pimax,
+                drresults = countpairs.countpairs_rp_pi_mocks(0, 1, 1,
+                                        self.pimax,
                                         self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
@@ -335,11 +351,13 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.dr[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.dr[:,j,i,self.jcount] = np.array([drresults[k][4] for k in range(self.nrbins)])
 
                 #randoms randoms
                 print('calculating random random pairs')
-                results = countpairs.countpairs_rp_pi_mocks(1, 1, 1, self.pimax,
+                if li==0:
+                    rrresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
+                                        self.pimax,
                                         self.binfilename,
                                         rands['azim_ang'],
                                         rands['polar_ang'],
@@ -348,7 +366,7 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.rr[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.rr[:,j,i,self.jcount] = np.array([rrresults[k][4] for k in range(self.nrbins)])
 
                 self.jcount += 1
 
