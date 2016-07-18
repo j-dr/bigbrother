@@ -3,21 +3,58 @@ from abc import ABCMeta, abstractmethod
 
 class Selection:
     """
-    Base class for selection classes.
+    Handles all selections for metrics. This includes creating
+    arrays to store data created from map functions, creating
+    generators of selections, and handling plotting them.
     """
-    def __init__(self, selection_dict):
 
+    def __init__(self, selection_dict):
+        """
+        Instantiate selection object.
+
+        inputs
+        --------
+        selection_dict - dictionary
+        Dictionary whose keys are types of selections, values are diction
+        """
         self.mapkeys = selection_dict.keys()
         self.selection_dict = selection_dict
 
-    def select(self, data, selection):
+    def mapArray(self):
+        """
+        Given a selection dictionary return an array
+        to store map outputs
+
+        returns
+        --------
+        maparray - np.array
+        An n-dimensional array with shape given by the
+        """
+
         pass
 
 
-    def applySelection(self, mapunit):
+    def select(self, data):
+        """
+        Given a selection dictionary return a generator which
+        yields
+        """
 
-        mu = {}
+        #use itertools to make loop from input selection datatype
 
-        for key in mapunit.keys():
-            if key in self.mapkeys:
-                mu[key] = self.select(mu[key], self.selection_dict[key])
+        pass
+
+    def selectionAxes(self):
+        """
+        Make an appropriately shaped set of axes. Might need to
+        rethink since shapes of axes dictated by more than just
+        selections.
+        """
+        pass
+        
+    def selectionIndex(self):
+        """
+        Returns the indices of a particular selection in either the
+        map array, or the axes upon which the data are plotted.
+        """
+        pass
