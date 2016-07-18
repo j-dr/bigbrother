@@ -318,7 +318,7 @@ class WPrpLightcone(CorrelationFunction):
                 else:
                     lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
 
-                if li==0:
+                if (li==0) | (~same_rand):
                     print('Generating Randoms')
                     rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
 
@@ -355,7 +355,7 @@ class WPrpLightcone(CorrelationFunction):
 
                 #randoms randoms
                 print('calculating random random pairs')
-                if li==0:
+                if (li==0) | (~same_rand):
                     rrresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
                                         self.pimax,
                                         self.binfilename,
