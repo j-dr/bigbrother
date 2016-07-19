@@ -3,6 +3,7 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
+import sys
 
 try:
     import treecorr as tc
@@ -315,15 +316,22 @@ class WPrpLightcone(CorrelationFunction):
                 print('Finding luminosity indices')
                 lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
 
-                if (li==0) | (~self.same_rand):
+                if (li==0) | (not self.same_rand):
                     print('Generating Randoms')
+                    print(li)
+                    print(self.same_rand)
                     rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
 
                 self.nd[j,i,self.jcount] = len(mapunit[zlidx:zhidx][lidx])
                 self.nr[j,i,self.jcount] = len(rands)
 
+                print("Number of galaxies in this z/lum bin: {0}".format(self.nd[j,i,self.jcount]))
+                print("Number of randoms in this z/lum bin: {0}".format(self.nr[j,i,self.jcount]))
+
                 #data data
                 print('calculating data data pairs')
+                sys.stdout.flush()
+
                 ddresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
                                         self.pimax,
                                         self.binfilename,
@@ -352,7 +360,7 @@ class WPrpLightcone(CorrelationFunction):
 
                 #randoms randoms
                 print('calculating random random pairs')
-                if (li==0) | (~self.same_rand):
+                if (li==0) | (not self.same_rand):
                     rrresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
                                         self.pimax,
                                         self.binfilename,
@@ -407,7 +415,7 @@ class WPrpLightcone(CorrelationFunction):
         if usecols is None:
             usecols = range(self.nlumbins)
 
-        if usez=None:
+        if usez is None:
             usez = range(self.nzbins)
 
         if f is None:
@@ -478,6 +486,51 @@ class WPrpLightcone(CorrelationFunction):
             plt.savefig(plotname)
 
         return f, ax
+
+class TabulatedWPrpLightcone(CorrelationFunction):
+
+    def __init__(self, fname, *args, **kwargs):
+
+        self.fname = fname
+
+        if 'rmeancol' in kwargs:
+            self.rmeancol = int(kwargs.pop('rmeancol'))
+        else:
+            self.rmeancol = 0
+
+        if 'wprpcol' in kwargs:
+            self.wprpcol = int(kwargs.pop('wprpcol'))
+        else:
+            self.wprpcol = 1
+
+        if 'wprperr' in kwargs:
+            self.wprperr = int(kwargs.pop('wprperr'))
+        else:
+            self.wprperr = 2
+
+        if 'ncuts' in kwargs:
+            self.ncuts = int(kwargs.pop('ncuts'))
+        else:
+            self.ncuts = 1
+
+        WPrpLightcone.__init__(self, *args, **kwargs)
+
+        self.nomap = True
+        self.loadWPrp()
+
+
+    def loadWPrp(self):
+
+        tab = np.genfromtxt(self.fname)
+        self.wprp = np.zeros((tab.shape[0], self.ncuts))
+        self.varwprp = np.zeros((tab.shape[0], self.ncuts))
+        self.rmean = tab[:,self.rmeancol]
+
+
+
+
+
+
 
 
 class GalaxyRadialProfileBCC(Metric):

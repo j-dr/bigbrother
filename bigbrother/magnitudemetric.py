@@ -3,14 +3,13 @@ from .metric import Metric, GMetric
 #if __name__=='__main__':
 import matplotlib as mpl
 mpl.use('TkAgg')
-import matplotlib.gridspec as gridspec
 import matplotlib.pylab as plt
 import numpy as np
 
 
 class MagnitudeMetric(GMetric):
     """
-    Restruct GMetric to magnitudes
+    Restrict GMetric to magnitudes
     """
 
     def __init__(self, ministry, zbins=None, magbins=None,
@@ -174,7 +173,7 @@ class LuminosityFunction(MagnitudeMetric):
 
         if xlabel is None:
             xlabel = "Mag"
-            
+
         if ylabel is None:
             ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
 
