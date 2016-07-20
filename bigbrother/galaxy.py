@@ -93,17 +93,16 @@ class GalaxyCatalog(BaseCatalog):
         ft      = mappable.dtype
         fname   = mappable.name
 
-        for f in fieldmap.keys():
-            fields = []
-            for val in fieldmap[ft].values():
-                if hasattr(val, '__iter__'):
-                    fields.extend(val)
-                else:
-                    fields.extend([val])
+        fields = []
+        for val in fieldmap[ft].values():
+            if hasattr(val, '__iter__'):
+                fields.extend(val)
+            else:
+                fields.extend([val])
 
         data = np.genfromtxt(fname, usecols=fields)
         for mapkey in fieldmap[ft].keys():
-            mapunit[mapkey] = data[:,fieldmap[ft][mapkey]]
+            mapunit[mapkey] = data[:,fields.index(fieldmap[ft][mapkey])]
             if hasattr(fieldmap[ft][mapkey], '__iter__'):
                 dt = mapunit[mapkey].dtype[0]
                 ne = len(mapunit[mapkey])
