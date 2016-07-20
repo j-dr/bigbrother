@@ -80,7 +80,7 @@ class DensityMagnitudePDF(Metric):
             self.densmagpdf = self.densmagcounts / area
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usez=None, colors=None, **kwargs):
+                  usez=None, colors=None, ncont=None, **kwargs):
 
         mdens = (self.densbins[1:]+self.densbins[:-1])/2
         mmag = (self.magbins[1:]+self.magbins[:-1])/2
@@ -89,6 +89,9 @@ class DensityMagnitudePDF(Metric):
 
         if usez is None:
             usezs = range(self.densmagpdf.shape[2])
+        
+        if ncont is None:
+            ncont = 5
 
         if f is None:
             f, ax = plt.subplots(self.nzbins,
@@ -100,7 +103,7 @@ class DensityMagnitudePDF(Metric):
 
         for i in range(self.nzbins):
             try:
-                l1 = ax[i].contour(X, Y, self.densmagpdf[:,:,i].T, 10,
+                l1 = ax[i].contour(X, Y, self.densmagpdf[:,:,i].T, ncont,
                                    colors=colors, **kwargs)
             except ValueError as e:
                 print('Caught error {0}'.format(e))
@@ -133,7 +136,7 @@ class DensityMagnitudePDF(Metric):
         return f, ax, l1
 
     def compare(self, othermetrics, plotname=None, usez=None,
-                  labels=None, color=None, **kwargs):
+                  labels=None, color=None, ncont=None, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -158,10 +161,11 @@ class DensityMagnitudePDF(Metric):
         for i, m in enumerate(tocompare):
             if i==0:
                 f, ax, l = m.visualize(usez=usez[i], compare=True, 
-                                        colors=colors[i], **kwargs)
+                                        colors=colors[i], ncont=ncont,
+                                        **kwargs)
             else:
                 f, ax, l = m.visualize(usez=usez[i], compare=True, 
-                                        colors=colors[i],
+                                        colors=colors[i], ncont=ncont,
                                         ax=ax, f=f, **kwargs)
 
             lines.append(l)
