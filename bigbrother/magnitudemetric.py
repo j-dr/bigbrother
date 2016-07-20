@@ -1332,7 +1332,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
     Handle tabulated Luminosity Functions.
     """
 
-    def __init__(self, fname, *args, **kwargs):
+    def __init__(self, ministry, fname, *args, **kwargs):
 
         self.fname = fname
 
@@ -1356,7 +1356,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
         else:
             self.ecol = None
 
-        LuminosityFunction.__init__(self,*args,**kwargs)
+        LuminosityFunction.__init__(self,ministry,*args,**kwargs)
 
         #don't need to map this guy
         self.nomap = True
