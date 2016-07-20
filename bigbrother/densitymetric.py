@@ -74,8 +74,8 @@ class DensityMagnitudePDF(Metric):
         if self.normed:
             dd = self.densbins[1:] - self.densbins[:-1]
             dm = self.magbins[1:] - self.magbins[:-1]
-            dddm = np.outer(dd, dm)
-            self.densmagpdf = self.densmagcounts / dddm / np.sum(self.densmagcounts, axis=[0,1])
+            dddm = np.outer(dd, dm).reshape((len(dd), len(dm), 1))
+            self.densmagpdf = self.densmagcounts / dddm / np.sum(self.densmagcounts, axis=[0,1]).reshape((len(dd), len(dm), 1))
         else:
             self.densmagpdf = self.densmagcounts / area
 
