@@ -75,7 +75,7 @@ class DensityMagnitudePDF(Metric):
             dd = self.densbins[1:] - self.densbins[:-1]
             dm = self.magbins[1:] - self.magbins[:-1]
             dddm = np.outer(dd, dm)
-            self.densmagpdf = self.densmagcounts / area / dddm
+            self.densmagpdf = self.densmagcounts / dddm / np.sum(self.densmagcounts, axis=[0,1])
         else:
             self.densmagpdf = self.densmagcounts / area
 
@@ -184,7 +184,7 @@ class ConditionalDensityPDF(Metric):
 
     def __init__(self, ministry, magcuts=None, densbins=None,
                   zbins=None, catalog_type=None, tag=None,
-                  magcutind=None):
+                  magcutind=None, normed=True):
 
         if catalog_type is None:
             catalog_type = ['galaxycatalog']
@@ -202,11 +202,12 @@ class ConditionalDensityPDF(Metric):
             self.densbins = densbins
 
         if zbins is None:
-            self.zbins = np.linspace(ministry.zmin, ministry.zmax, 6)
+            self.zbins = np.linspace(ministry.minz, ministry.maxz, 6)
         else:
             self.zbins = zbins
 
         self.magcutind = magcutind
+        self.normed    = normed
 
         self.nmagcuts  = len(self.magcuts)
         self.nzbins    = len(self.zbins) - 1
@@ -233,15 +234,18 @@ class ConditionalDensityPDF(Metric):
                 else:
                     lidx = mapunit['luminosity'][zlidx:zhidx,self.magcutind]<self.magcuts[j]
 
-                self.cdcounts[:,j,i] = np.histogram(mapunit['density'][zlidx:zhidx][lidx],
+                c, e = np.histogram(mapunit['density'][zlidx:zhidx][lidx],
                                 bins=self.densbins)
+
+                self.cdcounts[:,j,i] = c
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
 
         if self.normed:
-            dd = self.densbins[1:] - self.densbins[:-1]
-            self.cdenspdf = self.cdcounts / area / dd
+            #reshape to allow broadcasting
+            dd = (self.densbins[1:] - self.densbins[:-1]).reshape((self.ndensbins, 1, 1))
+            self.cdenspdf = self.cdcounts / dd / np.sum(self.cdcounts, axis=0)
         else:
             self.cdenspdf = self.cdcounts / area
 
