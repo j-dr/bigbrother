@@ -101,6 +101,8 @@ class GalaxyCatalog(BaseCatalog):
                 fields.extend([val])
 
         data = np.genfromtxt(fname, usecols=fields)
+        data = data.reshape((len(data), len(fields)))
+
         for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[:,fields.index(fieldmap[ft][mapkey])]
             if hasattr(fieldmap[ft][mapkey], '__iter__'):

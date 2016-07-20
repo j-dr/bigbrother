@@ -17,6 +17,9 @@ class DensityMagnitudePDF(Metric):
                   magbins=None, catalog_type=None,
                   tag=None, central_only=False, normed=False):
 
+        if catalog_type is None:
+            catalog_type = ['galaxycatalog']
+
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
 
         if zbins is None:
@@ -25,7 +28,7 @@ class DensityMagnitudePDF(Metric):
             self.zbins = zbins
 
         if densbins is None:
-            self.densbins = np.logspace(0.1, 10, 61)
+            self.densbins = np.logspace(0.1, 1, 61)
         else:
             self.densbins = densbins
 
@@ -34,14 +37,15 @@ class DensityMagnitudePDF(Metric):
         else:
             self.magbins = magbins
 
-        self.nzbins = len(self.zbins) - b1
+        self.nzbins = len(self.zbins) - 1
         self.nmagbins = len(self.magbins) - 1
         self.ndensbins = len(self.densbins) - 1
         self.central_only = central_only
+        self.normed = normed
 
         if self.central_only:
             self.mapkeys = ['luminosity', 'density', 'redshift', 'central']
-        else
+        else:
             self.mapkeys = ['luminosity', 'density', 'redshift']
 
         self.aschema = 'galaxyonly'
@@ -53,16 +57,16 @@ class DensityMagnitudePDF(Metric):
             self.densmagcounts = np.zeros((self.ndensbins, self.nmagbins,
                                             self.nzbins))
 
-        for i, z in enumarate(self.zbins[:-1]):
+        for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-            c, e0, e1 = np.histogram2d(mapunit['density'],
-                                        mapunit['luminosity']),
+            c, e0, e1 = np.histogram2d(mapunit['density'][zlidx:zhidx],
+                                        mapunit['luminosity'][zlidx:zhidx],
                                         bins=[self.densbins, self.magbins],
                                         normed=self.normed)
 
-            self.densmagcounts += c
+            self.densmagcounts[:,:,i] += c
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
@@ -76,7 +80,7 @@ class DensityMagnitudePDF(Metric):
             self.densmagpdf = self.densmagcounts / area
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usez=None, **kwargs):
+                  usez=None, colors=None, **kwargs):
 
         mdens = (self.densbins[1:]+self.densbins[:-1])/2
         mmag = (self.magbins[1:]+self.magbins[:-1])/2
@@ -95,8 +99,12 @@ class DensityMagnitudePDF(Metric):
             newaxes = False
 
         for i in range(self.nzbins):
-            l1 = ax[i].contour(X, Y, self.densmagpdf[:,:,i].T, 10,
-                                    **kwargs)
+            try:
+                l1 = ax[i].contour(X, Y, self.densmagpdf[:,:,i].T, 10,
+                                   colors=colors, **kwargs)
+            except ValueError as e:
+                print('Caught error {0}'.format(e))
+                pass
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -108,12 +116,12 @@ class DensityMagnitudePDF(Metric):
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
 
-            if xlabel in kwargs:
+            if 'xlabel' in kwargs:
                 sax.set_xlabel(kwargs['xlabel'])
             else:
-                sax.set_xlabel(r'Magnitude')
+                sax.set_xlabel(r'Density')
 
-            if xlabel in kwargs:
+            if 'ylabel' in kwargs:
                 sax.set_ylabel(kwargs['ylabel'])
             else:
                 sax.set_ylabel(r'Magnitude')
@@ -125,7 +133,7 @@ class DensityMagnitudePDF(Metric):
         return f, ax, l1
 
     def compare(self, othermetrics, plotname=None, usez=None,
-                  labels=None, **kwargs):
+                  labels=None, color=None, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -141,14 +149,19 @@ class DensityMagnitudePDF(Metric):
         if labels is None:
             labels = [None] * len(tocompare)
 
+        if color is None:
+            color = [None] * len(tocompare)
+            
+
         lines = []
 
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax, l = m.visualize(usez=usez[i], compare=True,
-                                    **kwargs)
+                f, ax, l = m.visualize(usez=usez[i], compare=True, 
+                                        colors=colors[i], **kwargs)
             else:
-                f, ax, l = m.visualize(usez=usez[i], compare=True,
+                f, ax, l = m.visualize(usez=usez[i], compare=True, 
+                                        colors=colors[i],
                                         ax=ax, f=f, **kwargs)
 
             lines.append(l)
