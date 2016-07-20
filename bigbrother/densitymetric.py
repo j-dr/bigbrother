@@ -136,7 +136,7 @@ class DensityMagnitudePDF(Metric):
         return f, ax, l1
 
     def compare(self, othermetrics, plotname=None, usez=None,
-                  labels=None, color=None, ncont=None, **kwargs):
+                  labels=None, colors=None, ncont=None, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -152,10 +152,9 @@ class DensityMagnitudePDF(Metric):
         if labels is None:
             labels = [None] * len(tocompare)
 
-        if color is None:
-            color = [None] * len(tocompare)
+        if colors is None:
+            colors = [None] * len(tocompare)
             
-
         lines = []
 
         for i, m in enumerate(tocompare):
