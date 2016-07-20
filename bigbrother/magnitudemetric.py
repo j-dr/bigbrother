@@ -174,7 +174,7 @@ class LuminosityFunction(MagnitudeMetric):
 
         if xlabel is None:
             xlabel = "Mag"
-            
+
         if ylabel is None:
             ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
 
@@ -1332,12 +1332,9 @@ class TabulatedLuminosityFunction(LuminosityFunction):
     Handle tabulated Luminosity Functions.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fname, *args, **kwargs):
 
-        if 'fname' in kwargs:
-            self.fname = kwargs.pop('fname')
-        else:
-            raise(ValueError("Please supply a path to the tabulated luminosity function using the fname kwarg!"))
+        self.fname = fname
 
         if 'nbands' in kwargs:
             self.nbands = kwargs.pop('nbands')
