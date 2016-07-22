@@ -184,12 +184,17 @@ class ConditionalDensityPDF(Metric):
 
     def __init__(self, ministry, magcuts=None, densbins=None,
                   zbins=None, catalog_type=None, tag=None,
-                  magcutind=None, normed=True):
+                  magcutind=None, normed=True, centrals=None):
 
         if catalog_type is None:
             catalog_type = ['galaxycatalog']
 
         Metric.__init__(self, ministry, tag=tag, catalog_type=catalog_type)
+
+        if centrals is None:
+            self.centrals = 0
+        else:
+            self.centrals = centrals
 
         if magcuts is None:
             self.magcuts = np.linspace(-24, -18, 6)
@@ -209,35 +214,54 @@ class ConditionalDensityPDF(Metric):
         self.magcutind = magcutind
         self.normed    = normed
 
+
         self.nmagcuts  = len(self.magcuts)
         self.nzbins    = len(self.zbins) - 1
         self.ndensbins = len(self.densbins) - 1
 
+
         self.aschema = 'galaxyonly'
-        self.mapkeys = ['luminosity', 'density', 'redshift']
+        if self.centrals != 0:
+            self.mapkeys = ['luminosity', 'density', 'redshift', 'central']
+        else:
+            self.mapkeys = ['luminosity', 'density', 'redshift']
+
         self.unitmap = {'luminosity':'mag', 'density':'mpch'}
 
 
     def map(self, mapunit):
+
+        mu = {}
+
+        if self.centrals == 1:
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][mapunit['central']==1]
+        elif self.centrals == 2:
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][mapunit['central']==0]
+        else:
+            for k in mapunit.keys():
+                mu[k] = mapunit[k]
+
 
         if not hasattr(self, 'cdcounts'):
             self.cdcounts = np.zeros((self.ndensbins, self.nmagcuts,
                                         self.nzbins))
 
         for i in range(self.nzbins):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+            zlidx = mu['redshift'].searchsorted(self.zbins[i])
+            zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
             for j in range(self.nmagcuts):
                 if self.magcutind is None:
-                    lidx = mapunit['luminosity'][zlidx:zhidx]<self.magcuts[j]
+                    lidx = mu['luminosity'][zlidx:zhidx]<self.magcuts[j]
                 else:
-                    lidx = mapunit['luminosity'][zlidx:zhidx,self.magcutind]<self.magcuts[j]
+                    lidx = mu['luminosity'][zlidx:zhidx,self.magcutind]<self.magcuts[j]
 
-                c, e = np.histogram(mapunit['density'][zlidx:zhidx][lidx],
+                c, e = np.histogram(mu['density'][zlidx:zhidx][lidx],
                                 bins=self.densbins)
 
-                self.cdcounts[:,j,i] = c
+                self.cdcounts[:,j,i] += c
 
     def reduce(self):
         area = self.ministry.galaxycatalog.getArea()
@@ -343,7 +367,7 @@ class ConditionalDensityPDF(Metric):
 
         return f, ax
 
-def analyticConditionalDensityPDF(ConditionalDensityPDF):
+class AnalyticConditionalDensityPDF(ConditionalDensityPDF):
 
     def __init__(self, ministry, params, form, magcuts=None,
                   densbins=None, zbins=None):
@@ -367,38 +391,42 @@ def analyticConditionalDensityPDF(ConditionalDensityPDF):
         if not hasattr(self, 'cdenspdf'):
             self.cdenspdf = np.zeros((self.ndensbins, self.nmagcuts,
                                         self.nzbins))
+            self.dpdfpars = np.zeros((5,self.nmagcuts, self.nzbins))
 
         mag_ref = -20.5
         bright_mag_lim = -22.5-mag_ref
 
-        meandens = (self.densbins[1:] + self.densbins[:-1]) / 2
-        meanz = (self.zbins[1:] + self.zbins[:-1]) / 2
+        self.meandens = (self.densbins[1:] + self.densbins[:-1]) / 2
+        self.meanz = (self.zbins[1:] + self.zbins[:-1]) / 2
 
         for i in range(self.nzbins):
             for j in range(self.nmagcuts):
-                mag = self.magcuts[j]
+                mag = self.magcuts[j]-mag_ref
                 z   = self.meanz[i]
                 if mag<bright_mag_lim: mag = bright_mag_lim
 
-                pmag = np.sum(np.array([mag**i for i in range(len(self.params['pmag']))]) * self.params['pmag'])
-                pz   = np.sum(np.array([z**i for i in range(len(self.params['pz']))]) * self.params['pz'])
+                pmag = np.sum(np.array([self.params['pmag'][k]*mag**k for k in range(len(self.params['pmag']))]))
+                pz   = np.sum(np.array([self.params['pz'][k]*z**k for k in range(len(self.params['pz']))]))
                 p = pmag + pz
 
-                mucmag = np.sum(np.array([mag**i for i in range(len(self.params['mucmag']))]) * self.params['mucmag'])
-                mucz   = np.sum(np.array([z**i for i in range(len(self.params['mucz']))]) * self.params['mucz'])
+                mucmag = np.sum(np.array([self.params['mucmag'][k]*mag**k for k in range(len(self.params['mucmag']))]))
+                mucz   = np.sum(np.array([self.params['mucz'][k]*z**k for k in range(len(self.params['mucz']))]))
                 muc = mucmag + mucz
 
-                mufmag = np.sum(np.array([mag**i for i in range(len(self.params['mufmag']))]) * self.params['mufmag'])
-                mufz   = np.sum(np.array([z**i for i in range(len(self.params['mufz']))]) * self.params['mufz'])
+                mufmag = np.sum(np.array([self.params['mufmag'][k]*mag**k for k in range(len(self.params['mufmag']))]))
+                mufz   = np.sum(np.array([self.params['mufz'][k]*z**k for k in range(len(self.params['mufz']))]))
                 muf = mufmag + mufz
 
-                sigmacmag = np.sum(np.array([mag**i for i in range(len(self.params['sigmacmag']))]) * self.params['sigmacmag'])
-                sigmacz   = np.sum(np.array([z**i for i in range(len(self.params['sigmacz']))]) * self.params['sigmacz'])
+                sigmacmag = np.sum(np.array([self.params['sigmacmag'][k]*mag**k for k in range(len(self.params['sigmacmag']))]))
+                sigmacz   = np.sum(np.array([self.params['sigmacz'][k]*z**k for k in range(len(self.params['sigmacz']))]))
                 sigmac = sigmacmag + sigmacz
 
-                sigmafmag = np.sum(np.array([mag**i for i in range(len(self.params['sigmafmag']))]) * self.params['sigmafmag'])
-                sigmafz   = np.sum(np.array([z**i for i in range(len(self.params['sigmafz']))]) * self.params['sigmafz'])
+                sigmafmag = np.sum(np.array([self.params['sigmafmag'][k]*mag**k for k in range(len(self.params['sigmafmag']))]))
+                sigmafz   = np.sum(np.array([self.params['sigmafz'][k]*z**k for k in range(len(self.params['sigmafz']))]))
                 sigmaf = sigmafmag + sigmafz
 
-                self.cdenspdf[:,j,i] = (1 - p) * np.exp((np.log(meandens) - muc) ** 2 / (2 * sigmac ** 2)) / ( meandens * np.sqrt(2 * np.pi ) * sigmac ) + p * np.exp((meandens - muf) ** 2 / (2 * sigmaf ** 2)) / ( meandens * np.sqrt(2 * np.pi ) * sigmaf )
+                
+                self.dpdfpars[:,j,i] = np.array([p, muc, sigmac, muf, sigmaf])
+
+                self.cdenspdf[:,j,i] = (1 - p) * np.exp(-(np.log(self.meandens) - muc) ** 2 / (2 * sigmac ** 2)) / ( self.meandens * np.sqrt(2 * np.pi ) * sigmac ) + p * np.exp(-(self.meandens - muf) ** 2 / (2 * sigmaf ** 2)) / (np.sqrt(2 * np.pi ) * sigmaf )
                 

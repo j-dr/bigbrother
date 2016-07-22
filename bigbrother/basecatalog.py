@@ -224,7 +224,7 @@ class BaseCatalog:
                 except:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
 
-                mapunit[key] = conversion(mapunit[key])
+                mapunit[key] = conversion(mapunit, key)
                 beenconverted.append(key)
 
         return mapunit
