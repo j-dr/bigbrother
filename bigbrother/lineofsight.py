@@ -258,7 +258,7 @@ class DNDz(Metric):
                                     f=f, ax=ax, **kwargs)
             lines.extend(l1)
 
-        if labels[0]!=None:
+        if labels!=None:
             f.legend(lines, labels, 'best')
 
         if plotname is not None:
