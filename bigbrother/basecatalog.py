@@ -13,7 +13,7 @@ class BaseCatalog:
     Base class for catalog type
     """
 
-    _valid_reader_types = ['fits', 'rockstar']
+    _valid_reader_types = ['fits', 'rockstar', 'ascii']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
                  unitmap=None, nside=None, maskfile=None,
