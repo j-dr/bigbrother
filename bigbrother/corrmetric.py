@@ -3,6 +3,7 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
+import sys
 
 try:
     import treecorr as tc
@@ -26,7 +27,7 @@ class CorrelationFunction(Metric):
     def __init__(self, ministry, zbins=None, lumbins=None,
                    nrbins=None, subjack=False,
                    catalog_type=None, lcutind=None,
-                   tag=None):
+                   tag=None, same_rand=False, inv_lum=True):
         """
         Generic correlation function.
         """
@@ -43,6 +44,7 @@ class CorrelationFunction(Metric):
             self.zbins = zbins
             self.zbins = np.array(self.zbins)
 
+
         self.nzbins = len(self.zbins)-1
 
         if lumbins is None:
@@ -51,6 +53,14 @@ class CorrelationFunction(Metric):
             self.lumbins = lumbins
 
         self.nlumbins = len(self.lumbins)-1
+
+        if same_rand & inv_lum:
+            self.luminds = np.arange(self.nlumbins)[::-1]
+        else:
+            self.luminds = np.arange(self.nlumbins)
+
+        self.same_rand = same_rand
+        self.inv_lum = inv_lum
 
         if nrbins is None:
             self.nrbins = 15
@@ -234,7 +244,7 @@ class WPrpLightcone(CorrelationFunction):
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, subjack=False, catalog_type=None, tag=None,
-                  njack=None, lcutind=None):
+                  njack=None, lcutind=None, same_rand=False, inv_lum=True):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -242,6 +252,7 @@ class WPrpLightcone(CorrelationFunction):
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
                                       lumbins=lumbins, nrbins=nrbins,
                                       subjack=subjack, lcutind=lcutind,
+                                      same_rand=same_rand, inv_lum=inv_lum,
                                       catalog_type=catalog_type, tag=tag)
 
         self.logbins = logbins
@@ -301,19 +312,28 @@ class WPrpLightcone(CorrelationFunction):
             #zrlidx = rands['redshift'].searchsorted(self.zbins[i])
             #zrhidx = rands['redshift'].searchsorted(self.zbins[i+1])
 
-            for j in range(self.nlumbins):
+            for li, j in enumerate(self.luminds):
                 print('Finding luminosity indices')
                 lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
 
-                print('Generating Randoms')
-                rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
+                if (li==0) | (not self.same_rand):
+                    print('Generating Randoms')
+                    print(li)
+                    print(self.same_rand)
+                    rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
 
                 self.nd[j,i,self.jcount] = len(mapunit[zlidx:zhidx][lidx])
                 self.nr[j,i,self.jcount] = len(rands)
 
+                print("Number of galaxies in this z/lum bin: {0}".format(self.nd[j,i,self.jcount]))
+                print("Number of randoms in this z/lum bin: {0}".format(self.nr[j,i,self.jcount]))
+
                 #data data
                 print('calculating data data pairs')
-                results = countpairs.countpairs_rp_pi_mocks(1, 1, 1, self.pimax,
+                sys.stdout.flush()
+
+                ddresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
+                                        self.pimax,
                                         self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
@@ -322,11 +342,12 @@ class WPrpLightcone(CorrelationFunction):
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
                                         mapunit[zlidx:zhidx][lidx]['redshift']*self.c)
 
-                self.dd[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.dd[:,j,i,self.jcount] = np.array([ddresults[k][4] for k in range(self.nrbins)])
 
                 #data randoms
                 print('calculating data random pairs')
-                results = countpairs.countpairs_rp_pi_mocks(0, 1, 1, self.pimax,
+                drresults = countpairs.countpairs_rp_pi_mocks(0, 1, 1,
+                                        self.pimax,
                                         self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
                                         mapunit[zlidx:zhidx][lidx]['polar_ang'],
@@ -335,11 +356,13 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.dr[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.dr[:,j,i,self.jcount] = np.array([drresults[k][4] for k in range(self.nrbins)])
 
                 #randoms randoms
                 print('calculating random random pairs')
-                results = countpairs.countpairs_rp_pi_mocks(1, 1, 1, self.pimax,
+                if (li==0) | (not self.same_rand):
+                    rrresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
+                                        self.pimax,
                                         self.binfilename,
                                         rands['azim_ang'],
                                         rands['polar_ang'],
@@ -348,9 +371,9 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.rr[:,j,i,self.jcount] = np.array([results[k][4] for k in range(self.nrbins)])
+                self.rr[:,j,i,self.jcount] = np.array([rrresults[k][4] for k in range(self.nrbins)])
 
-                self.jcount += 1
+        self.jcount += 1
 
     def reduce(self):
 
@@ -386,11 +409,126 @@ class WPrpLightcone(CorrelationFunction):
 
 
 
-    def visualize(self):
-        pass
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, **kwargs):
 
-    def compare(self):
-        pass
+        if usecols is None:
+            usecols = range(self.nlumbins)
+
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                l1 = ax[j][i].loglog(self.rbins, self.wprp[:,i,j])
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$w_{p}(r_{p})$')
+            sax.set_ylabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1
+
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], compare=True,
+                                    **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], compare=True,
+                                    f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+class TabulatedWPrpLightcone(CorrelationFunction):
+
+    def __init__(self, fname, *args, **kwargs):
+
+        self.fname = fname
+
+        if 'rmeancol' in kwargs:
+            self.rmeancol = int(kwargs.pop('rmeancol'))
+        else:
+            self.rmeancol = 0
+
+        if 'wprpcol' in kwargs:
+            self.wprpcol = int(kwargs.pop('wprpcol'))
+        else:
+            self.wprpcol = 1
+
+        if 'wprperr' in kwargs:
+            self.wprperr = int(kwargs.pop('wprperr'))
+        else:
+            self.wprperr = 2
+
+        if 'ncuts' in kwargs:
+            self.ncuts = int(kwargs.pop('ncuts'))
+        else:
+            self.ncuts = 1
+
+        WPrpLightcone.__init__(self, *args, **kwargs)
+
+        self.nomap = True
+        self.loadWPrp()
+
+
+    def loadWPrp(self):
+
+        tab = np.genfromtxt(self.fname)
+        self.wprp = np.zeros((tab.shape[0], self.ncuts))
+        self.varwprp = np.zeros((tab.shape[0], self.ncuts))
+        self.rmean = tab[:,self.rmeancol]
+
+
+
+
 
 
 

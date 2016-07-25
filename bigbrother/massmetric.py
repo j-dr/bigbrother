@@ -5,6 +5,8 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
 import numpy as np
+import cosmocalc
+from scipy.integrate import quad
 
 
 class MassMetric(GMetric):
@@ -284,7 +286,97 @@ class OccMass(MassMetric):
         if ylabel is None:
             ylabel = r'$<N>$'
 
-        MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                             fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                             ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                             ylabel=ylabel, compare=compare,logx=True,**kwargs)
+
+class TinkerMassFunction(MassMetric):
+
+    def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
+                 catalog_type=['halocatalog'], tag=None):
+
+        if massbins is None:
+            massbins = np.logspace(10, 16, 40)
+
+        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag)
+
+        self.aschema = 'haloonly'
+
+        if lightcone:
+            self.mapkeys   = ['mass', 'redshift']
+            self.lightcone = True
+        else:
+            self.mapkeys   = ['mass']
+            self.lightcone = False
+
+        self.unitmap = {'mass':'msunh'}
+        self.nomap = True
+        self.calcMassFunction(z=zbins)
+
+    def calcMassFunction(self, z=0, delta=200):
+
+	# mass bins, definitions, z bins
+
+	if hasattr(delta, '__iter__'):
+            self.ndefs = len(delta)
+        else:
+            self.ndefs = 1
+	    delta = [delta]
+
+	if hasattr(z , '__iter__'):
+            self.nzbins = len(z)
+	else:
+	    z=[z]
+            self.nzbins = 1
+
+	self.nbands = self.ndefs
+
+	cd = {
+               	"OmegaM":0.286,
+               "OmegaB":0.05,
+               "OmegaDE":0.714,
+               "OmegaK":0.0,
+               "h":0.7,
+               "Sigma8":0.82,
+               "SpectralIndex":0.96,
+               "w0":-1.0,
+               "wa":0.0
+               #,"As":2.1e-9,
+               #"As_pivot":0.05
+	}
+	cosmocalc.set_cosmology(cd)
+
+	mass_fn_n     = np.zeros((len(self.massbins)-1, self.ndefs, self.nzbins))
+	mass_fn_error = np.zeros((len(self.massbins)-1, self.ndefs, self.nzbins))
+
+        for k in range(self.nzbins):
+		for j in range(self.ndefs):
+	            for i in range(len(self.massbins)-1):
+        	        integral = quad(lambda mass: cosmocalc.tinker2008_mass_function(mass, 1/(1+z[k]), delta[j]), self.massbins[i], self.massbins[i+1])
+                	mass_fn_n[i][j][k] = integral[0]
+                	mass_fn_error[i][j][k] = integral[1]
+
+	self.y  = mass_fn_n
+	self.ye = mass_fn_error
+
+    def map(self, mapunit):
+        self.map(mapunit)
+
+    def reduce(self):
+        self.reduce()
+
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
+        if ylabel is None:
+            ylabel = r"$N \, [Mpc^{-3}\, h^{3}]$"
+
+        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
                              ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
                              ylabel=ylabel, compare=compare,logx=True,**kwargs)

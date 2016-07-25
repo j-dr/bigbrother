@@ -13,7 +13,7 @@ class BaseCatalog:
     Base class for catalog type
     """
 
-    _valid_reader_types = ['fits', 'rockstar']
+    _valid_reader_types = ['fits', 'rockstar', 'ascii']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
                  unitmap=None, nside=None, maskfile=None,
@@ -224,7 +224,7 @@ class BaseCatalog:
                 except:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
 
-                mapunit[key] = conversion(mapunit[key])
+                mapunit[key] = conversion(mapunit, key)
                 beenconverted.append(key)
 
         return mapunit
