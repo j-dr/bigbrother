@@ -86,6 +86,9 @@ class DNDz(Metric):
         if self.nmagbins > 0:
             self.mapkeys = [self.mkey, 'redshift']
             self.unitmap = {self.mkey :'mag'}
+            selection_dict = {'mag':{'mapkeys':[self.mkey],
+                                     'selection_type':'cut1d'},
+                                     'cuts':np.array([19.45]),}
         else:
             self.mapkeys = ['redshift']
             self.unitmap = {}
@@ -94,35 +97,15 @@ class DNDz(Metric):
         """
         Map function for dn/dz. Extracts relevant information from a mapunit. Usually only called by a Ministry object, not manually.
         """
-        if self.nmagbins>0:
-            if not hasattr(self, 'dndz'):
-                self.dndz = np.zeros((self.nzbins, self.nmagbins))
 
-            for i in range(self.nmagbins):
-                if self.lower_limit:
-                    if len(mapunit[self.mkey].shape)>1:
-                        idx = mapunit[self.mkey][:,self.cutband]<self.magbins[i]
-                    else:
-                        idx = mapunit[self.mkey]<self.magbins[i]
-                else:
-                    if i==self.nmagbins: continue
+        #This will eventually need to be replaced with the outputs
+        #if selector.mapArray()
+        if not hasattr(self, 'dndz'):
+            self.dndz = np.zeros((self.nzbins,self.nmagbins))
 
-                    if len(mapunit[self.mkey].shape)>1:
-                        idx = (self.magbins[i]<mapunit[self.mkey][:,self.cutband]) & (mapunit[self.mkey][:,self.cutband]<self.magbins[i+1])
-                    else:
-                        idx = (self.magbins[i]<mapunit[self.mkey]) & (mapunit[self.mkey]<self.magbins[i+1])
-
-                c, e = np.histogram(mapunit['redshift'][idx],
-                                      bins=self.zbins)
-                self.dndz[:,i] += c
-        else:
-            if not hasattr(self, 'dndz'):
-                self.dndz = np.zeros((self.nzbins,1))
-
-            c, e = np.histogram(mapunit['redshift'],
-                                  bins=self.zbins)
-            self.dndz[:,0] += c
-
+        for idx, aidx in self.selector.generateSelections(mapunit):
+            c, e = np.histogram(mapunit[self.mkey][idx], bins=self.zbins)
+            self.dndz[:,aidx] += c
 
     def reduce(self):
         """
