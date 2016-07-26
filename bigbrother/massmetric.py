@@ -223,7 +223,7 @@ class SimpleHOD(MassMetric):
 class GalHOD(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None, magcuts=None,
+                 catalog_type=['galaxycatalog'], tag=None, magcuts=None,
                  cutband=None):
 
         if massbins is None:
