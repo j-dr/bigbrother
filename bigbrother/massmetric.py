@@ -236,11 +236,11 @@ class GalHOD(MassMetric):
 
         if self.magcuts is not None:
             self.usemag = True
-            self.nmagbins = len(self.magcuts)
+            self.nmagcuts= len(self.magcuts)
 
         else:
             self.usemag = False
-            self.nmagbins = 1
+            self.nmagcuts = 1
 
         self.cutband = cutband
 
@@ -283,17 +283,17 @@ class GalHOD(MassMetric):
         #redshift bins
         if not hasattr(self, 'socccounts'):
             self.socccounts = np.zeros((len(self.massbins)-1, self.ndefs,
-                                       self.nmagbins, self.nzbins))
+                                       self.nmagcuts, self.nzbins))
             self.cocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
-                                       self.nmagbins, self.nzbins))
+                                       self.nmagcuts, self.nzbins))
 
             self.sqsocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
-                                         self.nmagbins, self.nzbins))
+                                         self.nmagcuts, self.nzbins))
             self.sqcocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
-                                         self.nmagbins, self.nzbins))
+                                         self.nmagcuts, self.nzbins))
 
             self.halocounts = np.zeros((len(self.massbins)-1, self.ndefs,
-                                        self.nmagbins, self.nzbins))
+                                        self.nmagcuts, self.nzbins))
 
         if self.lightcone:
             for i, z in enumerate(self.zbins[:-1]):
@@ -308,9 +308,9 @@ class GalHOD(MassMetric):
                                           bins=self.massbins)
                     self.halocounts[:,j,i] += c
 
-                    for k in range(self.nmagbins):
+                    for k in range(self.nmagcuts):
                         if self.usemag:
-                            lidx = (self.magbins[k]<=mapunit['luminosity'][zlidx:zhidx]) & (mapunit['luminosity'][zlidx:zhidx]<self.magbins[k+1])
+                            lidx = (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k+1])
                             cidx = mapunit['central'][zlidx:zhidx][lidx]==1
 
                             c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][lidx][cidx], bins=np.massbins)
