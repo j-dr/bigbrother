@@ -59,7 +59,7 @@ class Selector:
         sfunctions = []
 
         #Should only be one mapkey for a 1d selection
-        mk = selection.mapkeys[0]
+        mk = selection['mapkeys'][0]
 
         #Iterate over bins, creating functions that make indices
         for i in range(len(selection['bins'])-1):

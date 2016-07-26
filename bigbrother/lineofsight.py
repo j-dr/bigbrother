@@ -91,7 +91,9 @@ class DNDz(Metric):
             self.unitmap = {}
 
         #Make selection dict here
-        selection_dict = {}
+        selection_dict = {'mag':{'selection_type':'binned1d',
+                                  'mapkeys':'appmag',
+                                  'bins':np.array([19.45])}}
         self.selector = Selector(self.selection_dict)
 
     def map(self, mapunit):
