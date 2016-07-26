@@ -39,9 +39,9 @@ class Selector:
             selections[label] = []
             sel = self.selection_dict[label]
 
-            if selection_dict[label].selection_type == 'binned1d':
+            if self.selection_dict[label].selection_type == 'binned1d':
                 selections[label].extend(self.binnedSelection(sel))
-            elif selection_dict[label].selection_type =='cut1d':
+            elif self.selection_dict[label].selection_type =='cut1d':
                 selections[label].extend(self.cutSelection(sel))
 
         self.selections = selections
@@ -94,14 +94,16 @@ class Selector:
         for i in range(len(selection['bins'])-1):
             if selection['lower']:
                 if selection['selection_ind'] is None:
-                    sf = lambda data : (selection['bins'][i]<=data[mk])
+                    sf = lambda data : selection['bins'][i]<=data[mk]
                 else:
-                    sf = lambda data : (selection['bins'][i]<=data[mk][:,si]
+                    si = selection['selection_ind']
+                    sf = lambda data : selection['bins'][i]<=data[mk][:,si]
             else:
                 if selection['selection_ind'] is None:
-                    sf = lambda data : (selection['bins'][i]>=data[mk])
+                    sf = lambda data : selection['bins'][i]>=data[mk]
                 else:
-                    sf = lambda data : (selection['bins'][i]>=data[mk][:,si]
+                    si = selection['selection_ind']
+                    sf = lambda data : selection['bins'][i]>=data[mk][:,si]
 
             sfunctions.append(sf)
 
