@@ -1,7 +1,10 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
+from itertools import product
+import numpy as np
 
-class Selection:
+class Selector:
     """
     Handles all selections for metrics. This includes creating
     arrays to store data created from map functions, creating
@@ -17,8 +20,94 @@ class Selection:
         selection_dict - dictionary
         Dictionary whose keys are types of selections, values are diction
         """
-        self.mapkeys = selection_dict.keys()
-        self.selection_dict = selection_dict
+
+        if selection_dict is None:
+            self.selection_dict = OrderedDict([])
+        else:
+            self.selection_dict = selection_dict
+
+        self.selections = self.parseSelectionDict()
+
+    def parseSelectionDict(self):
+        """
+        Create a dictionary containing functions that make
+        indices for each selection
+        """
+        selections = {}
+
+        for label in self.selection_dict:
+            selections[label] = []
+            sel = self.selection_dict[label]
+
+            if self.selection_dict[label]['selection_type'] == 'binned1d':
+                selections[label].extend(self.binned1dSelection(sel))
+            elif self.selection_dict[label]['selection_type'] =='cut1d':
+                selections[label].extend(self.cut1dSelection(sel))
+
+        return selections
+
+    def binned1dSelection(self, selection):
+        """
+        Create a list of functions which create
+        boolean indices for a 1-dimensional binned selection
+
+        inputs
+        ------
+        seletion -- dict
+        A dictionary specifying the selection information. Needs
+        to have keys: bins, mapkeys, selection_ind.
+        """
+        sfunctions = []
+
+        #Should only be one mapkey for a 1d selection
+        mk = selection['mapkeys'][0]
+
+        #Iterate over bins, creating functions that make indices
+        for i in range(len(selection['bins'])-1):
+            if selection['selection_ind'] is None:
+                sf = lambda data : (selection['bins'][i]<=data[mk]) & (selection['bins'][i+1])<data[mk]
+            else:
+                si = selection['selection_ind']
+                sf = lambda data : (selection['bins'][i]<=data[mk][:,si]) & (selection['bins'][i+1])<data[mk][:,si]
+
+            sfunctions.append(sf)
+
+        return sfunctions
+
+    def cut1dSelection(self, selection):
+        """
+        Create a list of functions which create
+        boolean indices for a 1-dimensional cut selection
+
+        inputs
+        ------
+        seletion -- dict
+        A dictionary specifying the selection information. Needs
+        to have keys: bins, mapkeys, lower, selection_ind.
+        """
+        sfunctions = []
+
+        #Should only be one mapkey for a 1d selection
+        mk = selection['mapkeys'][0]
+
+        #Iterate over bins, creating functions that make indices
+        for i in range(len(selection['bins'])):
+            if selection['lower']:
+                if selection['selection_ind'] is None:
+                    sf = lambda data : selection['bins'][i]<=data[mk]
+                else:
+                    si = selection['selection_ind']
+                    sf = lambda data : selection['bins'][i]<=data[mk][:,si]
+            else:
+                if selection['selection_ind'] is None:
+                    sf = lambda data : selection['bins'][i]>=data[mk]
+                else:
+                    si = selection['selection_ind']
+                    sf = lambda data : selection['bins'][i]>=data[mk][:,si]
+
+            sfunctions.append(sf)
+
+        return sfunctions
 
     def mapArray(self):
         """
@@ -33,16 +122,52 @@ class Selection:
 
         pass
 
+    def select(self, mapunit, sfunctions):
+        """
+        Given selection functions and a mapunit, generate the indices
+        for the selection, only updating the individual indices when
+        necessary
 
-    def select(self, data):
+        inputs
+        -------
+        mapunit -- mapunit
+          A dictionary of data to generate the indices for
+        sfunctions -- list
+          A list of functions which generate indices for each type of selection
+
+        returns
+        -------
+        An index for one selection
+
+        """
+        for i, sf in enumerate(sfunctions):
+            if self.scount[i]%self.sshape[i]==0:
+                self.idxarray[:,i] = sf(mapunit)
+                self.scount[i] = 0
+            else:
+                self.scount[i] += 1
+
+        return self.idxarray.all(axis=1)
+
+    def generateSelections(self, mapunit):
         """
         Given a selection dictionary return a generator which
-        yields
-        """
+        yields indices.
 
+        inputs
+        ------
+        mapunit -- mapunit
+        The data to generate the selection indices for
+        """
+        self.sshape = np.array([len(self.selections[k]) for k in self.selections.keys()])
+        self.scount = np.array([len(self.selections[k]) for k in self.selections.keys()])
+        self.idxarray = np.zeros((len(mapunit[mapunit.keys()[0]]), len(self.sshape)), dtype=bool)
+
+        iselection = self.selections.values()
         #use itertools to make loop from input selection datatype
 
-        pass
+        for sel in product(*iselection):
+            yield self.select(mapunit, sel), self.scount
 
     def selectionAxes(self):
         """
@@ -51,7 +176,7 @@ class Selection:
         selections.
         """
         pass
-        
+
     def selectionIndex(self):
         """
         Returns the indices of a particular selection in either the
