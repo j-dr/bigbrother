@@ -48,14 +48,14 @@ class Selector:
 
     def binned1dSelection(self, selection):
         """
-        Given a type of selection, create a list
-        of functions which create a boolean index
+        Create a list of functions which create
+        boolean indices for a 1-dimensional binned selection
 
         inputs
         ------
         seletion -- dict
         A dictionary specifying the selection information. Needs
-        to have
+        to have keys: bins, mapkeys, selection_ind.
         """
         sfunctions = []
 
@@ -64,7 +64,11 @@ class Selector:
 
         #Iterate over bins, creating functions that make indices
         for i in range(len(selection['bins'])-1):
-            sf = lambda data : (selection['bins'][i]<=data[mk]) & (selection['bins'][i+1])<data[mk]
+            if selection['selection_ind'] is None:
+                sf = lambda data : (selection['bins'][i]<=data[mk]) & (selection['bins'][i+1])<data[mk]
+            else:
+                si = selection['selection_ind']
+                sf = lambda data : (selection['bins'][i]<=data[mk][:,si]) & (selection['bins'][i+1])<data[mk][:,si]
 
             sfunctions.append(sf)
 
@@ -72,9 +76,36 @@ class Selector:
 
     def cut1dselection(self, selection):
         """
-        Same as binned1dselection, but for cut selections rather than bins
-        """
+        Create a list of functions which create
+        boolean indices for a 1-dimensional cut selection
 
+        inputs
+        ------
+        seletion -- dict
+        A dictionary specifying the selection information. Needs
+        to have keys: bins, mapkeys, lower, selection_ind.
+        """
+        sfunctions = []
+
+        #Should only be one mapkey for a 1d selection
+        mk = selection['mapkeys'][0]
+
+        #Iterate over bins, creating functions that make indices
+        for i in range(len(selection['bins'])-1):
+            if selection['lower']:
+                if selection['selection_ind'] is None:
+                    sf = lambda data : (selection['bins'][i]<=data[mk])
+                else:
+                    sf = lambda data : (selection['bins'][i]<=data[mk][:,si]
+            else:
+                if selection['selection_ind'] is None:
+                    sf = lambda data : (selection['bins'][i]>=data[mk])
+                else:
+                    sf = lambda data : (selection['bins'][i]>=data[mk][:,si]
+
+            sfunctions.append(sf)
+
+        return sfunctions
 
     def mapArray(self):
         """
