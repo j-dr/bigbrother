@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
+from itertools import product
 import numpy as np
 
 class Selector:
