@@ -93,12 +93,13 @@ class DNDz(Metric):
         #Make selection dict here
         if lower_limit:
             selection_dict = {'mag':{'selection_type':'cut1d',
-                                    'mapkeys':'appmag',
+                                    'mapkeys':['appmag'],
                                     'bins':self.magbins,
-                                    'selection_ind':self.cutband}}
+                                    'selection_ind':self.cutband,
+                                    'lower':True}}
         else:
             selection_dict = {'mag':{'selection_type':'binned1d',
-                                    'mapkeys':'appmag',
+                                    'mapkeys':['appmag'],
                                     'bins':self.magbins,
                                     'selection_ind':self.cutband}}
 
@@ -115,8 +116,10 @@ class DNDz(Metric):
             self.dndz = np.zeros((self.nzbins,self.nmagbins))
 
         for idx, aidx in self.selector.generateSelections(mapunit):
-            c, e = np.histogram(mapunit[self.mkey][idx], bins=self.zbins)
-            self.dndz[:,aidx] += c
+            c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
+            shp = [1 for i in range(len(aidx)+1)]
+            shp[0] = len(c)
+            self.dndz[:,aidx] += c.reshape(shp)
 
     def reduce(self):
         """

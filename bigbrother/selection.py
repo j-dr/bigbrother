@@ -39,12 +39,12 @@ class Selector:
             selections[label] = []
             sel = self.selection_dict[label]
 
-            if self.selection_dict[label].selection_type == 'binned1d':
-                selections[label].extend(self.binnedSelection(sel))
-            elif self.selection_dict[label].selection_type =='cut1d':
-                selections[label].extend(self.cutSelection(sel))
+            if self.selection_dict[label]['selection_type'] == 'binned1d':
+                selections[label].extend(self.binned1dSelection(sel))
+            elif self.selection_dict[label]['selection_type'] =='cut1d':
+                selections[label].extend(self.cut1dSelection(sel))
 
-        self.selections = selections
+        return selections
 
     def binned1dSelection(self, selection):
         """
@@ -74,7 +74,7 @@ class Selector:
 
         return sfunctions
 
-    def cut1dselection(self, selection):
+    def cut1dSelection(self, selection):
         """
         Create a list of functions which create
         boolean indices for a 1-dimensional cut selection
@@ -91,7 +91,7 @@ class Selector:
         mk = selection['mapkeys'][0]
 
         #Iterate over bins, creating functions that make indices
-        for i in range(len(selection['bins'])-1):
+        for i in range(len(selection['bins'])):
             if selection['lower']:
                 if selection['selection_ind'] is None:
                     sf = lambda data : selection['bins'][i]<=data[mk]
@@ -140,7 +140,7 @@ class Selector:
         An index for one selection
 
         """
-        for sf in sfunctions:
+        for i, sf in enumerate(sfunctions):
             if self.scount[i]%self.sshape[i]==0:
                 self.idxarray[:,i] = sf(mapunit)
                 self.scount[i] = 0
@@ -161,12 +161,12 @@ class Selector:
         """
         self.sshape = np.array([len(self.selections[k]) for k in self.selections.keys()])
         self.scount = np.array([len(self.selections[k]) for k in self.selections.keys()])
-        self.idxarray((len(data), len(self.sshape)), dtype=bool)
+        self.idxarray = np.zeros((len(mapunit[mapunit.keys()[0]]), len(self.sshape)), dtype=bool)
 
         iselection = self.selections.values()
         #use itertools to make loop from input selection datatype
 
-        for sel in product(iselection):
+        for sel in product(*iselection):
             yield self.select(mapunit, sel), self.scount
 
     def selectionAxes(self):

@@ -341,7 +341,7 @@ class GMetric(Metric):
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0]
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
                                              ref_y=self.y, xlim=xlim, compare=True,
                                              ylim=ylim, fylim=fylim, label=labels[i],
                                              usez=usez[i],**kwargs)
@@ -351,7 +351,7 @@ class GMetric(Metric):
                                              **kwargs)
             else:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0]
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
                                              ref_y=tocompare[0].y, compare=True,
                                              xlim=xlim, ylim=ylim, fylim=fylim,
                                              f=f, ax=ax, label=labels[i], usez=usez[i],
