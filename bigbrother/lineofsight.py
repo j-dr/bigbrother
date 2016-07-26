@@ -6,7 +6,7 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from metric import Metric
-
+from .selection import Selector
 
 class DNDz(Metric):
 
@@ -86,12 +86,13 @@ class DNDz(Metric):
         if self.nmagbins > 0:
             self.mapkeys = [self.mkey, 'redshift']
             self.unitmap = {self.mkey :'mag'}
-            selection_dict = {'mag':{'mapkeys':[self.mkey],
-                                     'selection_type':'cut1d'},
-                                     'cuts':np.array([19.45]),}
         else:
             self.mapkeys = ['redshift']
             self.unitmap = {}
+
+        #Make selection dict here
+        selection_dict = {}
+        self.selector = Selector(self.selection_dict)
 
     def map(self, mapunit):
         """

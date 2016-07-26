@@ -1,11 +1,7 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-
-class Selection:
-
-    def __init__(self, label, selection_type, **kwargs):
-        pass
+import numpy as np
 
 class Selector:
     """
