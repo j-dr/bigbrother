@@ -12,7 +12,8 @@ except:
     hastreecorr = False
 
 try:
-    import Corrfunc._countpairs_mocks as countpairs
+    import Corrfunc._countpairs_mocks as countpairs_mocks
+    import Corrfunc._countpairs as countpairs
     hascorrfunc = True
 except:
     hascorrfunc = False
@@ -25,7 +26,7 @@ from .metric import Metric, GMetric
 class CorrelationFunction(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None,
-                   nrbins=None, subjack=False,
+                   nrbins=None, subjack=False, lightcone=True,
                    catalog_type=None, lcutind=None,
                    tag=None, same_rand=False, inv_lum=True):
         """
@@ -38,14 +39,18 @@ class CorrelationFunction(Metric):
         else:
             self.catalog_type = catalog_type
 
-        if zbins is None:
-            self.zbins = np.array([0.0, 0.2])
-        else:
+        self.lightcone = lightcone
+
+        if (zbins is None) & lightcone:
+            self.zbins = np.linspace(self.ministry.minz, self.ministry.maxz, 4)
+            self.nzbins = len(self.zbins)-1
+        elif lightcone:
             self.zbins = zbins
             self.zbins = np.array(self.zbins)
-
-
-        self.nzbins = len(self.zbins)-1
+            self.nzbins = len(self.zbins)-1
+        else:
+            self.nzbins = 1
+            self.zbins = None
 
         if lumbins is None:
             self.lumbins = np.array([-22, -21, -20, -19])
@@ -250,10 +255,11 @@ class WPrpLightcone(CorrelationFunction):
         data. All angles should be specified in degrees.
         """
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
-                                      lumbins=lumbins, nrbins=nrbins,
-                                      subjack=subjack, lcutind=lcutind,
-                                      same_rand=same_rand, inv_lum=inv_lum,
-                                      catalog_type=catalog_type, tag=tag)
+                                      lightcone=True, lumbins=lumbins,
+                                      nrbins=nrbins, subjack=subjack,
+                                      lcutind=lcutind, same_rand=same_rand,
+                                      inv_lum=inv_lum,catalog_type=catalog_type,
+                                      tag=tag)
 
         self.logbins = logbins
         self.c = 299792.458
@@ -332,7 +338,7 @@ class WPrpLightcone(CorrelationFunction):
                 print('calculating data data pairs')
                 sys.stdout.flush()
 
-                ddresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
+                ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1, 1, 1,
                                         self.pimax,
                                         self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
@@ -346,7 +352,7 @@ class WPrpLightcone(CorrelationFunction):
 
                 #data randoms
                 print('calculating data random pairs')
-                drresults = countpairs.countpairs_rp_pi_mocks(0, 1, 1,
+                drresults = countpairs_mocks.countpairs_rp_pi_mocks(0, 1, 1,
                                         self.pimax,
                                         self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
@@ -361,7 +367,7 @@ class WPrpLightcone(CorrelationFunction):
                 #randoms randoms
                 print('calculating random random pairs')
                 if (li==0) | (not self.same_rand):
-                    rrresults = countpairs.countpairs_rp_pi_mocks(1, 1, 1,
+                    rrresults = countpairs_mocks.countpairs_rp_pi_mocks(1, 1, 1,
                                         self.pimax,
                                         self.binfilename,
                                         rands['azim_ang'],
@@ -462,6 +468,173 @@ class WPrpLightcone(CorrelationFunction):
                 assert(len(usecols)==len(tocompare))
         else:
             usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True,
+                                          **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True,
+                                          f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+class WPrpSnapshot(CorrelationFunction):
+
+    def __init__(self, ministry, lumbins=None, rbins=None,
+                  minr=None, maxr=None, logbins=True, nrbins=None,
+                  pimax=None, catalog_type=None, tag=None,
+                  lcutind=None, same_rand=False, inv_lum=True):
+        """
+        Angular correlation function, w(theta), for use with non-periodic
+        data. All angles should be specified in degrees.
+        """
+        CorrelationFunction.__init__(self, ministry, lightcone=False,
+                                      lumbins=lumbins, nrbins=nrbins,
+                                      lcutind=lcutind,
+                                      same_rand=same_rand, inv_lum=inv_lum,
+                                      catalog_type=catalog_type, tag=tag)
+
+        self.logbins = logbins
+        self.c = 299792.458
+
+        if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
+            self.minr = 1e-1
+            self.maxr = 10
+            self.nrbins = 15
+            self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
+        elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
+            self.minr = minr
+            self.maxr = maxr
+            self.nrbins = nrbins
+            self.rbins = self.genbins(minr, maxr, nrbins)
+        else:
+            self.rbins = rbins
+            self.minr = rbins[0]
+            self.maxr = rbins[1]
+            self.nrbins = len(rbins)-1
+
+        if pimax is None:
+            self.pimax = 80.0
+        else:
+            self.pimax = pimax
+
+        self.writeCorrfuncBinFile(self.rbins)
+        self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
+
+        self.mapkeys = ['px', 'py', 'pz', 'luminosity']
+        self.unitmap = {'luminosity':'mag', 'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+
+    def map(self, mapunit):
+
+        if not hascorrfunc:
+            raise(ImportError("CorrFunc is required to calculate wp(rp)"))
+
+        if not hasattr(self, 'wthetaj'):
+            self.wprp = np.zeros(self.nrbins, self.nlumbins)
+
+        for li, j in enumerate(self.luminds):
+            print('Finding luminosity indices')
+            lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+
+            self.wprp[:,li] = countpairs.countpairs_wp(self.ministry.boxsize,
+                                        self.pimax,
+                                        self.binfilename,
+                                        mapunit[zlidx:zhidx][lidx]['px'],
+                                        mapunit[zlidx:zhidx][lidx]['py'],
+                                        mapunit[zlidx:zhidx][lidx]['pz'])
+
+    def reduce(self):
+        pass
+
+
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, **kwargs):
+
+        if usecols is None:
+            usecols = range(self.nlumbins)
+
+        if usez is None:
+            usez = [0]
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                l1 = ax[j][i].loglog(self.rbins, self.wprp[:,i,j])
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'$w_{p}(r_{p})$')
+            sax.set_ylabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1
+
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 labels=None, usez=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
 
         if labels is None:
             labels = [None]*len(tocompare)
