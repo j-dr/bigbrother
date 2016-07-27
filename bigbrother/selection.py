@@ -84,6 +84,18 @@ class Selector:
         seletion -- dict
         A dictionary specifying the selection information. Needs
         to have keys: bins, mapkeys, lower, selection_ind.
+        
+        returns
+        --------
+        A list of functions of length given by the number of
+        bins. These functions should do the following:
+        - Take in an array of data as their only argument
+        - Return an array of length of the input data, containing
+          True or False in each element depending on whether or not
+          the corresponding element of the input array satisfied 
+          the selection criterea.
+          
+        
         """
         sfunctions = []
 
