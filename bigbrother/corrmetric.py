@@ -133,9 +133,9 @@ class CorrelationFunction(Metric):
     def genbins(self, minb, maxb, nb):
 
         if self.logbins:
-            bins = np.logspace(np.log10(minb), np.log10(maxb), nb)
+            bins = np.logspace(np.log10(minb), np.log10(maxb), nb+1)
         else:
-            bins = np.linspace(minb, maxb, nb)
+            bins = np.linspace(minb, maxb, nb+1)
 
         return bins
 
@@ -159,6 +159,7 @@ class CorrelationFunction(Metric):
             binarray = binedges
 
         np.savetxt(binfilename, binarray, fmt='%.12f', delimiter='\t')
+        self.binfilename = binfilename
 
 class AngularCorrelationFunction(CorrelationFunction):
 
@@ -266,8 +267,8 @@ class WPrpLightcone(CorrelationFunction):
 
         if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
             self.minr = 1e-1
-            self.maxr = 10
-            self.nrbins = 15
+            self.maxr = 25
+            self.nrbins = 14
             self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
         elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
             self.minr = minr
@@ -291,7 +292,7 @@ class WPrpLightcone(CorrelationFunction):
         self.jcount = 0
 
         self.writeCorrfuncBinFile(self.rbins)
-        self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
+        #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
@@ -545,7 +546,7 @@ class WPrpSnapshot(CorrelationFunction):
             self.pimax = pimax
 
         self.writeCorrfuncBinFile(self.rbins)
-        self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
+        #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
         self.mapkeys = ['px', 'py', 'pz', 'luminosity']
         self.unitmap = {'luminosity':'mag', 'px':'mpch', 'py':'mpch', 'pz':'mpch'}
@@ -556,18 +557,25 @@ class WPrpSnapshot(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if not hasattr(self, 'wthetaj'):
-            self.wprp = np.zeros(self.nrbins, self.nlumbins)
+            self.wprp = np.zeros((self.nrbins, self.nlumbins))
 
         for li, j in enumerate(self.luminds):
             print('Finding luminosity indices')
-            lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+            lidx = (self.lumbins[j] <= mapunit['luminosity'][:,self.lcutind]) & (mapunit['luminosity'][:,self.lcutind] < self.lumbins[j+1])
+            
+            if not lidx.any(): 
+                print("No galaxies in magnitude bin [{0},{1})".format(self.lumbins[j], self.lumbins[j+1]))
+                continue
 
-            self.wprp[:,li] = countpairs.countpairs_wp(self.ministry.boxsize,
+            wprp = countpairs.countpairs_wp(self.ministry.boxsize,
                                         self.pimax,
+                                        1,
                                         self.binfilename,
-                                        mapunit[zlidx:zhidx][lidx]['px'],
-                                        mapunit[zlidx:zhidx][lidx]['py'],
-                                        mapunit[zlidx:zhidx][lidx]['pz'])
+                                        mapunit[lidx]['px'],
+                                        mapunit[lidx]['py'],
+                                        mapunit[lidx]['pz'])
+
+            self.wprp[:,li] = np.array([wprp[k][3] for k in range(self.nrbins)])
 
     def reduce(self):
         pass
@@ -591,9 +599,12 @@ class WPrpSnapshot(CorrelationFunction):
         else:
             newaxes = False
 
+        rmeans = self.rbins[1:]-self.rbins[:-1]
+
         for i, l in enumerate(usecols):
-            for j, z in enumerate(usez):
-                l1 = ax[j][i].loglog(self.rbins, self.wprp[:,i,j])
+            print(len(rmeans))
+            print(len(self.wprp[:,i]))
+            l1 = ax[usez[0]][i].loglog(rmeans, self.wprp[:,i])
 
         if newaxes:
             sax = f.add_subplot(111)

@@ -248,32 +248,32 @@ class GalHOD(MassMetric):
 
         if lightcone:
             if self.usemag:
-                self.mapkeys = ['mass', 'redshift', 'haloid', 'rhalo', 'luminosity']
+                self.mapkeys = ['halomass', 'central', 'redshift', 'haloid', 'rhalo', 'luminosity']
             else:
-                self.mapkeys = ['mass', 'redshift', 'haloid', 'rhalo']
+                self.mapkeys = ['halomass', 'central', 'redshift', 'haloid', 'rhalo']
 
             self.lightcone = True
 
         else:
             if self.usemag:
-                self.mapkeys = ['mass', 'central', 'haloid', 'rhalo', 'luminosity']
+                self.mapkeys = ['halomass', 'central', 'haloid', 'rhalo', 'luminosity']
             else:
-                self.mapkeys = ['mass', 'central', 'haloid', 'rhalo']
+                self.mapkeys = ['halomass', 'central', 'haloid', 'rhalo']
 
             self.lightcone = False
 
         if self.usemag:
-            self.unitmap = {'mass':'msunh', 'rhalo':'mpch', 'luminosity':'mag'}
+            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'luminosity':'mag'}
         else:
-            self.unitmap = {'mass':'msunh', 'rhalo':'mpch'}
+            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch'}
 
     def map(self, mapunit):
         #The number of mass definitions to measure mfcn for
-        if len(mapunit['mass'].shape)>1:
-            self.ndefs = mapunit['mass'].shape[1]
+        if len(mapunit['halomass'].shape)>1:
+            self.ndefs = mapunit['halomass'].shape[1]
         else:
             self.ndefs = 1
-            mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
+            mapunit['halomass'] = np.atleast_2d(mapunit['halomass']).T
 
         #temporary fix for plotting w/ GMetric functions
         self.nbands = self.ndefs
@@ -304,30 +304,35 @@ class GalHOD(MassMetric):
                 u, uidx = np.unique(mapunit['haloid'], return_index=True)
 
                 for j in range(self.ndefs):
-                    c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][uidx],
+                    c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][uidx],
                                           bins=self.massbins)
-                    self.halocounts[:,j,i] += c
+                    self.halocounts[:,j,i] += c.reshape(self.halocounts[:,j,i].shape)
 
                     for k in range(self.nmagcuts):
                         if self.usemag:
-                            lidx = (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k+1])
+                            if self.cutband is not None:
+                                lidx = (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k])
+                            else:
+                                lidx = (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k])
                             cidx = mapunit['central'][zlidx:zhidx][lidx]==1
 
-                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][lidx][cidx], bins=np.massbins)
+                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][lidx][cidx], bins=self.massbins)
+                            c = c.reshape(self.cocccounts[:,j,k,i].shape)
                             self.cocccounts[:,j,k,i] += c
                             self.sqcocccounts[:,j,k,i] += c**2
 
-                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][lidx][~cidx], bins=np.massbins)
+                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][lidx][~cidx], bins=self.massbins)
+                            c = c.reshape(self.cocccounts[:,j,k,i].shape)
                             self.socccounts[:,j,k,i] += c
                             self.sqsocccounts[:,j,k,i] += c**2
                         else:
                             cidx = mapunit['central'][zlidx:zhidx]==1
 
-                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][cidx], bins=np.massbins)
+                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][cidx], bins=self.massbins)
                             self.cocccounts[:,j,k,i] += c
                             self.sqcocccounts[:,j,k,i] += c**2
 
-                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][~cidx], bins=np.massbins)
+                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][~cidx], bins=self.massbins)
                             self.socccounts[:,j,k,i] += c
                             self.sqsocccounts[:,j,k,i] += c**2
 
@@ -374,22 +379,22 @@ class OccMass(MassMetric):
                             catalog_type=catalog_type, tag=tag)
 
         if lightcone:
-            self.mapkeys   = ['mass', 'occ', 'redshift']
+            self.mapkeys   = ['halomass', 'occ', 'redshift']
             self.lightcone = True
         else:
-            self.mapkeys   = ['mass', 'occ']
+            self.mapkeys   = ['halomass', 'occ']
             self.lightcone = False
 
         self.aschema = 'haloonly'
-        self.unitmap = {'mass':'msunh'}
+        self.unitmap = {'halomass':'msunh'}
 
     def map(self, mapunit):
 
-        if len(mapunit['mass'].shape)>1:
-            self.ndefs = mapunit['mass'].shape[1]
+        if len(mapunit['halomass'].shape)>1:
+            self.ndefs = mapunit['halomass'].shape[1]
         else:
             self.ndefs = 1
-            mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
+            mapunit['halomass'] = np.atleast_2d(mapunit['halomass']).T
 
         self.nbands = self.ndefs
 
@@ -402,7 +407,7 @@ class OccMass(MassMetric):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             for j in range(self.ndefs):
-                mb = np.digitize(mapunit['mass'][zlidx:zhidx,j], bins=self.massbins)
+                mb = np.digitize(mapunit['halomass'][zlidx:zhidx,j], bins=self.massbins)
 
                 for k, m in enumerate(self.massbins[:-1]):
                     o  = mapunit['occ'][zlidx:zhidx][mb==k]

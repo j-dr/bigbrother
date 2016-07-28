@@ -94,7 +94,7 @@ class GMetric(Metric):
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
-                  logx=False, **kwargs):
+                  logx=False, rusecols=None, **kwargs):
         """
         Plot the calculated metric.
 
@@ -144,7 +144,7 @@ class GMetric(Metric):
             usecols = range(self.nbands)
 
         if (rusecols is None) and (ref_y is not None):
-            rusecols = ref_y.shape[1]
+            rusecols = range(ref_y.shape[1])
 
         if usez is None:
             usez = range(self.nzbins)

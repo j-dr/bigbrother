@@ -72,7 +72,7 @@ class LuminosityFunction(MagnitudeMetric):
         """
 
         if zbins is None:
-            zbins = [0.0, 0.2]
+            zbins = np.linspace(ministry.minz, ministry.maxz, 5)
 
         if magbins is None:
             magbins = np.linspace(-25, -11, 30)
@@ -94,8 +94,13 @@ class LuminosityFunction(MagnitudeMetric):
         Map functions always take mapunits as input.
         """
 
+
         #The number of bands to measure the LF for
-        self.nbands = mapunit['luminosity'].shape[1]
+        if len(mapunit['luminosity'].shape)>1:
+            self.nbands = mapunit['luminosity'].shape[1]
+        else:
+            mapunit['luminosity'] = np.atleast_2d(mapunit['luminosity']).T
+            self.nbands = 1
 
         #If only measuring for centrals, get the appropriate
         #rows of the mapunit
