@@ -62,22 +62,22 @@ class MassFunction(MassMetric):
         self.aschema = 'haloonly'
 
         if lightcone:
-            self.mapkeys   = ['mass', 'redshift']
+            self.mapkeys   = ['halomass', 'redshift']
             self.lightcone = True
         else:
-            self.mapkeys   = ['mass']
+            self.mapkeys   = ['halomass']
             self.lightcone = False
 
-        self.unitmap = {'mass':'msunh'}
+        self.unitmap = {'halomass':'msunh'}
 
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
-        if len(mapunit['mass'].shape)>1:
-            self.ndefs = mapunit['mass'].shape[1]
+        if len(mapunit['halomass'].shape)>1:
+            self.ndefs = mapunit['halomass'].shape[1]
         else:
             self.ndefs = 1
-            mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
+            mapunit['halomass'] = np.atleast_2d(mapunit['halomass']).T
 
         #temporary fix for plotting w/ GMetric functions
         self.nbands = self.ndefs
@@ -96,12 +96,12 @@ class MassFunction(MassMetric):
 
                 #Count galaxies in bins of luminosity
                 for j in range(self.ndefs):
-                    c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j],
+                    c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j],
                                         bins=self.massbins)
                     self.masscounts[:,j,i] += c
         else:
             for j in range(self.ndefs):
-                c, e = np.histogram(mapunit['mass'][:,j], bins=self.massbins)
+                c, e = np.histogram(mapunit['halomass'][:,j], bins=self.massbins)
                 self.masscounts[:,j,0] += c
 
 
@@ -152,22 +152,22 @@ class SimpleHOD(MassMetric):
         self.aschema = 'haloonly'
 
         if lightcone:
-            self.mapkeys = ['mass', 'occ', 'redshift']
+            self.mapkeys = ['halomass', 'occ', 'redshift']
             self.lightcone = True
         else:
-            self.mapkeys = ['mass', 'occ']
+            self.mapkeys = ['halomass', 'occ']
             self.lightcone = False
 
-        self.unitmap = {'mass':'msunh'}
+        self.unitmap = {'halomass':'msunh'}
 
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
-        if len(mapunit['mass'].shape)>1:
-            self.ndefs = mapunit['mass'].shape[1]
+        if len(mapunit['halomass'].shape)>1:
+            self.ndefs = mapunit['halomass'].shape[1]
         else:
             self.ndefs = 1
-            mapunit['mass'] = np.atleast_2d(mapunit['mass']).T
+            mapunit['halomass'] = np.atleast_2d(mapunit['halomass']).T
 
         #temporary fix for plotting w/ GMetric functions
         self.nbands = self.ndefs
@@ -190,14 +190,14 @@ class SimpleHOD(MassMetric):
 
                 #Count galaxies in bins of mass
                 for j in range(self.ndefs):
-                    mb = np.digitize(mapunit['mass'][zlidx:zhidx,j], bins=self.massbins)-1
+                    mb = np.digitize(mapunit['halomass'][zlidx:zhidx,j], bins=self.massbins)-1
                     for k in range(len(self.massbins)-1):
                         self.occcounts[k,j,i] += np.sum(mapunit['occ'][zlidx:zhidz][mb==k])
                         self.sqocccounts[k,j,i] += np.sum(mapunit['occ'][zlidx:zhidz][mb==k]**2)
                         self.halocounts[k,j,i] += len(mapunit['occ'][mb==k])
         else:
             for j in range(self.ndefs):
-                mb = np.digitize(mapunit['mass'][:,j], bins=self.massbins)-1
+                mb = np.digitize(mapunit['halomass'][:,j], bins=self.massbins)-1
                 for k in range(len(self.massbins)-1):
                     self.occcounts[k,j,i] += np.sum(mapunit['occ'][mb==k])
                     self.sqocccounts[k,j,i] += np.sum(mapunit['occ'][mb==k]**2)
@@ -341,7 +341,7 @@ class GalHOD(MassMetric):
         else:
             raise(NotImplementedError)
 #            for j in range(self.ndefs):
-#                mb = np.digitize(mu['mass'][:,j], bins=self.massbins)-1
+#                mb = np.digitize(mu['halomass'][:,j], bins=self.massbins)-1
 #                for k in range(len(self.massbins)-1):
 #                    self.occcounts[k,j,i] += np.sum(mu['occ'][mb==k])
 #                    self.sqocccounts[k,j,i] += np.sum(mu['occ'][mb==k]**2)
@@ -452,13 +452,13 @@ class TinkerMassFunction(MassMetric):
         self.aschema = 'haloonly'
 
         if lightcone:
-            self.mapkeys   = ['mass', 'redshift']
+            self.mapkeys   = ['halomass', 'redshift']
             self.lightcone = True
         else:
-            self.mapkeys   = ['mass']
+            self.mapkeys   = ['halomass']
             self.lightcone = False
 
-        self.unitmap = {'mass':'msunh'}
+        self.unitmap = {'halomass':'msunh'}
         self.nomap = True
         self.calcMassFunction(z=zbins)
 
