@@ -343,8 +343,6 @@ class TinkerMassFunction(MassMetric):
                "SpectralIndex":0.96,
                "w0":-1.0,
                "wa":0.0
-               #,"As":2.1e-9,
-               #"As_pivot":0.05
 	}
 	cosmocalc.set_cosmology(cd)
 
@@ -375,6 +373,106 @@ class TinkerMassFunction(MassMetric):
             xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
         if ylabel is None:
             ylabel = r"$N \, [Mpc^{-3}\, h^{3}]$"
+
+        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+                             fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
+                             ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
+                             ylabel=ylabel, compare=compare,logx=True,**kwargs)
+
+class Richness(MassMetric):
+    def __init__(self, ministry, zbins=None, massbins=None, lightcone=False,
+                 catalog_type=['galaxycatalog'], tag=None, colorbins=200):
+
+        if massbins is None:
+            massbins = np.logspace(12, 15, 40)
+
+        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag)
+
+        self.aschema = 'galaxyonly'
+
+        if lightcone:
+            self.mapkeys   = ['mass', 'redshift', 'luminosity', 'haloid', 'rhalo']
+            self.lightcone = True
+        else:
+            self.mapkeys   = ['mass', 'luminosity', 'haloid', 'rhalo']
+            self.lightcone = False
+
+        self.unitmap = {'mass':'msunh'}
+        self.nomap = False
+
+        self.nbands = 1
+
+
+    def splitBimodal(x, y, largepoly=30):
+        p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
+        
+        extrema = np.roots(np.polyder(p))
+        extrema = extrema[np.isreal(extrema)]
+        
+        root_vals = [sum([p[::-1][i]*(x**i) for i in range(len(p))]) for x in roots]
+        peaks = roots[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
+
+        mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
+        p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
+        
+        return np.root(np.polyder(p_mid))[0]
+
+
+    def map(self, mapunit):
+        
+        g_r_color = self.mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] # get g-r color
+        color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
+
+        splitcolor = splitBimodal(color_bins[:-1], color_counts)
+
+        previd = -1
+        halo_ids = np.unique(mapunit['haloid'])
+        red_galaxy_counts = np.zeros(len(halo_ids)-1)
+
+        data_cut = mapunit[((mapunit['rhalo']<1) & (mapunit['luminosity'][:,2] < -19) & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= splitcolor)))]
+        data_cut.sort(order='haloid')
+
+        idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
+        newhalos = np.where(idx != 0)[0]
+        newhalos = np.hstack([[0], newhalos + 1, [len(data_cut) - 1]])
+        
+        uniquehalos = data_cut[newhalos[:-1]]
+
+        red_counts = newhalos[1:]-newhalos[:-1]
+
+        mass_bins = self.massbins
+        mass_bin_indices = np.digitize(uniquehalos['mass'], mass_bins)
+
+
+        if not hasattr(self, galaxy_counts):
+            self.galaxy_counts         = np.zeros(len(mass_bins) - 1)
+        if not hasattr(self, galaxy_counts):
+            self.galaxy_counts_squared = np.zeros(len(mass_bins) - 1)
+        if not hasattr(self, halo_counts):
+            self.halo_counts           = np.zeros(len(mass_bins) - 1)
+       
+        self.halo_counts += np.histogram(uniquehalos['mass'], bins=mass_bins)[0]
+
+        for i in range(len(mass_bins)-1):
+            self.galaxy_counts[i]         += np.sum(red_counts[(mass_bin_indices == i+1)])
+            self.galaxy_counts_squared[i] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
+    
+        print('hey')
+    
+    def reduce(self):
+        self.y           = self.galaxy_counts/self.halo_counts
+        self.ye          = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
+    
+
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
+        if ylabel is None:
+            ylabel = r"$<N_{red}> \, [Mpc^{-3}\, h^{3}]$"
 
         return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
