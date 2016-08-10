@@ -434,7 +434,7 @@ class Richness(MassMetric):
         halo_ids = np.unique(mapunit['haloid'])
         red_galaxy_counts = np.zeros(len(halo_ids)-1)
         
-        dtype = [(key, type(mapunit[key].flatten()[0]), np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
+        dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
 
         cut_array =((mapunit['rhalo']<1) & (mapunit['luminosity'][:,2] < -19) & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= splitcolor)))
         data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
@@ -468,7 +468,6 @@ class Richness(MassMetric):
             self.galaxy_counts[i,0,0]         += np.sum(red_counts[(mass_bin_indices == i+1)])
             self.galaxy_counts_squared[i,0,0] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
     
-        print('hey')
     
     def reduce(self):
         self.y           = self.galaxy_counts/self.halo_counts
