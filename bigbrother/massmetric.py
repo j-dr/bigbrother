@@ -381,10 +381,13 @@ class TinkerMassFunction(MassMetric):
 
 class Richness(MassMetric):
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=False,
-                 catalog_type=['galaxycatalog'], tag=None, colorbins=200):
+                 catalog_type=['galaxycatalog'], tag=None, colorbins=None):
 
         if massbins is None:
             massbins = np.logspace(12, 15, 40)
+
+        if colorbins is None:
+            self.colorbins = 200
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type, tag=tag)
@@ -392,45 +395,52 @@ class Richness(MassMetric):
         self.aschema = 'galaxyonly'
 
         if lightcone:
-            self.mapkeys   = ['mass', 'redshift', 'luminosity', 'haloid', 'rhalo']
+            self.mapkeys   = ['halomass', 'redshift', 'luminosity', 'haloid', 'rhalo']
             self.lightcone = True
         else:
-            self.mapkeys   = ['mass', 'luminosity', 'haloid', 'rhalo']
+            self.mapkeys   = ['halomass', 'luminosity', 'haloid', 'rhalo']
             self.lightcone = False
 
-        self.unitmap = {'mass':'msunh'}
+        self.unitmap = {'halomass':'msunh'}
         self.nomap = False
 
         self.nbands = 1
 
 
-    def splitBimodal(x, y, largepoly=30):
+    def splitBimodal(self, x, y, largepoly=30):
         p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
         
         extrema = np.roots(np.polyder(p))
         extrema = extrema[np.isreal(extrema)]
+        extrema = extrema[(extrema - x[0]) * (x[-1] - extrema) > 0]
         
-        root_vals = [sum([p[::-1][i]*(x**i) for i in range(len(p))]) for x in roots]
-        peaks = roots[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
+        root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
+        peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
 
         mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
         p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
         
-        return np.root(np.polyder(p_mid))[0]
+        return np.roots(np.polyder(p_mid))[0]
 
 
     def map(self, mapunit):
         
-        g_r_color = self.mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] # get g-r color
+        g_r_color = mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] # get g-r color
         color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
 
-        splitcolor = splitBimodal(color_bins[:-1], color_counts)
+        splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
 
         previd = -1
         halo_ids = np.unique(mapunit['haloid'])
         red_galaxy_counts = np.zeros(len(halo_ids)-1)
+        
+        dtype = [(key, type(mapunit[key].flatten()[0]), np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
 
-        data_cut = mapunit[((mapunit['rhalo']<1) & (mapunit['luminosity'][:,2] < -19) & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= splitcolor)))]
+        cut_array =((mapunit['rhalo']<1) & (mapunit['luminosity'][:,2] < -19) & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= splitcolor)))
+        data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
+        for key in mapunit.keys():
+            data_cut[key] = mapunit[key][cut_array]
+#            data_cut[key] = mapunit[key][((mapunit['rhalo']<1) & (mapunit['luminosity'][:,2] < -19) & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= splitcolor)))]
         data_cut.sort(order='haloid')
 
         idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
@@ -442,21 +452,21 @@ class Richness(MassMetric):
         red_counts = newhalos[1:]-newhalos[:-1]
 
         mass_bins = self.massbins
-        mass_bin_indices = np.digitize(uniquehalos['mass'], mass_bins)
+        mass_bin_indices = np.digitize(uniquehalos['halomass'], mass_bins)
 
 
-        if not hasattr(self, galaxy_counts):
-            self.galaxy_counts         = np.zeros(len(mass_bins) - 1)
-        if not hasattr(self, galaxy_counts):
-            self.galaxy_counts_squared = np.zeros(len(mass_bins) - 1)
-        if not hasattr(self, halo_counts):
-            self.halo_counts           = np.zeros(len(mass_bins) - 1)
+        if not hasattr(self, 'galaxy_counts'):
+            self.galaxy_counts         = np.zeros((len(mass_bins) - 1, 1, 1))
+        if not hasattr(self, 'galaxy_counts_squared'):
+            self.galaxy_counts_squared = np.zeros((len(mass_bins) - 1, 1, 1))
+        if not hasattr(self, 'halo_counts'):
+            self.halo_counts           = np.zeros((len(mass_bins) - 1, 1, 1))
        
-        self.halo_counts += np.histogram(uniquehalos['mass'], bins=mass_bins)[0]
+        self.halo_counts[:,0,0] += np.histogram(uniquehalos['halomass'], bins=mass_bins)[0]
 
         for i in range(len(mass_bins)-1):
-            self.galaxy_counts[i]         += np.sum(red_counts[(mass_bin_indices == i+1)])
-            self.galaxy_counts_squared[i] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
+            self.galaxy_counts[i,0,0]         += np.sum(red_counts[(mass_bin_indices == i+1)])
+            self.galaxy_counts_squared[i,0,0] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
     
         print('hey')
     
