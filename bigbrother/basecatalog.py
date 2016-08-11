@@ -107,7 +107,13 @@ class BaseCatalog:
     def groupFiles(self):
 
         fpix = self.getfilePixels(self.groupnside)
+        upix = np.unique(np.array([p for sublist in fpix for p in sublist]))
+        fgrps = []
 
+        for p in upix:
+            fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
+
+        return fgrps
 
     def readFITSMappable(self, mappable, fieldmap):
         """

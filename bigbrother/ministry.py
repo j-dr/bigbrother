@@ -471,19 +471,19 @@ class Ministry:
         filetypes = zft
         filetypes.extend(nzft)
 
-        gfpix = self.galaxycatalog.getFilePixels(nside)
+        fgroups = self.galaxycatalog.groupFiles()
 
         #Create mappables out of filestruct and fieldmaps
-        for i in range(len(fs[filetypes[0]])):
-
-            for j, ft in enumerate(filetypes):
-                if j==0:
-                    root = Mappable(fs[ft][i], ft)
-                    last = root
-                else:
-                    node = Mappable(fs[ft][i], ft)
-                    last.children.append(node)
-                    last = node
+        for i, fg in enumerate(fgroups):
+            for j in fg:
+                for k, ft in enumerate(filetypes):
+                    if (j==0) & (k==0):
+                        root = Mappable(fs[ft][j], ft)
+                        last = root
+                    else:
+                        node = Mappable(fs[ft][i], ft)
+                        last.children.append(node)
+                        last = node
 
             mappables.append(root)
 
