@@ -16,9 +16,9 @@ class BaseCatalog:
     _valid_reader_types = ['fits', 'rockstar', 'ascii']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, nside=None, maskfile=None,
-                 filters=None, goodpix=None, reader=None,
-                 area=None):
+                 unitmap=None, filenside=None, groupnside=None,
+                 nest=True, maskfile=None, filters=None, goodpix=None,
+                 reader=None, area=None):
 
         self.ministry = ministry
         self.filestruct = filestruct
@@ -33,10 +33,11 @@ class BaseCatalog:
         else:
             self.area = area
 
-        if nside is None:
-            self.nside = 8
-        else:
-            self.nside = nside
+        self.filenside = filenside
+        self.nest = nest
+
+        if groupnside is None:
+            self.groupnside = 4
 
         if goodpix is None:
             self.goodpix = 1
@@ -68,86 +69,45 @@ class BaseCatalog:
         """
         fpix = []
 
-        pmetric = PixMetric(self.ministry, nside)
-        mg = self.ministry.genMetricGroups([pmetric])
-        ms = mg[0][1]
-        fm = mg[0][0]
+        #BCC catalogs have pixels in filenames
+        if ('BCC' in self.__class__.__name__) &
+          (self.filenside is not None) & (self.filenside<=self.groupnside):
+            fk = self.filestruct.keys()
 
-        for mappable in self.ministry.genMappable(fm):
-            mapunit = self.ministry.readMappable(mappable, fm)
-            mapunit = self.ministry.treeToDict(mapunit)
-            mapunit = self.convert(mapunit, ms)
-            fpix.append(pmetric(mapunit))
+            for f in self.filestruct[fk[0]]:
+                p = int(f.split('.')[-1])
+
+                if (self.filenside == self.groupnside):
+                    fpix.append([p])
+                else:
+                    if not self.nest:
+                        p = hp.ring2nest(self.filenside, p)
+
+                    base = p >> self.filenside
+                    hosubpix = pix & ( ( 1 << ( self.filenside ) ) - 1 );
+                    losubpix = hosubpix / ( 1 << ( self.filenside - self.groupnside) ) );
+                    p  = base * ( 1 << ( 2 * self.groupnside ) ) + losubpix;
+
+                    fpix.append([p])
+
+        else:
+            pmetric = PixMetric(self.ministry, self.groupnside)
+            mg = self.ministry.genMetricGroups([pmetric])
+            ms = mg[0][1]
+            fm = mg[0][0]
+
+            for mappable in self.ministry.genMappable(fm):
+                mapunit = self.ministry.readMappable(mappable, fm)
+                mapunit = self.ministry.treeToDict(mapunit)
+                mapunit = self.convert(mapunit, ms)
+                fpix.append(pmetric(mapunit))
 
         return fpix
 
-    def genMappable(self, metrics):
-        """
-        Given a set of metrics, generate a list of mappables
-        which can be fed into map functions
-        """
-        mappables = []
-        mapkeys = []
-        fieldmap = {}
-        usedfiletypes = []
+    def groupFiles(self):
 
-        if metrics!=None:
-            self.metrics = metrics
+        fpix = self.getfilePixels(self.groupnside)
 
-        if hasattr(self, 'necessaries'):
-            mapkeys.extend(self.necessaries)
-
-        for m in self.metrics:
-            mapkeys.extend(m.mapkeys)
-
-        mapkeys = np.unique(mapkeys)
-
-        #for each type of data necessary for
-        #the metrics we want to calculate,
-        #determine the file type it's located
-        #in and the field
-        for mapkey in mapkeys:
-            try:
-                fileinfo = self.fieldmap[mapkey]
-            except KeyError as e:
-                print('No key {0}, continuing...'.format(e))
-                continue
-
-            for field in fileinfo.keys():
-                valid = False
-                filetypes = fileinfo[field]
-                for ft in filetypes:
-                    if ft in self.filetypes:
-                        #if already have one field
-                        #make a list of fields
-                        if ft not in fieldmap.keys():
-                            fieldmap[ft] = {}
-                        if mapkey in fieldmap[ft].keys():
-                            if hasattr(fieldmap[ft][mapkey],'__iter__'):
-                                fieldmap[ft][mapkey].append(field)
-                            else:
-                                fieldmap[ft][mapkey] = [fieldmap[ft][mapkey],field]
-                        else:
-                            fieldmap[ft][mapkey] = field
-
-                        valid = True
-                        if ft not in usedfiletypes:
-                            usedfiletypes.append(ft)
-                        break
-
-                if not valid:
-                    raise Exception("Filetypes {0} for mapkey {1} are not available!".format(filetypes, mapkey))
-
-        self.mapkeys = mapkeys
-
-        #Create mappables out of filestruct and fieldmaps
-        for i in range(len(self.filestruct[self.filetypes[0]])):
-            mappable = {}
-            for ft in usedfiletypes:
-                mappable[self.filestruct[ft][i]] = fieldmap[ft]
-            mappables.append(mappable)
-
-        return mappables
 
     def readFITSMappable(self, mappable, fieldmap):
         """
@@ -185,20 +145,6 @@ class BaseCatalog:
 
         if self.reader=='fits':
             return self.readFITSMappable(mappable, fieldmap)
-
-
-    @abstractmethod
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
 
     def setFieldMap(self, fieldmap):
         self.fieldmap = fieldmap
