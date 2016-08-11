@@ -30,7 +30,7 @@ class GalaxyCatalog(BaseCatalog):
                                 unitmap=unitmap, goodpix=goodpix,
                                 reader=reader)
 
-    def calculateArea(self, pixels, nside):
+    def calculateMaskArea(self, pixels, nside):
         """
         Calculate the area in the given pixels provided a mask
         that is pixelated with an nside greater than that of
@@ -63,6 +63,7 @@ class GalaxyCatalog(BaseCatalog):
         self.filestruct = filestruct
         self.filetypes = self.filestruct.keys()
 
+
     def getArea(self):
 
         arm = np.array([True if m.__class__.__name__=="Area" else False
@@ -76,16 +77,18 @@ class GalaxyCatalog(BaseCatalog):
         elif am:
             return self.ministry.metrics[idx].area
         else:
-            return self.calculateArea()
+            return self.calculateMaskArea()
 
     def readMappable(self, mappable, fieldmap):
 
         if self.reader=='fits':
-            return self.readFITSMappable(mappable, fieldmap)
+            mapunit =  self.readFITSMappable(mappable, fieldmap)
         elif self.reader=='ascii':
-            return self.readAsciiMappable(mappable, fieldmap)
+            mapunit = self.readAsciiMappable(mappable, fieldmap)
         else:
             raise(ValueError("Reader {0} is not supported for galaxy catalogs".format(self.reader)))
+
+        return self.maskMappable(mapunit, mappable)
 
     def readAsciiMappable(self, mappable, fieldmap):
 
@@ -228,21 +231,6 @@ class BCCCatalog(GalaxyCatalog):
 
         return pix
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-        mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
-
-        if self.maskfile!=None:
-            pix = self.pixelVal(mappable)
-            a = self.calculateArea([pix],self.nside)
-            self.area += a[0]
-
-        for m in self.metrics:
-            m.map(mapunit)
-
-
 class S82SpecCatalog(GalaxyCatalog):
     """
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
@@ -266,22 +254,6 @@ class S82SpecCatalog(GalaxyCatalog):
         self.filestruct = {'spec':['/nfs/slac/g/ki/ki01/mbusha/data/sdss/dr6/cooper/combined_dr6_cooper.fit']}
         self.filetypes = self.filestruct.keys()
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable)
-        for m in self.metrics:
-            m.map(mapunit)
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
-
 class S82PhotCatalog(GalaxyCatalog):
     """
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
@@ -304,23 +276,6 @@ class S82PhotCatalog(GalaxyCatalog):
         """
         self.filestruct = {'phot':['/nfs/slac/g/ki/ki01/mbusha/data/sdss/dr6/umich/DR6_Input_catalog_ellipticity_stripe82.fit']}
         self.filetypes = self.filestruct.keys()
-
-
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable)
-        for m in self.metrics:
-            m.map(mapunit)
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
 
 
 class DESGoldCatalog(GalaxyCatalog):
@@ -400,23 +355,6 @@ class DESGoldCatalog(GalaxyCatalog):
         return pix
 
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable)
-        mapunit = self.unitConversion(mapunit)
-        mapunit = self.filterModest(mapunit)
-
-        if self.maskfile!=None:
-            pix = self.pixelVal(mappable)
-            a = self.calculateArea([pix],self.nside)
-            self.area += a[0]
-
-        for m in self.metrics:
-            m.map(mapunit)
-
     def unitConversion(self, mapunit):
 
         for mapkey in mapunit.keys():
@@ -428,10 +366,3 @@ class DESGoldCatalog(GalaxyCatalog):
     def filterModest(self, mapunit):
 
         return mapunit['modest']==1
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()

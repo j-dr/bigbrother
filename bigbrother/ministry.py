@@ -24,7 +24,8 @@ class Mappable(object):
     A tree which contains information on the order in which files should be read
     """
 
-    def __init__(self, name, dtype, children=None, childtype=None):
+    def __init__(self, name, dtype, children=None, childtype=None, jtype=None,
+                  gnside=None, nbox=None, grp=None, nbox=None):
 
         self.name = name
         self.dtype = dtype
@@ -32,7 +33,12 @@ class Mappable(object):
             self.children = []
         else:
             self.children = children
+            
         self.data = None
+        self.jtype = jtype
+        self.gnside = gnside
+        self.nbox = nbox
+        self.grp = grp
 
 
 class Ministry:
@@ -471,17 +477,22 @@ class Ministry:
         filetypes = zft
         filetypes.extend(nzft)
 
-        fgroups = self.galaxycatalog.groupFiles()
+        g, fgroups = self.galaxycatalog.groupFiles()
+        jt = self.galaxycatalog.jtype
+        nb = self.galaxycatalog.nbox
+        gn = self.galaxycatalog.groupnside
 
         #Create mappables out of filestruct and fieldmaps
         for i, fg in enumerate(fgroups):
             for j in fg:
                 for k, ft in enumerate(filetypes):
                     if (j==0) & (k==0):
-                        root = Mappable(fs[ft][j], ft)
+                        root = Mappable(fs[ft][j], ft, jtype=jtype,
+                                      gnside=gn, nbox=nb, grp=g[i])
                         last = root
                     else:
-                        node = Mappable(fs[ft][i], ft)
+                        node = Mappable(fs[ft][i], ft, jtype=jtype,
+                                      gnside=gn, nbox=nb, grp=g[i])
                         last.children.append(node)
                         last = node
 

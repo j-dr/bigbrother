@@ -16,9 +16,10 @@ class BaseCatalog:
     _valid_reader_types = ['fits', 'rockstar', 'ascii']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, filenside=None, groupnside=None,
-                 nest=True, maskfile=None, filters=None, goodpix=None,
-                 reader=None, area=None):
+                 unitmap=None,  filters=None, goodpix=None,
+                 reader=None, area=None, jtype=None, nbox=None,
+                 filenside=None, groupnside=None, nest=True,
+                 maskfile=None,):
 
         self.ministry = ministry
         self.filestruct = filestruct
@@ -28,17 +29,26 @@ class BaseCatalog:
         self.parseFileStruct(filestruct)
         self.maskfile = maskfile
         self.mask = None
+
         if area is None:
             self.area = 0.0
         else:
             self.area = area
 
+        #jackknife information
+        self.jtype = jtype
+
+        #for healpix type jackknifing
         self.filenside = filenside
         self.nest = nest
 
         if groupnside is None:
             self.groupnside = 4
 
+        #for subbox type jackknifing
+        self.nbox = nbox
+
+        #for mask type jackknifing
         if goodpix is None:
             self.goodpix = 1
         else:
@@ -105,6 +115,10 @@ class BaseCatalog:
         return fpix
 
     def groupFiles(self):
+        """
+        Group files together spatially. Healpix grouping implemented,
+        subbox grouping still needs to be done.
+        """
 
         fpix = self.getfilePixels(self.groupnside)
         upix = np.unique(np.array([p for sublist in fpix for p in sublist]))
@@ -113,7 +127,7 @@ class BaseCatalog:
         for p in upix:
             fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
 
-        return fgrps
+        return upix, fgrps
 
     def readFITSMappable(self, mappable, fieldmap):
         """
@@ -144,13 +158,44 @@ class BaseCatalog:
 
         return mapunit
 
+    def maskMappable(self, mapunit, mappable):
+
+        tp = np.zeros((len(mapunit),2))
+
+        if mappable.jtype == 'healpix':
+            for i, key in enumerate(['azim_ang', 'polar_ang']):
+                try:
+                    conversion = getattr(self,      '{0}2{1}'.format(self.unitmap[key],'rad'))
+                except:
+                    conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],'rad'))
+
+                tp[:,i] = conversion(mapunit, key)
+
+            pix = hp.ang2pix(self.groupnside, tp[:,1], tp[:,0])
+            pidx = pix==mappable.grp
+
+            mu = {}
+            for k in mu.keys():
+                mu[k] = mapunit[k][pidx]
+
+            mapunit = mu
+            return mapunit
+
+        elif mappable.jtype is None:
+            return mapunit
+        else:
+            raise NotImplementedError
+
     def readMappable(self, mappable, fieldmap):
         """
         Default reader is FITS reader
         """
 
         if self.reader=='fits':
-            return self.readFITSMappable(mappable, fieldmap)
+            mapunit = self.readFITSMappable(mappable, fieldmap)
+
+        return self.maskMappable(mapunit, mappable)
+
 
     def setFieldMap(self, fieldmap):
         self.fieldmap = fieldmap

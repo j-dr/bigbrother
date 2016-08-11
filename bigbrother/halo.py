@@ -83,9 +83,12 @@ class HaloCatalog(BaseCatalog):
         by the fieldmap.
         """
         if self.reader=='fits':
-            return self.readFITSMappable(mappable, fieldmap)
+            mapunit = self.readFITSMappable(mappable, fieldmap)
         elif self.reader=='rockstar':
-            return self.readRockstarMappable(mappable, fieldmap)
+            mapunit =  self.readRockstarMappable(mappable, fieldmap)
+
+        return self.maskMappable(mapunit, mappable)
+
 
     def readRockstarMappable(self, mappable, fieldmap):
         """
