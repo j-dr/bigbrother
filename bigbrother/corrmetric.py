@@ -250,7 +250,8 @@ class WPrpLightcone(CorrelationFunction):
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, subjack=False, catalog_type=None, tag=None,
-                  njack=None, lcutind=None, same_rand=False, inv_lum=True):
+                  njack=None, lcutind=None, same_rand=False, inv_lum=True,
+                  cosmology_flag=None):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -280,6 +281,11 @@ class WPrpLightcone(CorrelationFunction):
             self.minr = rbins[0]
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
+
+        if cosmology_flag is None:
+            self.cosmology_flag = 2
+        else:
+            self.cosmology_flag = cosmology_flag
 
         if pimax is None:
             self.pimax = 80.0
@@ -339,7 +345,8 @@ class WPrpLightcone(CorrelationFunction):
                 print('calculating data data pairs')
                 sys.stdout.flush()
 
-                ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1, 1, 1,
+                ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1,
+                                        self.cosmology_flag, 1,
                                         self.pimax,
                                         self.binfilename,
                                         mapunit[zlidx:zhidx][lidx]['azim_ang'],
@@ -434,9 +441,11 @@ class WPrpLightcone(CorrelationFunction):
         else:
             newaxes = False
 
+        rmean = self.rbins[1:]+self.rbins[:-1]
+
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
-                l1 = ax[j][i].loglog(self.rbins, self.wprp[:,i,j])
+                l1 = ax[j][i].loglog(rmean, self.wprp[:,i,j])
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -457,7 +466,7 @@ class WPrpLightcone(CorrelationFunction):
 
 
     def compare(self, othermetrics, plotname=None, usecols=None,
-                 labels=None, **kwargs):
+                 usez=None, labels=None, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -511,6 +520,7 @@ class WPrpSnapshot(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, catalog_type=None, tag=None,
                   lcutind=None, same_rand=False, inv_lum=True):
+
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -562,8 +572,8 @@ class WPrpSnapshot(CorrelationFunction):
         for li, j in enumerate(self.luminds):
             print('Finding luminosity indices')
             lidx = (self.lumbins[j] <= mapunit['luminosity'][:,self.lcutind]) & (mapunit['luminosity'][:,self.lcutind] < self.lumbins[j+1])
-            
-            if not lidx.any(): 
+
+            if not lidx.any():
                 print("No galaxies in magnitude bin [{0},{1})".format(self.lumbins[j], self.lumbins[j+1]))
                 continue
 
