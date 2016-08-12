@@ -15,12 +15,13 @@ class DensityMagnitudePDF(Metric):
 
     def __init__(self, ministry, zbins=None, densbins=None,
                   magbins=None, catalog_type=None,
-                  tag=None, central_only=False, normed=False):
+                  tag=None, central_only=False, normed=False,
+                  **kwargs):
 
         if catalog_type is None:
             catalog_type = ['galaxycatalog']
 
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
         if zbins is None:
             self.zbins = np.linspace(ministry.minz, ministry.maxz, 6)
@@ -184,12 +185,13 @@ class ConditionalDensityPDF(Metric):
 
     def __init__(self, ministry, magcuts=None, densbins=None,
                   zbins=None, catalog_type=None, tag=None,
-                  magcutind=None, normed=True, centrals=None):
+                  magcutind=None, normed=True, centrals=None,
+                  **kwargs):
 
         if catalog_type is None:
             catalog_type = ['galaxycatalog']
 
-        Metric.__init__(self, ministry, tag=tag, catalog_type=catalog_type)
+        Metric.__init__(self, ministry, tag=tag, catalog_type=catalog_type, **kwargs)
 
         if centrals is None:
             self.centrals = 0
@@ -370,13 +372,14 @@ class ConditionalDensityPDF(Metric):
 class AnalyticConditionalDensityPDF(ConditionalDensityPDF):
 
     def __init__(self, ministry, params, form, magcuts=None,
-                  densbins=None, zbins=None):
+                  densbins=None, zbins=None, **kwargs):
 
         self.form   = form
         self.params = params
 
         ConditionalDensityPDF.__init__(self, ministry, magcuts=magcuts,
-                                        densbins=densbins, zbins=zbins)
+                                        densbins=densbins, zbins=zbins,
+                                        **kwargs)
         self.generateCDPDF()
 
     def generateCDPDF(self):

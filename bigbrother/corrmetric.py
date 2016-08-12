@@ -28,11 +28,12 @@ class CorrelationFunction(Metric):
     def __init__(self, ministry, zbins=None, lumbins=None,
                    nrbins=None, subjack=False, lightcone=True,
                    catalog_type=None, lcutind=None,
-                   tag=None, same_rand=False, inv_lum=True):
+                   tag=None, same_rand=False, inv_lum=True,
+                   **kwargs):
         """
         Generic correlation function.
         """
-        Metric.__init__(self, ministry, tag=tag)
+        Metric.__init__(self, ministry, tag=tag, **kwargs)
 
         if catalog_type is None:
             self.catalog_type = ['galaxycatalog']
@@ -89,7 +90,7 @@ class CorrelationFunction(Metric):
 
         self.jsamples = 0
 
-    def generateAngularRandoms(self, cat, rand_factor=20, nside=8, nest=True, selectz=False):
+    def generateAngularRandoms(self, aza, pla, z=None, rand_factor=20, nside=8, nest=True):
        """
        Generate a set of randoms from a catalog by pixelating the input
        catalog and uniformly distributing random points within the pixels
@@ -99,31 +100,31 @@ class CorrelationFunction(Metric):
        catalog to allow for generation of randoms once for all z bins.
        """
 
-       if selectz:
+       if z is not None:
            rdtype = np.dtype([('azim_ang', np.float32), ('polar_ang', np.float32),
                               ('redshift', np.float32)])
        else:
            rdtype = np.dtype([('azim_ang', np.float32), ('polar_ang', np.float32)])
 
-       rsize = len(cat)*rand_factor
+       rsize = len(aza)*rand_factor
 
        #randomly generate angles within region bounded by catalog angles
        grand = np.zeros(rsize, dtype=rdtype)
-       grand['azim_ang'] = np.random.uniform(low=np.min(cat['azim_ang']),
-                                             high=np.max(cat['azim_ang']),
+       grand['azim_ang'] = np.random.uniform(low=np.min(aza),
+                                             high=np.max(aza),
                                              size=rsize)
-       grand['polar_ang'] = np.random.uniform(low=np.min(cat['polar_ang']),
-                                              high=np.max(cat['polar_ang']),
+       grand['polar_ang'] = np.random.uniform(low=np.min(pla),
+                                              high=np.max(pla),
                                               size=rsize)
-       if selectz:
-           grand['redshift'] = np.random.choice(cat['redshift'], size=rsize)
+       if z is not None:
+           grand['redshift'] = np.random.choice(z, size=rsize)
            zidx = grand['redshift'].argsort()
            grand = grand[zidx]
 
        #only keep points which fall within the healpix cells overlapping the catalog
-       cpix = hp.ang2pix(nside, (cat['polar_ang']+90)*np.pi/180., cat['azim_ang']*np.pi/180., nest=nest)
+       cpix = hp.ang2pix(nside, (pla+90)*np.pi/180., aza*np.pi/180., nest=nest)
        ucpix = np.unique(cpix)
-       rpix = hp.ang2pix(nside, (grand['polar_ang']+90)*np.pi/180, grand['azim_ang']*np.pi/180., nest=nest)
+       rpix = hp.ang2pix(nside, (pla+90)*np.pi/180, aza*np.pi/180., nest=nest)
        inarea = np.in1d(rpix, ucpix)
 
        grand = grand[inarea]
@@ -165,7 +166,7 @@ class AngularCorrelationFunction(CorrelationFunction):
 
     def __init__(self, ministry, zbins=None, lumbins=None, mintheta=None,
                  maxtheta=None, nabins=None, subjack=False,
-                 catalog_type=None, tag=None, lcutind=None):
+                 catalog_type=None, tag=None, lcutind=None, **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -173,7 +174,8 @@ class AngularCorrelationFunction(CorrelationFunction):
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
                                       lumbins=lumbins, nrbins=nabins,
                                       subjack=subjack, lcutind=lcutind,
-                                      catalog_type=catalog_type, tag=tag)
+                                      catalog_type=catalog_type, tag=tag,
+                                      **kwargs)
 
         if mintheta is None:
             self.mintheta = 1e-2
@@ -201,7 +203,7 @@ class AngularCorrelationFunction(CorrelationFunction):
 
         #putting this outside loop maybe faster, inside loop
         #lower memory usage
-        rand = self.generateAngularRandoms(cat, nside=128)
+        rand = self.generateAngularRandoms(mapunit['azim_ang'], mapunit['polar_ang'], nside=128)
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
@@ -251,7 +253,7 @@ class WPrpLightcone(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, subjack=False, catalog_type=None, tag=None,
                   njack=None, lcutind=None, same_rand=False, inv_lum=True,
-                  cosmology_flag=None):
+                  cosmology_flag=None, **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -261,7 +263,7 @@ class WPrpLightcone(CorrelationFunction):
                                       nrbins=nrbins, subjack=subjack,
                                       lcutind=lcutind, same_rand=same_rand,
                                       inv_lum=inv_lum,catalog_type=catalog_type,
-                                      tag=tag)
+                                      tag=tag, **kwargs)
 
         self.logbins = logbins
         self.c = 299792.458
@@ -333,7 +335,7 @@ class WPrpLightcone(CorrelationFunction):
                     print('Generating Randoms')
                     print(li)
                     print(self.same_rand)
-                    rands = self.generateAngularRandoms(mapunit[zlidx:zhidx][lidx], selectz=True, nside=128)
+                    rands = self.generateAngularRandoms(mapunit['azim_ang'][zlidx:zhidx][lidx], mapunit['polar_ang'][zlidx:zhidx][lidx], selectz=True, nside=128)
 
                 self.nd[j,i,self.jcount] = len(mapunit[zlidx:zhidx][lidx])
                 self.nr[j,i,self.jcount] = len(rands)
@@ -349,12 +351,12 @@ class WPrpLightcone(CorrelationFunction):
                                         self.cosmology_flag, 1,
                                         self.pimax,
                                         self.binfilename,
-                                        mapunit[zlidx:zhidx][lidx]['azim_ang'],
-                                        mapunit[zlidx:zhidx][lidx]['polar_ang'],
-                                        mapunit[zlidx:zhidx][lidx]['redshift']*self.c,
-                                        mapunit[zlidx:zhidx][lidx]['azim_ang'],
-                                        mapunit[zlidx:zhidx][lidx]['polar_ang'],
-                                        mapunit[zlidx:zhidx][lidx]['redshift']*self.c)
+                                        mapunit['azim_ang'][zlidx:zhidx][lidx],
+                                        mapunit['polar_ang'][zlidx:zhidx][lidx],
+                                        mapunit['redshift'][zlidx:zhidx][lidx]*self.c,
+                                        mapunit['azim_ang'][zlidx:zhidx][lidx],
+                                        mapunit['polar_ang'][zlidx:zhidx][lidx],
+                                        mapunit['redshift'][zlidx:zhidx][lidx]*self.c)
 
                 self.dd[:,j,i,self.jcount] = np.array([ddresults[k][4] for k in range(self.nrbins)])
 
@@ -363,9 +365,9 @@ class WPrpLightcone(CorrelationFunction):
                 drresults = countpairs_mocks.countpairs_rp_pi_mocks(0, 1, 1,
                                         self.pimax,
                                         self.binfilename,
-                                        mapunit[zlidx:zhidx][lidx]['azim_ang'],
-                                        mapunit[zlidx:zhidx][lidx]['polar_ang'],
-                                        mapunit[zlidx:zhidx][lidx]['redshift']*self.c,
+                                        mapunit['azim_ang'][zlidx:zhidx][lidx],
+                                        mapunit['polar_ang'][zlidx:zhidx][lidx],
+                                        mapunit['redshift'][zlidx:zhidx][lidx]*self.c,
                                         rands['azim_ang'],
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
@@ -519,7 +521,8 @@ class WPrpSnapshot(CorrelationFunction):
     def __init__(self, ministry, lumbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, catalog_type=None, tag=None,
-                  lcutind=None, same_rand=False, inv_lum=True):
+                  lcutind=None, same_rand=False, inv_lum=True,
+                  **kwargs):
 
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -529,7 +532,8 @@ class WPrpSnapshot(CorrelationFunction):
                                       lumbins=lumbins, nrbins=nrbins,
                                       lcutind=lcutind,
                                       same_rand=same_rand, inv_lum=inv_lum,
-                                      catalog_type=catalog_type, tag=tag)
+                                      catalog_type=catalog_type, tag=tag,
+                                      **kwargs)
 
         self.logbins = logbins
         self.c = 299792.458
@@ -581,9 +585,9 @@ class WPrpSnapshot(CorrelationFunction):
                                         self.pimax,
                                         1,
                                         self.binfilename,
-                                        mapunit[lidx]['px'],
-                                        mapunit[lidx]['py'],
-                                        mapunit[lidx]['pz'])
+                                        mapunit['px'][lidx],
+                                        mapunit['py'][lidx],
+                                        mapunit['pz'][lidx])
 
             self.wprp[:,li] = np.array([wprp[k][3] for k in range(self.nrbins)])
 
@@ -721,22 +725,16 @@ class TabulatedWPrpLightcone(CorrelationFunction):
         self.rmean = tab[:,self.rmeancol]
 
 
-
-
-
-
-
-
 class GalaxyRadialProfileBCC(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                  massbins=None, subjack=False, catalog_type=['galaxycatalog'],
-                 tag=None):
+                 tag=None, **kwargs):
         """
         Radial profile of galaxies around their nearest halos.
         """
 
-        Metric.__init__(self, ministry, tag=tag)
+        Metric.__init__(self, ministry, tag=tag, **kwargs)
 
         self.catalog_type = catalog_type
 

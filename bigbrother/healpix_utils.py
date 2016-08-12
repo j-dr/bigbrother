@@ -27,7 +27,7 @@ def sortHpixFileStruct(filestruct):
 
 class PixMetric(Metric):
 
-    def __init__(self, ministry, nside, tag=None):
+    def __init__(self, ministry, nside, tag=None, **kwargs):
         """
         Initialize a PixMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -38,7 +38,7 @@ class PixMetric(Metric):
         ministry : Ministry
             The ministry object that this metric is associated with.
         """
-        Metric.__init__(self, ministry, tag=tag)
+        Metric.__init__(self, ministry, tag=tag, **kwargs)
 
         self.nside = nside
 
@@ -65,9 +65,9 @@ class PixMetric(Metric):
 
 class Area(Metric):
 
-    def __init__(self, ministry, nside=256, tag=None):
+    def __init__(self, ministry, nside=256, tag=None, **kwargs):
 
-        Metric.__init__(self, ministry, tag=tag, novis=True)
+        Metric.__init__(self, ministry, tag=tag, novis=True, **kwargs)
 
         self.nside = nside
 
@@ -97,9 +97,9 @@ class Area(Metric):
 
 class HealpixMap(Metric):
 
-    def __init__(self, ministry, nside=64, cuts=None, tag=None):
+    def __init__(self, ministry, nside=64, cuts=None, tag=None, **kwargs):
 
-        Metric.__init__(self, ministry, tag=None)
+        Metric.__init__(self, ministry, tag=None, **kwargs)
 
         self.nside = nside
         self.cuts  = cuts

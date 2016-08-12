@@ -13,7 +13,7 @@ class MagnitudeMetric(GMetric):
     """
 
     def __init__(self, ministry, zbins=None, magbins=None,
-                 catalog_type=None, tag=None):
+                 catalog_type=None, tag=None, **kwargs):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -39,7 +39,7 @@ class MagnitudeMetric(GMetric):
         self.unitmap = {'appmag':'mag', 'luminosity':'mag'}
 
         GMetric.__init__(self, ministry, zbins=zbins, xbins=magbins,
-                         catalog_type=catalog_type, tag=tag)
+                         catalog_type=catalog_type, tag=tag, **kwargs)
 
 
 class LuminosityFunction(MagnitudeMetric):
@@ -49,7 +49,7 @@ class LuminosityFunction(MagnitudeMetric):
     """
 
     def __init__(self, ministry, central_only=False, zbins=None, magbins=None,
-                 catalog_type=['galaxycatalog'], tag=None):
+                 catalog_type=['galaxycatalog'], tag=None, **kwargs):
 
         """
         Initialize a LuminosityFunction object. Note, all metrics should define
@@ -78,7 +78,7 @@ class LuminosityFunction(MagnitudeMetric):
             magbins = np.linspace(-25, -11, 30)
 
         MagnitudeMetric.__init__(self, ministry, zbins=zbins, magbins=magbins,
-                                 catalog_type=catalog_type, tag=tag)
+                                 catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.central_only = central_only
         if central_only:
@@ -193,13 +193,13 @@ class MagCounts(MagnitudeMetric):
     """
 
     def __init__(self, ministry, zbins=[0.0, 0.2],  magbins=None,
-                 catalog_type=['galaxycatalog'], tag=None, cumulative=False):
+                 catalog_type=['galaxycatalog'], tag=None, cumulative=False, **kwargs):
 
         if magbins is None:
             magbins = np.linspace(10, 30, 60)
 
         MagnitudeMetric.__init__(self,ministry, zbins=zbins, magbins=magbins,
-                                 catalog_type=catalog_type, tag=tag)
+                                 catalog_type=catalog_type, tag=tag, **kwargs)
 
         if (zbins is not None):
             self.mapkeys = ['appmag', 'redshift']
@@ -262,8 +262,8 @@ class LcenMass(Metric):
     Central galaxy luminosity - halo virial mass relation.
     """
     def __init__(self, ministry, zbins=None, massbins=None,
-                 catalog_type=['galaxycatalog'], tag=None):
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+                 catalog_type=['galaxycatalog'], tag=None, **kwargs):
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
         if zbins is None:
             self.zbins = [0.0, 0.2]
@@ -400,8 +400,8 @@ class ColorColor(Metric):
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'], usebands=None,
-                 amagcut=-19.0, tag=None, appmag=False):
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+                 amagcut=-19.0, tag=None, appmag=False, **kwargs):
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.zbins = zbins
         if zbins is None:
@@ -573,9 +573,9 @@ class ColorMagnitude(Metric):
     def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None,
                  cbins=None, central_only=False, logscale=False,
                  catalog_type=['galaxycatalog'], usebands=None,
-                 tag=None, appmag=False):
+                 tag=None, appmag=False, **kwargs):
 
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.zbins = zbins
         if zbins is None:
@@ -761,8 +761,9 @@ class ColorMagnitude(Metric):
 
 class FQuenched(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], m=0.0,b=1.2,catalog_type=['galaxycatalog'], tag=None):
-        Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag)
+    def __init__(self, ministry, zbins=[0.0, 0.2], m=0.0,b=1.2,catalog_type=['galaxycatalog'], 
+                 tag=None, **kwargs):
+        Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag,**kwargs)
         self.zbins = zbins
 
         if zbins is None:
@@ -859,8 +860,9 @@ class FQuenched(Metric):
 
 class FRed(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], catalog_type=['galaxycatalog'], zeroind=True, tag=None):
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+    def __init__(self, ministry, zbins=[0.0, 0.2], catalog_type=['galaxycatalog'], zeroind=True, 
+                  tag=None, **kwargs):
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
         self.zbins = zbins
 
         if zbins is None:
@@ -957,8 +959,9 @@ class FRed(Metric):
 
 class FQuenchedLum(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, m=0.0, b=0.8, catalog_type=['galaxycatalog'], tag=None):
-        Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag)
+    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, m=0.0, b=0.8, 
+                 catalog_type=['galaxycatalog'], tag=None, **kwargs):
+        Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag, **kwargs)
         self.zbins = zbins
 
         if zbins is None:

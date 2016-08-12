@@ -15,7 +15,7 @@ class MassMetric(GMetric):
     """
 
     def __init__(self, ministry, zbins=None, massbins=None,
-                 catalog_type=None, tag=None):
+                 catalog_type=None, tag=None, **kwargs):
         """
         Initialize a MassMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -46,18 +46,18 @@ class MassMetric(GMetric):
 
 
         GMetric.__init__(self, ministry, zbins=zbins, xbins=massbins,
-                         catalog_type=catalog_type, tag=tag)
+                         catalog_type=catalog_type, tag=tag, **kwargs)
 
 class MassFunction(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.aschema = 'haloonly'
 
@@ -141,13 +141,13 @@ class MassFunction(MassMetric):
 class SimpleHOD(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.aschema = 'haloonly'
 
@@ -224,13 +224,13 @@ class GalHOD(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
                  catalog_type=['galaxycatalog'], tag=None, magcuts=None,
-                 cutband=None):
+                 cutband=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.magcuts = magcuts
 
@@ -370,13 +370,13 @@ class GalHOD(MassMetric):
 class OccMass(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         if lightcone:
             self.mapkeys   = ['halomass', 'occ', 'redshift']
@@ -441,13 +441,13 @@ class OccMass(MassMetric):
 class TinkerMassFunction(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.aschema = 'haloonly'
 
