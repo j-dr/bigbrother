@@ -381,13 +381,18 @@ class TinkerMassFunction(MassMetric):
 
 class Richness(MassMetric):
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=False,
-                 catalog_type=['galaxycatalog'], tag=None, colorbins=None):
+                 catalog_type=['galaxycatalog'], tag=None, colorbins=None, maxrhalo=None, minlum=None, redsplit=None, splitinfo=False):
+
 
         if massbins is None:
-            massbins = np.logspace(12, 15, 40)
+            self.massbins = np.logspace(12, 15, 40)
 
         if colorbins is None:
             self.colorbins = 200
+        else:
+            self.colorbins = colorbins
+        self.zbins = zbins
+        self.split_info = splitinfo
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type, tag=tag)
@@ -404,6 +409,13 @@ class Richness(MassMetric):
         self.unitmap = {'halomass':'msunh'}
         self.nomap = False
 
+        if maxrhalo is None:
+            self.max_rhalo  = 1
+        if minlum is None:
+            self.min_lum    = -19
+        
+        self.splitcolor = redsplit
+
         self.nbands = 1
 
 
@@ -412,7 +424,7 @@ class Richness(MassMetric):
         
         extrema = np.roots(np.polyder(p))
         extrema = extrema[np.isreal(extrema)]
-        extrema = extrema[(extrema - x[0]) * (x[-1] - extrema) > 0]
+        extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
         
         root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
         peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
@@ -420,7 +432,18 @@ class Richness(MassMetric):
         mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
         p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
         
-        return np.roots(np.polyder(p_mid))[0]
+        midpoint = np.roots(np.polyder(p_mid))[0]
+ 
+        if (self.split_info): # debug info
+            mpl.pyplot.plot(x,y)
+            mpl.pyplot.plot(x[mid],[sum([p_mid[len(p_mid)-1-i]*(xval**i) for i in range(len(p_mid))]) for xval in x[mid]])
+            mpl.pyplot.plot(x,[sum([p[len(p)-1-i]*(xval**i) for i in range(len(p))]) for xval in x])
+            mpl.pyplot.plot(peaks, np.partition(root_vals, -2)[-2:], 'ro')
+            mpl.pyplot.plot([midpoint], sum([p_mid[::-1][i]*midpoint**i for i in range(len(p_mid))]), 'ro')
+            peakvals = np.partition(root_vals, -2)[-2:]
+            print('Peaks: ' + str(peakvals) + ' at color ' + str(peaks))
+
+        return midpoint
 
 
     def map(self, mapunit):
@@ -428,19 +451,26 @@ class Richness(MassMetric):
         g_r_color = mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] # get g-r color
         color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
 
-        splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
+        if self.splitcolor is None:
+            self.splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
 
         previd = -1
         halo_ids = np.unique(mapunit['haloid'])
-        red_galaxy_counts = np.zeros(len(halo_ids)-1)
+        red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo
         
+        # must convert mapunit dict to a recarray
         dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
 
-        cut_array =((mapunit['rhalo']<1) & (mapunit['luminosity'][:,2] < -19) & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= splitcolor)))
+        # cut of galaxies: within max_rhalo of parent halo, above min_lum magnitude, and red
+        cut_array =((mapunit['rhalo'] < self.max_rhalo) & (mapunit['luminosity'][:,2] < self.min_lum) 
+            & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= self.splitcolor)))
         data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
         for key in mapunit.keys():
             data_cut[key] = mapunit[key][cut_array]
-#            data_cut[key] = mapunit[key][((mapunit['rhalo']<1) & (mapunit['luminosity'][:,2] < -19) & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= splitcolor)))]
+
+        if self.zbins is None:
+            self.zbins = np.logspace(np.log10(min(data_cut['redshift'])), np.log10(max(data_cut['redshift'])), 40)
+
         data_cut.sort(order='haloid')
 
         idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
