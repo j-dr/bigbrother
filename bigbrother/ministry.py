@@ -25,7 +25,7 @@ class Mappable(object):
     """
 
     def __init__(self, name, dtype, children=None, childtype=None, jtype=None,
-                  gnside=None, nbox=None, grp=None, nbox=None):
+                  gnside=None, nbox=None, grp=None):
 
         self.name = name
         self.dtype = dtype
@@ -103,40 +103,32 @@ class Ministry:
             return (self.boxsize*self.h)**3
 
 
-    def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
-                         unitmap=None, filters=None, zbins=None, maskfile=None,
-                         goodpix=None):
+    def setGalaxyCatalog(self, catalog_type, filestruct, **kwargs):
+
         """
         Fill in the galaxy catalog information
         """
 
         if catalog_type == "BCC":
-            self.galaxycatalog = BCCCatalog(self, filestruct,  zbins=zbins,
-                                            fieldmap=fieldmap, unitmap=unitmap,
-                                            filters=filters, maskfile=maskfile,
-                                            goodpix=goodpix)
+            self.galaxycatalog = BCCCatalog(self, filestruct, **kwargs)
         elif catalog_type == "S82Phot":
             self.galaxycatalog = S82PhotCatalog(self, None)
         elif catalog_type == "S82Spec":
             self.galaxycatalog = S82SpecCatalog(self, None)
         elif catalog_type == "DESGold":
-            self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile,
-                                                goodpix=goodpix, fieldmap=fieldmap,
-                                                unitmap=unitmap, filters=filters)
+            self.galaxycatalog = DESGoldCatalog(self, filestruct, **kwargs)
+
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
 
-    def setHaloCatalog(self, catalog_type, filestruct, fieldmap=None,
-                       zbins=None, maskfile=None, goodpix=1, unitmap=None,
-                       filters=None):
+    def setHaloCatalog(self, catalog_type, goodpix=1, **kwargs):
         """
         Fill in the halo catalog information
         """
 
         if catalog_type == "BCC":
-            self.halocatalog = BCCHaloCatalog(self, filestruct, zbins=zbins,
-                                              fieldmap=fieldmap, maskfile=maskfile,
-                                              goodpix=goodpix)
+            self.halocatalog = BCCHaloCatalog(self, filestruct, goodpix=goodpix, **kwargs)
+
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
 
@@ -327,8 +319,8 @@ class Ministry:
             node = nodes[i]
             nomerge = True
             for edge in graph[node]:
-                if self.compFieldMaps(fms[node][0], fms[edge][0]) & self.compAssoc(fms[node][1], fms[edge][1]) & self.compUnits(fms[node][1], fms[edge][1]) &
-                  self.compJackknife(fms[node][1], fms[edge][1]):
+                if (self.compFieldMaps(fms[node][0], fms[edge][0]) & self.compAssoc(fms[node][1], fms[edge][1]) & self.compUnits(fms[node][1], fms[edge][1]) &
+                  self.compJackknife(fms[node][1], fms[edge][1])):
                     nomerge=False
                     m = [node, edge]
                     mg0 = fms[node]
@@ -482,16 +474,19 @@ class Ministry:
         nb = self.galaxycatalog.nbox
         gn = self.galaxycatalog.groupnside
 
+        fs = self.galaxycatalog.filestruct
+
         #Create mappables out of filestruct and fieldmaps
         for i, fg in enumerate(fgroups):
-            for j in fg:
+            print(fg)
+            for fc, j in enumerate(fg):
                 for k, ft in enumerate(filetypes):
-                    if (j==0) & (k==0):
-                        root = Mappable(fs[ft][j], ft, jtype=jtype,
+                    if (fc==0) & (k==0):
+                        root = Mappable(fs[ft][j], ft, jtype=jt,
                                       gnside=gn, nbox=nb, grp=g[i])
                         last = root
                     else:
-                        node = Mappable(fs[ft][i], ft, jtype=jtype,
+                        node = Mappable(fs[ft][j], ft, jtype=jt,
                                       gnside=gn, nbox=nb, grp=g[i])
                         last.children.append(node)
                         last = node
@@ -640,7 +635,7 @@ class Ministry:
 
             for key in mapunit.data.keys():
                 if key in mu.keys():
-                    mu[key] = np.hstack(mu[key], mapunit.data[key])
+                    mu[key] = np.hstack([mu[key], mapunit.data[key]])
                 else:
                     mu[key] = mapunit.data[key]
 
@@ -648,7 +643,7 @@ class Ministry:
 
         for key in mapunit.data.keys():
             if key in mu.keys():
-                mu[key] = np.hstack(mu[key], mapunit.data[key])
+                mu[key] = np.hstack([mu[key], mapunit.data[key]])
             else:
                 mu[key] = mapunit.data[key]
 
@@ -730,9 +725,14 @@ class Ministry:
 
         if 'redshift' in dk:
             idx = mapunit['redshift'].argsort()
+            print(idx)
 
         for k in dk:
+            print(mapunit[k])
             mapunit[k] = mapunit[k][idx]
+        
+        print(mapunit)
+        return mapunit
 
     def convert(self, mapunit, metrics):
 
@@ -790,14 +790,15 @@ class Ministry:
 
                 mapunit = self.readMappable(mappable, fm)
 
-                if sbz & (ms[0].aschema != 'galaxygalaxy')
-                  & (ms[0].aschema != 'halohalo'):
+                if (sbz & (ms[0].aschema != 'galaxygalaxy')
+                  & (ms[0].aschema != 'halohalo')):
                     self.sortMappableByZ(mapunit, fm, [])
 
                 if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
                     mapunit = self.scListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
+
                 elif 'only' in ms[0].aschema:
                     mapunit = self.scListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
@@ -805,8 +806,12 @@ class Ministry:
 
                 if sbz & ((ms[0].aschema == 'galaxygalaxy')
                   | (ms[0].aschema == 'halohalo')):
-
-                  self.sortMapunitByZ(mapunit)
+                    mapunit = self.dcListToDict(mapunit)
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
+                    if sbz:
+                        print(sbz)
+                        mapunit = self.sortMapunitByZ(mapunit)
 
                 for m in ms:
                     print('*****{0}*****'.format(m.__class__.__name__))

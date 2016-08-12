@@ -12,17 +12,10 @@ class HaloCatalog(BaseCatalog):
     Base class for halo catalogs
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=None,
-                 reader=None):
+    def __init__(self, ministry, filestruct, zbins=None, **kwargs):
 
         self.ctype = 'halocatalog'
-        BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=fieldmap, nside=nside,
-                                maskfile=maskfile, filters=filters,
-                                unitmap=unitmap, goodpix=goodpix,
-                                reader=reader)
+        BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
 
 
     def calculateArea(self, pixels, nside):
@@ -126,37 +119,30 @@ class BCCHaloCatalog(HaloCatalog):
     Class to handle BCC Halo catalogs
     """
 
-    def __init__(self, ministry, filestruct, unitmap=None, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None, filters=None,
-                 goodpix=None):
+    def __init__(self, ministry, filestruct, **kwargs):
 
-        if unitmap is None:
-            unitmap = {'mass':'msunh'}
+        HaloCatalog.__init__(self, ministry, filestruct, **kwargs)
 
-        HaloCatalog.__init__(self, ministry, filestruct, unitmap=unitmap,
-                             maskfile=maskfile, filters=filters,
-                             goodpix=goodpix)
-        self.ministry = ministry
-        self.metrics = [MassFunction(self.ministry, zbins=zbins,
+        if self.unitmap is None:
+            unitmap = {'halomass':'msunh'}
+
+        self.metrics = [MassFunction(self.ministry, zbins=self.zbins,
                                       lightcone=True),
-                        OccMass(self.ministry, zbins=zbins,
+                        OccMass(self.ministry, zbins=self.zbins,
                                       lightcone=True)]
 
-        self.nside = nside
-
-        if fieldmap is None:
-            self.fieldmap = {'mass':OrderedDict([('MVIR',['htruth'])]),
+        if self.fieldmap is None:
+            self.fieldmap = {'halomass':OrderedDict([('MVIR',['htruth'])]),
                              'occ':OrderedDict([('N19', ['htruth'])]),
                              'redshift':OrderedDict([('Z',['htruth'])])}
             self.hasz = True
         else:
-            self.fieldmap = fieldmap
-            if 'redshift' in fieldmap.keys():
+            if 'redshift' in self.fieldmap.keys():
                 self.sortbyz = True
             else:
                 self.sortbyz = False
 
-        self.unitmap = {'mass':'msunh'}
+
 
     def parseFileStruct(self, filestruct):
         """

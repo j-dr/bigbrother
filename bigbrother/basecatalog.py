@@ -7,6 +7,7 @@ import numpy as np
 import healpy as hp
 import fitsio
 import time
+import sys
 
 class BaseCatalog:
     """
@@ -19,7 +20,7 @@ class BaseCatalog:
                  unitmap=None,  filters=None, goodpix=None,
                  reader=None, area=None, jtype=None, nbox=None,
                  filenside=None, groupnside=None, nest=True,
-                 maskfile=None,):
+                 maskfile=None):
 
         self.ministry = ministry
         self.filestruct = filestruct
@@ -44,6 +45,8 @@ class BaseCatalog:
 
         if groupnside is None:
             self.groupnside = 4
+        else:
+            self.groupnside = groupnside
 
         #for subbox type jackknifing
         self.nbox = nbox
@@ -80,28 +83,38 @@ class BaseCatalog:
         fpix = []
 
         #BCC catalogs have pixels in filenames
-        if ('BCC' in self.__class__.__name__) &
-          (self.filenside is not None) & (self.filenside<=self.groupnside):
+        if (('BCC' in self.__class__.__name__) &
+          (self.filenside is not None) & (self.filenside>=self.groupnside)):
             fk = self.filestruct.keys()
 
             for f in self.filestruct[fk[0]]:
-                p = int(f.split('.')[-1])
+                p = int(f.split('.')[-2])
 
                 if (self.filenside == self.groupnside):
                     fpix.append([p])
                 else:
                     if not self.nest:
+                        while p > 12*self.filenside**2:
+                            p = p - 1000
                         p = hp.ring2nest(self.filenside, p)
 
-                    base = p >> self.filenside
-                    hosubpix = pix & ( ( 1 << ( self.filenside ) ) - 1 );
-                    losubpix = hosubpix / ( 1 << ( self.filenside - self.groupnside) ) );
-                    p  = base * ( 1 << ( 2 * self.groupnside ) ) + losubpix;
+                    o1 = int(np.log2(self.filenside))
+                    o2 = int(np.log2(self.groupnside))
+
+                    base = int(p >> 2*o1)
+                    hosubpix = int(p & ( ( 1 << ( 2 * o1 ) ) - 1 ))
+                    losubpix = int(hosubpix // ( 1 << 2 * ( o1 - o2) ))
+                    p  = int(base * ( 1 << ( 2 * o2 ) ) + losubpix)
 
                     fpix.append([p])
 
         else:
-            pmetric = PixMetric(self.ministry, self.groupnside)
+            if issubclass(self.__class__, GalaxyCatalog):
+                ct = ['galaxycatalog']
+            elif issubclass(self.__class__, HaloCatalog):
+                ct = ['halocatalog']
+
+            pmetric = PixMetric(self.ministry, self.groupnside, catalog_type=ct)
             mg = self.ministry.genMetricGroups([pmetric])
             ms = mg[0][1]
             fm = mg[0][0]
@@ -120,12 +133,15 @@ class BaseCatalog:
         subbox grouping still needs to be done.
         """
 
-        fpix = self.getfilePixels(self.groupnside)
+        fpix = self.getFilePixels(self.groupnside)
         upix = np.unique(np.array([p for sublist in fpix for p in sublist]))
         fgrps = []
 
         for p in upix:
             fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
+
+        print(upix)
+        print(fgrps)
 
         return upix, fgrps
 
@@ -160,12 +176,13 @@ class BaseCatalog:
 
     def maskMappable(self, mapunit, mappable):
 
-        tp = np.zeros((len(mapunit),2))
+        tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
 
         if mappable.jtype == 'healpix':
+            print('Masking {0} using healpix'.format(mappable.name))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
                 try:
-                    conversion = getattr(self,      '{0}2{1}'.format(self.unitmap[key],'rad'))
+                    conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],'rad'))
                 except:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],'rad'))
 
@@ -175,7 +192,7 @@ class BaseCatalog:
             pidx = pix==mappable.grp
 
             mu = {}
-            for k in mu.keys():
+            for k in mapunit.keys():
                 mu[k] = mapunit[k][pidx]
 
             mapunit = mu
@@ -251,13 +268,8 @@ class BaseCatalog:
 
 class PlaceHolder(BaseCatalog):
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=None,
-                 reader=None):
+    def __init__(self, ministry, filestruct, **kwargs):
 
         self.ctype = 'placeholder'
-        BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=fieldmap, nside=nside,
-                                maskfile=maskfile, filters=filters,
-                                unitmap=unitmap, reader=reader)
+        BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
+

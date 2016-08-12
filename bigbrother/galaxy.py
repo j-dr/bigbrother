@@ -18,17 +18,13 @@ class GalaxyCatalog(BaseCatalog):
     Base class for galaxy catalogs
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=None,
-                 reader=None):
+    def __init__(self, ministry, filestruct, zbins=None, **kwargs):
+
 
         self.ctype = 'galaxycatalog'
-        BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=fieldmap, nside=nside,
-                                maskfile=maskfile, filters=filters,
-                                unitmap=unitmap, goodpix=goodpix,
-                                reader=reader)
+        self.zbins = zbins
+        BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
+
 
     def calculateMaskArea(self, pixels, nside):
         """
@@ -140,40 +136,36 @@ class BCCCatalog(GalaxyCatalog):
     BCC style ADDGALS catalog
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=None):
-        GalaxyCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
-        self.min = ministry
+    def __init__(self, ministry, filestruct, **kwargs):
+
+        GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
         self.metrics = [Area(self.ministry),
-                        LuminosityFunction(self.ministry, zbins=zbins,
+                        LuminosityFunction(self.ministry, zbins=self.zbins,
                             tag="AllLF"),
-                        MagCounts(self.ministry, zbins=zbins, tag="BinZ"),
+                        MagCounts(self.ministry, zbins=self.zbins, tag="BinZ"),
                         MagCounts(self.ministry, zbins=None, tag="AllZ"),
-                        LuminosityFunction(self.ministry, zbins=zbins, central_only=True, tag="CentralLF"),
-                        LcenMass(self.ministry, zbins=zbins),
-                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1], tag="AllCMBinZ"),
-                        ColorMagnitude(self.ministry, zbins=zbins,
+                        LuminosityFunction(self.ministry, zbins=self.zbins, central_only=True, tag="CentralLF"),
+                        LcenMass(self.ministry, zbins=self.zbins),
+                        ColorMagnitude(self.ministry, zbins=self.zbins, usebands=[0,1], tag="AllCMBinZ"),
+                        ColorMagnitude(self.ministry, zbins=self.zbins,
                                         usebands=[0,1],
                                         central_only=True, tag="CentralCMBinZ"),
-                        ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2], tag="BinZ"),
+                        ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="BinZ"),
                         ColorColor(self.ministry, zbins=np.linspace(0.0, 0.2, 5), usebands=[0,1,2], tag="SDSSZ"),
                         ColorColor(self.ministry, zbins=None,
                          usebands=[0,1,2], tag="AllZ"),
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),
-                        FQuenchedLum(self.ministry, zbins=zbins),
-                        GalaxyRadialProfileBCC(self.ministry, zbins=zbins)]
+                        FQuenchedLum(self.ministry, zbins=self.zbins),
+                        GalaxyRadialProfileBCC(self.ministry, zbins=self.zbins)]
 
-        self.nside = nside
-        if filters is None:
+        if self.filters is None:
             self.filters = ['Appmag']
-        else:
-            self.filters = filters
 
-        self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
-                          'azim_ang':'ra', 'polar_ang':'dec'}
+        if self.unitmap is None:
+            self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
+                            'azim_ang':'ra', 'polar_ang':'dec'}
 
-        if fieldmap is None:
+        if self.fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['gtruth'])]),
                              'appmag':OrderedDict([('MAG_G',['obs']), ('MAG_R',['obs']),
                                                    ('MAG_I',['obs']), ('MAG_Z',['obs']),
@@ -181,8 +173,7 @@ class BCCCatalog(GalaxyCatalog):
                              'redshift':OrderedDict([('Z',['gtruth'])])}
             self.sortbyz = True
         else:
-            self.fieldmap = fieldmap
-            if 'redshift' in fieldmap.keys():
+            if 'redshift' in self.fieldmap.keys():
                 self.sortbyz = True
             else:
                 self.sortbyz = False
@@ -236,11 +227,9 @@ class S82SpecCatalog(GalaxyCatalog):
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, filters=None, nside=8):
-        GalaxyCatalog.__init__(self, ministry, filestruct,
-                               unitmap=unitmap, filters=filters)
-        self.ministry = ministry
+    def __init__(self, ministry, filestruct, **kwargs):
+        GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
+
         self.parseFileStruct(None)
         self.metrics = [LuminosityFunction(self.ministry)]
         self.fieldmap = {'luminosity':OrderedDict([('AMAG',['spec'])]),
@@ -259,11 +248,10 @@ class S82PhotCatalog(GalaxyCatalog):
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None, unitmap=None,
-                 filters=None, nside=8):
-        GalaxyCatalog.__init__(self, ministry, filestruct, filters=filters,
-                               unitmap=unitmap)
-        self.ministry = ministry
+    def __init__(self, ministry, filestruct, **kwargs):
+
+        GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
+
         self.parseFileStruct(None)
         self.metrics = [MagCounts(self.ministry), ColorColor(self.ministry)]
         self.fieldmap = {'appmag':OrderedDict([('G',['phot']), ('R',['phot']),
@@ -283,23 +271,19 @@ class DESGoldCatalog(GalaxyCatalog):
     DES Gold catalog in the style of Y1A1.
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, filters=None, nside=8,
-                 maskfile=None, goodpix=1):
+    def __init__(self, ministry, filestruct, **kwargs):
 
-        GalaxyCatalog.__init__(self, ministry, filestruct,
-                               maskfile=maskfile,goodpix=goodpix,
-                               filters=filters, unitmap=unitmap)
+
+        GalaxyCatalog.__init__(self, ministry, filestruct, goodpix=1, **kwargs)
+
         self.necessaries = ['modest']
-        self.ministry = ministry
         self.parseFileStruct(filestruct)
-        self.nside = nside
         self.metrics = [Area(self.ministry),
                         MagCounts(self.ministry, tag='AllZ',
                                     zbins=None),
                         ColorColor(self.ministry, appmag=True,
                                     tag='AllZ', zbins=None)]
-        if fieldmap==None:
+        if self.fieldmap==None:
             self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']),
                                                    ('FLUX_AUTO_R',['auto']),
                                                    ('FLUX_AUTO_I',['auto']),
@@ -307,18 +291,12 @@ class DESGoldCatalog(GalaxyCatalog):
                              'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
                              'polar_ang':OrderedDict([('DEC',['basic'])]),
                              'azim_ang':OrderedDict([('RA',['basic'])])}
-        else:
-            self.fieldmap = fieldmap
 
-        if unitmap is None:
+        if self.unitmap is None:
             self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra'}
-        else:
-            self.unitmap = unitmap
 
-        if filters is None:
+        if self.filters is None:
             self.filters = ['Modest', 'Appmag']
-        else:
-            self.filters = filters
 
     def parseFileStruct(self, filestruct):
 
