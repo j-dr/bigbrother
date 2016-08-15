@@ -317,7 +317,7 @@ class GalHOD(MassMetric):
                             self.cocccounts[:,j,k,i] += c
                             self.sqcocccounts[:,j,k,i] += c**2
 
-                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][lidx][~cidx]], bins=np.massbins)
+                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][lidx][~cidx], bins=np.massbins)
                             self.socccounts[:,j,k,i] += c
                             self.sqsocccounts[:,j,k,i] += c**2
                         else:
@@ -327,7 +327,7 @@ class GalHOD(MassMetric):
                             self.cocccounts[:,j,k,i] += c
                             self.sqcocccounts[:,j,k,i] += c**2
 
-                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][~cidx]], bins=np.massbins)
+                            c, e = np.histogram(mapunit['mass'][zlidx:zhidx,j][~cidx], bins=np.massbins)
                             self.socccounts[:,j,k,i] += c
                             self.sqsocccounts[:,j,k,i] += c**2
 
