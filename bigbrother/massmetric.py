@@ -17,7 +17,7 @@ class MassMetric(GMetric):
     def __init__(self, ministry, zbins=None, massbins=None,
                  catalog_type=None, tag=None):
         """
-        Initialize a MassMetric object. Note, all metrics should define
+        Initialize a MassMetric object. Note: all metrics should define
         an attribute called mapkeys which specifies the types of data that they
         expect.
 
