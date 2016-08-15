@@ -154,25 +154,61 @@ class Selector:
             if selection['lower1']:
                 if selection['lower2']:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] <= data[mk1], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
                 else:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] <= data[mk1], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
             else:
                 if selection['lower2']:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] >= data[mk1], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
                 else:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] >= data[mk1], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
 
             sfunctions1.append(sf1)
             sfunction2.append(sf2)
