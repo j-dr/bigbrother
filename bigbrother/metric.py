@@ -143,6 +143,9 @@ class GMetric(Metric):
         if usecols is None:
             usecols = range(self.nbands)
 
+        if (rusecols is None) and (ref_y is not None):
+            rusecols = ref_y.shape[1]
+
         if usez is None:
             usez = range(self.nzbins)
         print(usez)
@@ -209,11 +212,12 @@ class GMetric(Metric):
                         if logx:
                             ax[i][j].set_xscale('log')
                     else:
+                        rb = rusecols[i]
                         l1 = ax[2*i][j].semilogy(mxs, self.y[:,b,j],
                                           **kwargs)
                         ax[2*i+1][j].plot(mxs[li:hi],
-                                          (self.y[li:hi,b,j]-ref_y[:,b,j])\
-                                              /ref_y[:,b,j], **kwargs)
+                                          (self.y[li:hi,b,j]-ref_y[:,rb,j])\
+                                              /ref_y[:,rb,j], **kwargs)
                         if logx:
                             ax[2*i][j].set_xscale('log')
                             ax[2*i+1][j].set_xscale('log')
@@ -242,10 +246,11 @@ class GMetric(Metric):
                         if logx:
                             ax.set_xscale('log')
                 else:
+                    rb = rusecols[i]
                     l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0],
                                         **kwargs)
-                    ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,b,0])\
-                                      /ref_y[:,b,0], **kwargs)
+                    ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,rb,0])\
+                                      /ref_y[:,rb,0], **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
                         ax[2*i+1][0].set_xscale('log')
@@ -336,7 +341,7 @@ class GMetric(Metric):
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
                                              ref_y=self.y, xlim=xlim, compare=True,
                                              ylim=ylim, fylim=fylim, label=labels[i],
                                              usez=usez[i],**kwargs)
@@ -346,7 +351,7 @@ class GMetric(Metric):
                                              **kwargs)
             else:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
                                              ref_y=tocompare[0].y, compare=True,
                                              xlim=xlim, ylim=ylim, fylim=fylim,
                                              f=f, ax=ax, label=labels[i], usez=usez[i],

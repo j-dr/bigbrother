@@ -6,7 +6,7 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from metric import Metric
-
+from .selection import Selector
 
 class DNDz(Metric):
 
@@ -90,39 +90,36 @@ class DNDz(Metric):
             self.mapkeys = ['redshift']
             self.unitmap = {}
 
+        #Make selection dict here
+        if lower_limit:
+            selection_dict = {'mag':{'selection_type':'cut1d',
+                                    'mapkeys':['appmag'],
+                                    'bins':self.magbins,
+                                    'selection_ind':self.cutband,
+                                    'lower':True}}
+        else:
+            selection_dict = {'mag':{'selection_type':'binned1d',
+                                    'mapkeys':['appmag'],
+                                    'bins':self.magbins,
+                                    'selection_ind':self.cutband}}
+
+        self.selector = Selector(selection_dict)
+
     def map(self, mapunit):
         """
         Map function for dn/dz. Extracts relevant information from a mapunit. Usually only called by a Ministry object, not manually.
         """
-        if self.nmagbins>0:
-            if not hasattr(self, 'dndz'):
-                self.dndz = np.zeros((self.nzbins, self.nmagbins))
 
-            for i in range(self.nmagbins):
-                if self.lower_limit:
-                    if len(mapunit[self.mkey].shape)>1:
-                        idx = mapunit[self.mkey][:,self.cutband]<self.magbins[i]
-                    else:
-                        idx = mapunit[self.mkey]<self.magbins[i]
-                else:
-                    if i==self.nmagbins: continue
+        #This will eventually need to be replaced with the outputs
+        #if selector.mapArray()
+        if not hasattr(self, 'dndz'):
+            self.dndz = np.zeros((self.nzbins,self.nmagbins))
 
-                    if len(mapunit[self.mkey].shape)>1:
-                        idx = (self.magbins[i]<mapunit[self.mkey][:,self.cutband]) & (mapunit[self.mkey][:,self.cutband]<self.magbins[i+1])
-                    else:
-                        idx = (self.magbins[i]<mapunit[self.mkey]) & (mapunit[self.mkey]<self.magbins[i+1])
-
-                c, e = np.histogram(mapunit['redshift'][idx],
-                                      bins=self.zbins)
-                self.dndz[:,i] += c
-        else:
-            if not hasattr(self, 'dndz'):
-                self.dndz = np.zeros((self.nzbins,1))
-
-            c, e = np.histogram(mapunit['redshift'],
-                                  bins=self.zbins)
-            self.dndz[:,0] += c
-
+        for idx, aidx in self.selector.generateSelections(mapunit):
+            c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
+            shp = [1 for i in range(len(aidx)+1)]
+            shp[0] = len(c)
+            self.dndz[:,aidx] += c.reshape(shp)
 
     def reduce(self):
         """
