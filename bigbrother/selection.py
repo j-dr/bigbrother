@@ -8,7 +8,7 @@ class Selector:
     """
     Handles all selections for metrics. This includes creating
     arrays to store data created from map functions, creating
-    generators of selections, and handling plotting them.
+    generators of selections, and handling making plots of them.
     """
 
     def __init__(self, selection_dict):
