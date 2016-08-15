@@ -86,6 +86,18 @@ class Selector:
         selection -- dict
         A dictionary specifying the selection information. Needs
         to have keys: bins, mapkeys, lower, selection_ind.
+
+        returns
+        --------
+        A list of functions of length given by the number of
+        bins. These functions should do the following:
+        - Take in an array of data as their only argument
+        - Return an array of length of the input data, containing
+          True or False in each element depending on whether or not
+          the corresponding element of the input array satisfied
+          the selection criterea.
+
+
         """
         sfunctions = []
 
@@ -144,25 +156,61 @@ class Selector:
             if selection['lower1']:
                 if selection['lower2']:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] <= data[mk1], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
                 else:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] <= data[mk1], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
             else:
                 if selection['lower2']:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] >= data[mk1], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
                 else:
                     if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None: sf1 = lambda data : selection['bins1'][i] >= data[mk1], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                        else: si = int1 + (slope1*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si], sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                    else: si1 = int1 + (slope1*i), si2 = int2 + (slope2*i), sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1], sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
+                        if selection ['int2'] is None or selection ['slope2'] is None:
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                        else:
+                            si = int1 + (slope1*i)
+                            sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si]
+                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
+                    else:
+                        si1 = int1 + (slope1*i)
+                        si2 = int2 + (slope2*i)
+                        sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1]
+                        sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
 
             sfunctions1.append(sf1)
             sfunction2.append(sf2)
