@@ -131,7 +131,7 @@ class MassFunction(MassMetric):
         if ylabel is None:
             ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
 
-        MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
                              ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
                              ylabel=ylabel, compare=compare,logx=True,**kwargs)
@@ -490,8 +490,6 @@ class TinkerMassFunction(MassMetric):
                "SpectralIndex":0.96,
                "w0":-1.0,
                "wa":0.0
-               #,"As":2.1e-9,
-               #"As_pivot":0.05
 	}
 	cosmocalc.set_cosmology(cd)
 
@@ -523,7 +521,168 @@ class TinkerMassFunction(MassMetric):
         if ylabel is None:
             ylabel = r"$N \, [Mpc^{-3}\, h^{3}]$"
 
-        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
-                             fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
-                             ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
-                             ylabel=ylabel, compare=compare,logx=True,**kwargs)
+        return MassMetric.visualize(self, plotname=plotname,
+                                    usecols=usecols, usez=usez,
+                                    fracdev=fracdev,
+                                    ref_y=ref_y, ref_x=ref_x,
+                                    xlim=xlim, ylim=ylim,
+                                    fylim=fylim, f=f, ax=ax,
+                                    xlabel=xlabel,
+                                    ylabel=ylabel,
+                                    compare=compare,logx=True,
+                                    **kwargs)
+
+class Richness(MassMetric):
+    def __init__(self, ministry, zbins=None, massbins=None, lightcone=False,
+                 catalog_type=['galaxycatalog'], tag=None, colorbins=None,
+                  maxrhalo=None, minlum=None, redsplit=None, splitinfo=False):
+
+        if massbins is None:
+            self.massbins = np.logspace(12, 15, 20)
+        else:
+            self.massbins = massbins
+
+        if colorbins is None:
+            self.colorbins = 100
+        else:
+            self.colorbins = colorbins
+
+        if (lightcone):
+            if hasattr(zbins, '__iter__'):
+                self.zbins = zbins
+            else:
+                if (type(zbins)==int and zbins>1):
+                    self.zbins = np.logspace(-4, 1, zbins)
+                else:
+                    self.zbins = np.logspace(-4, 1, 5)
+        else:
+            self.zbins = [0, 10]
+        self.nzbins = len(self.zbins) - 1
+
+        self.split_info = splitinfo
+
+        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag)
+
+        self.aschema = 'galaxyonly'
+
+        if lightcone:
+            self.mapkeys   = ['halomass', 'redshift', 'luminosity', 'haloid', 'rhalo']
+            self.lightcone = True
+        else:
+            self.mapkeys   = ['halomass', 'luminosity', 'haloid', 'rhalo']
+            self.lightcone = False
+
+        self.unitmap = {'halomass':'msunh'}
+        self.nomap = False
+
+        if maxrhalo is None:
+            self.max_rhalo  = 1
+        if minlum is None:
+            self.min_lum    = -19
+
+        self.splitcolor = redsplit
+
+        self.nbands = 1
+
+        self.galaxy_counts         = np.zeros((len(self.massbins) - 1, 1, len(self.zbins) - 1))
+        self.galaxy_counts_squared = np.zeros((len(self.massbins) - 1, 1, len(self.zbins) - 1))
+        self.halo_counts           = np.zeros((len(self.massbins) - 1, 1, len(self.zbins) - 1))
+
+
+
+    def splitBimodal(self, x, y, largepoly=30):
+        p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
+
+        extrema = np.roots(np.polyder(p))
+        extrema = extrema[np.isreal(extrema)]
+        extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
+
+        root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
+        peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
+
+        mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
+        p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
+
+        midpoint = np.roots(np.polyder(p_mid))[0]
+
+        if (self.split_info): # debug info
+            mpl.pyplot.plot(x,y)
+            mpl.pyplot.plot(x[mid],[sum([p_mid[len(p_mid)-1-i]*(xval**i) for i in range(len(p_mid))]) for xval in x[mid]])
+            mpl.pyplot.plot(x,[sum([p[len(p)-1-i]*(xval**i) for i in range(len(p))]) for xval in x])
+            mpl.pyplot.plot(peaks, np.partition(root_vals, -2)[-2:], 'ro')
+            mpl.pyplot.plot([midpoint], sum([p_mid[::-1][i]*midpoint**i for i in range(len(p_mid))]), 'ro')
+            peakvals = np.partition(root_vals, -2)[-2:]
+            print('Peaks: ' + str(peakvals) + ' at color ' + str(peaks))
+
+        return midpoint
+
+
+    def map(self, mapunit):
+        print('min z: ' + str(min(mapunit['redshift'])))
+	    print('max z: ' + str(max(mapunit['redshift'])))
+        # must convert mapunit dict to a recarray
+        dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
+
+        for ziter in range(len(self.zbins)-1):
+
+            zcut = ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1]))
+
+            g_r_color = mapunit['luminosity'][zcut][:,0] - mapunit['luminosity'][zcut][:,1] # get g-r color
+            color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
+
+            if self.splitcolor is None:
+                self.splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
+
+            previd = -1
+            halo_ids = np.unique(mapunit['haloid'][zcut])
+            red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo
+
+            # cut of galaxies: within max_rhalo of parent halo, above min_lum magnitude, and red
+            cut_array =((mapunit['rhalo'] < self.max_rhalo) & (mapunit['luminosity'][:,2] < self.min_lum)
+                & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= self.splitcolor)) & ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1])))
+            data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
+            for key in mapunit.keys():
+                data_cut[key] = mapunit[key][cut_array]
+
+            data_cut.sort(order='haloid')
+
+            idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
+            newhalos = np.where(idx != 0)[0]
+            newhalos = np.hstack([[0], newhalos + 1, [len(data_cut) - 1]])
+
+            uniquehalos = data_cut[newhalos[:-1]]
+            red_counts = newhalos[1:]-newhalos[:-1]
+            mass_bin_indices = np.digitize(uniquehalos['halomass'], self.massbins)
+
+            self.halo_counts[:,0,ziter] += np.histogram(uniquehalos['halomass'], bins=self.massbins)[0]
+
+            for i in range(len(self.massbins)-1):
+                self.galaxy_counts[i,0,ziter]         += np.sum(red_counts[(mass_bin_indices == i+1)])
+                self.galaxy_counts_squared[i,0,ziter] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
+
+
+    def reduce(self):
+        self.y           = self.galaxy_counts/self.halo_counts
+        self.ye          = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
+        print(np.shape(self.y))
+
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
+        if ylabel is None:
+            ylabel = r"$<N_{red}> \, [Mpc^{-3}\, h^{3}]$"
+
+        return MassMetric.visualize(self, plotname=plotname,
+                                    usecols=usecols, usez=usez,
+                                    fracdev=fracdev,
+                                    ref_y=ref_y, ref_x=ref_x,
+                                    xlim=xlim, ylim=ylim,
+                                    fylim=fylim, f=f, ax=ax,
+                                    xlabel=xlabel,
+                                    ylabel=ylabel,
+                                    compare=compare,logx=True,
+                                    **kwargs)
