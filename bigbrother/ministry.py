@@ -11,6 +11,7 @@ import healpy as hp
 import fitsio
 import time
 
+
 TZERO = None
 def tprint(info):
     global TZERO
@@ -33,7 +34,7 @@ class Mappable(object):
             self.children = []
         else:
             self.children = children
-            
+
         self.data = None
         self.jtype = jtype
         self.gnside = gnside
@@ -698,8 +699,6 @@ class Ministry:
 
         return mu
 
-
-
     def sortMappableByZ(self, mappable, fieldmap, idx):
         """
         Sort a mappable by redshift for each galaxy type
@@ -730,7 +729,7 @@ class Ministry:
         for k in dk:
             print(mapunit[k])
             mapunit[k] = mapunit[k][idx]
-        
+
         print(mapunit)
         return mapunit
 
@@ -752,7 +751,7 @@ class Ministry:
 
         return mapunit
 
-    def validate(self, nmap=None, metrics=None, verbose=False):
+    def validate(self, nmap=None, metrics=None, verbose=False, parallel=False):
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
@@ -777,6 +776,16 @@ class Ministry:
 
         self.metric_groups = self.genMetricGroups(metrics)
 
+        if (__name__ == '__main__') & (parallel):
+            from mpi4py import MPI
+
+            comm = MPI.COMM_WORLD
+            size = comm.Size()
+            rank = comm.Rank()
+        else:
+            rank = None
+
+
         for mg in self.metric_groups:
             sbz = False
             ms  = mg[1]
@@ -785,7 +794,13 @@ class Ministry:
                 if 'redshift' in fm[ft].keys():
                     sbz = True
 
-            for i, mappable in enumerate(self.genMappables(mg)):
+            mappables = self.genMappables(mg)
+            self.njack = len(mappables)
+
+            if parallel:
+                mappables = mappables[rank::size]
+
+            for i, mappable in enumerate(mappables):
                 if (nmap is not None) & (i>=nmap): break
 
                 mapunit = self.readMappable(mappable, fm)
@@ -823,4 +838,4 @@ class Ministry:
             ms = mg[1]
 
             for m in ms:
-                m.reduce()
+                m.reduce(rank=rank)

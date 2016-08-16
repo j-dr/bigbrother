@@ -19,7 +19,7 @@ class Metric(object):
     def __init__(self, ministry, catalog_type=None, tag=None,
                   nomap=False, novis=False, jtype=None):
         """
-        Simple init method. At the very least, init methods for subclasses
+        At the very least, init methods for subclasses
         should take a ministry object as an argument.
         """
         self.ministry = ministry
@@ -28,13 +28,16 @@ class Metric(object):
         self.nomap = nomap
         self.novis = novis
         self.jtype = jtype
+        #njack will be determined at the time that map is called
+        self.njack = None
+        self.jcount = 0
 
     @abstractmethod
     def map(self, mapunit):
         pass
 
     @abstractmethod
-    def reduce(self):
+    def reduce(self, ntasks=None):
         pass
 
     @abstractmethod
@@ -45,6 +48,34 @@ class Metric(object):
     def compare(self, othermetric, plotname=None):
         pass
 
+    def jackknife(self, arg):
+
+        jdata = []
+
+        for i in range(self.njack):
+            #generalized so can be used if only one region
+            if self.njack==1:
+                idx = [0]
+            else:
+                idx = [j for j in range(self.njack) if i!=j]
+
+            jdata = np.zeros(arg.shape)
+
+            #jackknife indices should always be last
+            jl = len(arg.shape)
+            jidx = [slice(0,arg.shape[j]) if j!=0 else idx for j in range(jl)]
+            jdidx = [slice(0,arg.shape[j]) if j!=0 else i for j in range(jl)]
+            jdata[jdidx] = np.sum(arg[jidx], axis=0)
+
+        return jdata
+
+    def setNJack(self):
+        if self.jtype is None:
+            self.njack = 1
+        else:
+            self.njack = self.ministry.njack
+
+
 class GMetric(Metric):
     """
     A generic metric class that deals with measurements made over
@@ -53,7 +84,7 @@ class GMetric(Metric):
     """
 
     def __init__(self, ministry, zbins=None, xbins=None, catalog_type=None,
-                    tag=None):
+                    tag=None, **kwargs):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -70,7 +101,8 @@ class GMetric(Metric):
             A 1-d array containing the edges of the magnitude bins to
             measure the metric in.
         """
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag,
+                        **kwargs)
 
         if zbins is None:
             self.zbins = zbins
@@ -89,7 +121,7 @@ class GMetric(Metric):
         pass
 
     @abstractmethod
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         pass
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
@@ -373,3 +405,16 @@ class GMetric(Metric):
         #plt.tight_layout()
 
         return f, ax
+
+
+def jackknifeMap(func):
+    def wrapper(self, mapunit):
+        if self.njack is None:
+            self.setNJack()
+
+        func(self, mapunit)
+
+        if self.jtype is not None:
+            self.jcount += 1
+
+    return wrapper
