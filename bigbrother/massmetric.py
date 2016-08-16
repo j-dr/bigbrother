@@ -105,7 +105,7 @@ class MassFunction(MassMetric):
                 self.masscounts[:,j,0] += c
 
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
         This will be called after all the mapunits are mapped by the map
@@ -204,7 +204,7 @@ class SimpleHOD(MassMetric):
                     self.halocounts[k,j,i] += len(mapunit['occ'][mb==k])
 
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
         This will be called after all the mapunits are mapped by the map
@@ -348,7 +348,7 @@ class GalHOD(MassMetric):
 #                    self.halocounts[k,j,i] += len(mu['occ'][mb==k])
 
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
         This will be called after all the mapunits are mapped by the map
@@ -415,7 +415,7 @@ class OccMass(MassMetric):
                     self.occsq[k,j,i] += np.sum(o**2)
                     self.count[k,j,i] += np.sum(mb==k)
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
 
         self.occmass = self.occ/self.count
         self.occvar  = (self.count*self.occsq - self.occ**2)/(self.count*(self.count-1))
@@ -511,7 +511,7 @@ class TinkerMassFunction(MassMetric):
     def map(self, mapunit):
         self.map(mapunit)
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         self.reduce()
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,

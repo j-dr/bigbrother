@@ -333,7 +333,7 @@ class WPrpLightcone(CorrelationFunction):
                     print('Generating Randoms')
                     print(li)
                     print(self.same_rand)
-                    rands = self.generateAngularRandoms(mapunit['azim_ang'][zlidx:zhidx][lidx], mapunit['polar_ang'][zlidx:zhidx][lidx], selectz=True, nside=128)
+                    rands = self.generateAngularRandoms(mapunit['azim_ang'][zlidx:zhidx][lidx], mapunit['polar_ang'][zlidx:zhidx][lidx], z=mapunit['redshift'][zlidx:zhidx][lidx], nside=128)
 
                 self.nd[self.jcount,j,i] = len(mapunit[zlidx:zhidx][lidx])
                 self.nr[self.jcount,j,i] = len(rands)
@@ -764,29 +764,48 @@ class GalaxyRadialProfileBCC(Metric):
         self.mapkeys = ['luminosity', 'redshift', 'rhalo']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
+    @jackknifeMap
     def map(self, mapunit):
 
         if not hasattr(self, 'rprof'):
-            self.rprof = np.zeros((self.nrbins, self.nlumbins, self.nzbins))
+            self.rcounts = np.zeros((self.njack, self.nrbins,
+                                    self.nlumbins,
+                                    self.nzbins))
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+
             for j, l in enumerate(self.lumbins[:-1]):
                 lidx = (self.lumbins[j]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[j+1])
                 c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][lidx], bins=self.rbins)
-                self.rprof[:,j,i] += c
+                self.rcounts[self.jcount,:,j,i] += c
 
     def reduce(self, rank=None, comm=None):
-        if not hascorrfunc:
-            return
+
+        if rank is not None:
+            gdata = comm.gather(self.rcounts, rank=0)
+
+            if rank==0:
+                jc = 0
+                #iterate over gathered arrays, filling in arrays of rank==0
+                #process
+                for g in gdata:
+                    nj = g.shape[0]
+                    self.rcounts[jc:jc+nj,:,:,:] = g
+
+                    jc += nj
 
         self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
         vol = 4*np.pi*(self.rmean**3)/3
 
+        self.jrprof = np.zeros(self.rcount.shape)
+
         for i in range(self.nzbins):
             for j in range(self.nlumbins):
-                self.rprof[:,j,i] /= vol
+                self.jrprof[:,:,j,i] /= vol
+
+        self.jrprof, self.rprof, self.varrprof = self.jackknife(self.jrprof)
 
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):

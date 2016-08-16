@@ -48,7 +48,7 @@ class Metric(object):
     def compare(self, othermetric, plotname=None):
         pass
 
-    def jackknife(self, arg):
+    def jackknife(self, arg, reduce_jk=True):
 
         jdata = []
 
@@ -67,7 +67,14 @@ class Metric(object):
             jdidx = [slice(0,arg.shape[j]) if j!=0 else i for j in range(jl)]
             jdata[jdidx] = np.sum(arg[jidx], axis=0)
 
-        return jdata
+        if reduce_jk:
+            jest = np.sum(jdata, axis=0) / self.njack
+            jvar = np.sum((jdata - jest)**2, axis=0) * (self.njack - 1) / self.njack
+
+            return jdata, jest, jvar
+
+        else:
+            return jdata
 
     def setNJack(self):
         if self.jtype is None:

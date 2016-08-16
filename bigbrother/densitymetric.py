@@ -69,7 +69,7 @@ class DensityMagnitudePDF(Metric):
 
             self.densmagcounts[:,:,i] += c
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         area = self.ministry.galaxycatalog.getArea()
 
         if self.normed:
@@ -265,7 +265,7 @@ class ConditionalDensityPDF(Metric):
 
                 self.cdcounts[:,j,i] += c
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         area = self.ministry.galaxycatalog.getArea()
 
         if self.normed:
@@ -428,8 +428,7 @@ class AnalyticConditionalDensityPDF(ConditionalDensityPDF):
                 sigmafz   = np.sum(np.array([self.params['sigmafz'][k]*z**k for k in range(len(self.params['sigmafz']))]))
                 sigmaf = sigmafmag + sigmafz
 
-                
+
                 self.dpdfpars[:,j,i] = np.array([p, muc, sigmac, muf, sigmaf])
 
                 self.cdenspdf[:,j,i] = (1 - p) * np.exp(-(np.log(self.meandens) - muc) ** 2 / (2 * sigmac ** 2)) / ( self.meandens * np.sqrt(2 * np.pi ) * sigmac ) + p * np.exp(-(self.meandens - muf) ** 2 / (2 * sigmaf ** 2)) / (np.sqrt(2 * np.pi ) * sigmaf )
-                
