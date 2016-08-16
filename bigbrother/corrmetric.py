@@ -388,36 +388,40 @@ class WPrpLightcone(CorrelationFunction):
 
     def reduce(self, rank=None, comm=None):
 
+        if rank is not None:
+            gnd = comm.gather(self.nd, rank=0)
+            gnr = comm.gather(self.nr, rank=0)
+            gdd = comm.gather(self.dd, rank=0)
+            gdr = comm.gather(self.dr, rank=0)
+            grr = comm.gather(self.rr, rank=0)
+
+            if rank==0:
+                jc = 0
+                for i, g in enumerate(gnd):
+                    nj = g.shape[0]
+                    self.nd[jc:jc+nj,:,:] = g
+                    self.nr[jc:jc+nj,:,:] = gnr[i]
+                    self.dd[jc:jc+nj,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:] = gdr[i]
+                    self.rr[jc:jc+nj,:,:,:] = grr[i]
+
+                    jc += nj
+
         self.jwprp = np.zeros(self.dd.shape)
 
-        if self.njack>1:
-            for i in range(self.njack):
-                idx = [j for j in range(self.njack) if i!=j]
-                nd = np.sum(self.nd[:,:,idx],axis=-1)
-                nr = np.sum(self.nr[:,:,idx],axis=-1)
+        self.jnd = self.jackknife(self.nd, reduce_jk=False)
+        self.jnr = self.jackknife(self.nr, reduce_jk=False)
+        self.jDD = self.jackknife(self.dd  / ( self.jnd * ( self.jnd - 1) / 2),
+                                    reduce_jk=False)
+        self.jDR = self.jackknife(self.dr / (self.jnd * self.jnr),
+                                    reduce_jk=False)
+        self.jRR = self.jackknife(self.rr / ( self.jnr * ( self.jnr - 1) / 2),
+                                    reduce_jk=False)
 
-                DD = np.sum(self.dd[:,:,:,idx],axis=-1) / (nd * (nd - 1) / 2)
-                RR = np.sum(self.rr[:,:,:,idx],axis=-1) / (nr * (nr - 1) / 2)
-                DR = np.sum(self.dr[:,:,:,idx],axis=-1) / (nd * nr)
+        self.jwprp = (self.jDD - 2 * self.jDR + self.jRR) / self.jRR
 
-                self.jwprp[:,:,:,i] = (DD - 2 * DR + RR) / RR
-
-            self.wprp = np.sum(self.jwprp, axis=-1)/self.njack
-            self.varwprp = np.sum((self.jwprp-self.wprp)**2, axis=-1) * (self.njack - 1)/self.njack
-        else:
-            #no jackknife
-            nd = np.sum(self.nd,axis=-1)
-            nr = np.sum(self.nr,axis=-1)
-
-            DD = np.sum(self.dd,axis=-1) / (nd * (nd - 1) / 2)
-            RR = np.sum(self.rr,axis=-1) / (nr * (nr - 1) / 2)
-            DR = np.sum(self.dr,axis=-1) / (nd * nr)
-
-            self.jwprp = None
-            self.varwprp = None
-
-            self.wprp = (DD - 2 * DR + RR) / RR
-
+        self.wprp = np.sum(self.jwprp, axis=0)/self.njack
+        self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njack - 1) / self.njack
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,

@@ -149,7 +149,7 @@ class LuminosityFunction(MagnitudeMetric):
                 #process
                 for g in gdata:
                     nj = g.shape[0]
-                    self.lumcounts[jc:g,:,:,:] = g
+                    self.lumcounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj
 
@@ -255,7 +255,7 @@ class MagCounts(MagnitudeMetric):
                 jc = 0
                 for g in gdata:
                     nj = g.shape[0]
-                    self.magcounts[:,:,:,jc:g] = g
+                    self.magcounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj
 
@@ -352,8 +352,8 @@ class LcenMass(Metric):
                 jc = 0
                 for i, g in enumerate(gtotlum):
                     nj = g.shape[0]
-                    self.totlum[:,:,:,jc:g] = g
-                    self.bincount[:,:,:,jc:g] = gbincount
+                    self.totlum[jc:jc+nj,:,:,:] = g
+                    self.bincount[jc:jc+nj,:,:,:] = gbincount
 
                     jc += nj
 
@@ -527,7 +527,7 @@ class ColorColor(Metric):
                 jc = 0
                 for i, g in enumerate(gcc):
                     nj = g.shape[0]
-                    self.cc[jc:g,:,:,:] = g
+                    self.cc[jc:jc+nj,:,:,:] = g
 
                     jc += nj
 
@@ -737,7 +737,7 @@ class ColorMagnitude(Metric):
                 jc = 0
                 for i, g in enumerate(gcc):
                     nj = g.shape[0]
-                    self.cc[jc:g,:,:,:,:] = g
+                    self.cc[jc:jc+nj,:,:,:,:] = g
 
                     jc += nj
 
@@ -890,8 +890,8 @@ class FQuenched(Metric):
                 jc = 0
                 for i, g in enumerate(gqs):
                     nj = g.shape[0]
-                    self.qscounts[jc:g,:] = g
-                    self.tcounts[jc:g,:] = gtc[i]
+                    self.qscounts[jc:jc+nj,:] = g
+                    self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
 
 
@@ -1003,8 +1003,8 @@ class FRed(Metric):
                 jc = 0
                 for i, g in enumerate(gqs):
                     nj = g.shape[0]
-                    self.qscounts[jc:g,:] = g
-                    self.tcounts[jc:g,:] = gtc[i]
+                    self.qscounts[jc:jc+nj,:] = g
+                    self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
 
         self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
@@ -1128,8 +1128,8 @@ class FQuenchedLum(Metric):
                 jc = 0
                 for i, g in enumerate(gqs):
                     nj = g.shape[0]
-                    self.qscounts[jc:g,:] = g
-                    self.tcounts[jc:g,:] = gtc[i]
+                    self.qscounts[jc:jc+nj,:] = g
+                    self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
 
         self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
