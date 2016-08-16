@@ -339,7 +339,7 @@ class LcenMass(Metric):
             for j in range(len(self.massbins)-1):
                 blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
                 self.bincount[self.jcount,j,:,i] += len(blum)
-                self.totlum[self,jcount,j,:,i] += np.sum(blum, axis=0)
+                self.totlum[self.jcount,j,:,i] += np.sum(blum, axis=0)
 
 
     def reduce(self, rank=None, comm=None):
