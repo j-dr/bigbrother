@@ -627,7 +627,7 @@ class Richness(MassMetric):
     @jackknifeMap
     def map(self, mapunit):
         print('min z: ' + str(min(mapunit['redshift'])))
-	    print('max z: ' + str(max(mapunit['redshift'])))
+        print('max z: ' + str(max(mapunit['redshift'])))
         # must convert mapunit dict to a recarray
 
         self.galaxy_counts         = np.zeros((self.njack, len(self.massbins) - 1, 1, len(self.zbins) - 1))
