@@ -127,7 +127,7 @@ class GMetric(Metric):
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
-                  logx=False, rusecols=None, **kwargs):
+                  logx=False, logy=True, rusecols=None, **kwargs):
         """
         Plot the calculated metric.
 
@@ -199,7 +199,6 @@ class GMetric(Metric):
                     iref_y[:,i,j] = spl(mxs[li:hi])
 
             ref_y = iref_y
-
         else:
             li = 0
             hi = len(mxs)
@@ -240,20 +239,29 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
                     if fracdev==False:
-                        l1 = ax[i][j].semilogy(mxs, self.y[:,b,j],
-                                          **kwargs)
+                        l1 = ax[i][j].errorbar(mxs, self.y[:,b,j],
+                                          yerr=self.ye[:,b,j], **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
+                        if logy:
+                            ax[i][j].set_yscale('log')
                     else:
                         rb = rusecols[i]
-                        l1 = ax[2*i][j].semilogy(mxs, self.y[:,b,j],
-                                          **kwargs)
-                        ax[2*i+1][j].plot(mxs[li:hi],
-                                          (self.y[li:hi,b,j]-ref_y[:,rb,j])\
-                                              /ref_y[:,rb,j], **kwargs)
+                        l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
+                                          self.ye[:,b,j], **kwargs)
+                        ax[2*i+1][j].errorbar(mxs[li:hi],
+                                              (self.y[li:hi,b,j]-ref_y[:,rb,j])\
+                                              /ref_y[:,rb,j],
+                                              yerr=self.ye[li:hi,b,j],
+                                              **kwargs)
                         if logx:
                             ax[2*i][j].set_xscale('log')
                             ax[2*i+1][j].set_xscale('log')
+
+                        if logy:
+                            ax[2*i][j].set_yscale('log')
+                            ax[2*i+1][j].set_yscale('log')
+
 
                         if (i==0) & (j==0):
                             if xlim!=None:
@@ -267,23 +275,33 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 if fracdev==False:
                     try:
-                        l1 = ax[0][i].semilogy(mxs, self.y[:,b,0],
-                                            **kwargs)
+                        l1 = ax[0][i].errorbar(mxs, self.y[:,b,0],
+                                                yerr=self.ye[:,b,0],
+                                                **kwargs)
                         if logx:
                             ax[0][i].set_xscale('log')
+                        if logy:
+                            ax[0][i].set_yscale('log')
 
                     except Exception as e:
                         print(e)
-                        l1 = ax.semilogy(mxs, self.y[:,b,0],
-                                         **kwargs)
+                        l1 = ax.errorbar(mxs, self.y[:,b,0],
+                                          yerr=self.ye[:,b,0],
+                                          **kwargs)
                         if logx:
                             ax.set_xscale('log')
+                        if logy:
+                            ax.set_yscale('log')
+
                 else:
                     rb = rusecols[i]
-                    l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0],
-                                        **kwargs)
-                    ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,rb,0])\
-                                      /ref_y[:,rb,0], **kwargs)
+                    l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],
+                                              yerr=self.ye[:,b,0], **kwargs)
+                    ax[2*i+1][0].errorbar(mxs[li:hi],
+                                           (self.y[li:hi,b,0]-ref_y[:,rb,0])\
+                                            /ref_y[:,rb,0],
+                                            yerr=self.ye[li:hi,b,0],
+                                            **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
                         ax[2*i+1][0].set_xscale('log')
