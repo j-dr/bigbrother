@@ -148,7 +148,7 @@ class LuminosityFunction(MagnitudeMetric):
                 #iterate over gathered arrays, filling in arrays of rank==0
                 #process
                 for g in gdata:
-                    nj = g.shape[3]
+                    nj = g.shape[0]
                     self.lumcounts[jc:g,:,:,:] = g
 
                     jc += nj
@@ -159,13 +159,7 @@ class LuminosityFunction(MagnitudeMetric):
             vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
             self.jluminosity_function[:,:,:,i] /= vol
 
-        self.jluminosity_function = self.jackknife(self.jluminosity_function)
-
-        self.luminosity_function = np.sum(self.jluminosity_function,
-                                            axis=0)/self.njack
-        self.varluminosity_function = np.sum((self.jluminosity_function -
-                                                self.luminosity_function)**2,
-                                                axis=0) * (self.njack - 1) / self.njack
+        self.jluminosity_function, self.luminosity_function, self.varluminosity_function  = self.jackknife(self.jluminosity_function)
 
         self.y = self.luminosity_function
         self.ye = self.varluminosity_function
@@ -236,8 +230,8 @@ class MagCounts(MagnitudeMetric):
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
         if not hasattr(self, 'magcounts'):
-            self.magcounts = np.zeros((len(self.magbins)-1,
-                                       self.nbands, self.nzbins, self.njack))
+            self.magcounts = np.zeros((self.njack, len(self.magbins)-1,
+                                       self.nbands, self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
@@ -246,13 +240,11 @@ class MagCounts(MagnitudeMetric):
                 for j in range(self.nbands):
                     c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j],
                                         bins=self.magbins)
-                    self.magcounts[:,j,i,self.jcount] += c
+                    self.magcounts[self.jcount,:,j,i] += c
         else:
             for j in range(self.nbands):
                 c, e = np.histogram(mapunit['appmag'][:,j], bins=self.magbins)
-                self.magcounts[:,j,0,self.jcount] += c
-
-        self.jcount += 1
+                self.magcounts[self.jcount,:,j,0] += c
 
     def reduce(self, rank=None, comm=None):
 
@@ -262,7 +254,7 @@ class MagCounts(MagnitudeMetric):
             if rank==0:
                 jc = 0
                 for g in gdata:
-                    nj = g.shape[3]
+                    nj = g.shape[0]
                     self.magcounts[:,:,:,jc:g] = g
 
                     jc += nj
@@ -274,12 +266,10 @@ class MagCounts(MagnitudeMetric):
         else:
             self.jmagcounts = np.cumsum(self.magcounts, axis=0)/area
 
-        self.magcounts = np.sum(self.jmagcounts, axis=-1)/self.njack
-        self.varmagcounts = np.sum((self.jmagcounts - self.magcounts)**2,
-                                    axis=-1) * (self.njack - 1)/self.njack
+        self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
 
         self.y = self.magcounts
-        self.ye = self.varmagcounts
+        self.ye = np.sqrt(self.varmagcounts)
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
@@ -336,10 +326,10 @@ class LcenMass(Metric):
 
 
         if not hasattr(self, 'lumcounts'):
-            self.totlum = np.zeros((len(self.massbins)-1, self.nbands,
-                                    len(self.zbins)-1))
-            self.bincount = np.zeros((len(self.massbins)-1, self.nbands,
-                                      len(self.zbins)-1))
+            self.totlum = np.zeros((self.njack, len(self.massbins)-1,
+                                      self.nbands, len(self.zbins)-1))
+            self.bincount = np.zeros((self.njack, len(self.massbins)-1,
+                                        self.nbands, len(self.zbins)-1))
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
@@ -348,8 +338,8 @@ class LcenMass(Metric):
 
             for j in range(len(self.massbins)-1):
                 blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
-                self.bincount[j,:,i] += len(blum)
-                self.totlum[j,:,i] += np.sum(blum, axis=0)
+                self.bincount[self.jcount,j,:,i] += len(blum)
+                self.totlum[self,jcount,j,:,i] += np.sum(blum, axis=0)
 
 
     def reduce(self, rank=None, comm=None):
@@ -361,16 +351,13 @@ class LcenMass(Metric):
             if rank==0:
                 jc = 0
                 for i, g in enumerate(gtotlum):
-                    nj = g.shape[3]
+                    nj = g.shape[0]
                     self.totlum[:,:,:,jc:g] = g
                     self.bincount[:,:,:,jc:g] = gbincount
 
                     jc += nj
 
-        self.jlcen_mass = self.jackknife(self.totlum/self.bincount)
-
-        self.lcen_mass = np.sum(self.jlcen_mass, axis=-1)/self.njack
-        self.varlcen_mass = np.sum((self.jlcen_mass-self.lcen_mass)**2) * (self.njack - 1)/self.njack
+        self.jblcen_mass, self.lcen_mass, self.varlcen_mass = self.jackknife(self.totlum/self.bincount)
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
                   usebands=None, **kwargs):
@@ -503,7 +490,7 @@ class ColorColor(Metric):
             clr[:,i] = mapunit[self.mkey][:,self.usebands[i]] - mapunit[self.mkey][:,self.usebands[i+1]]
 
         if not hasattr(self, 'cc'):
-            self.cc = np.zeros((len(self.cbins)-1, len(self.cbins)-1,
+            self.cc = np.zeros((self.njack,len(self.cbins)-1, len(self.cbins)-1,
                                 self.nbands-2, self.nzbins))
 
         if self.zbins is not None:
@@ -523,18 +510,31 @@ class ColorColor(Metric):
                     c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,j+1][lidx],
                                                clr[zlidx:zhidx,j][lidx],
                                                bins=self.cbins)
-                    self.cc[:,:,j,i] += c
+                    self.cc[self.jcount,:,:,j,i] += c
         else:
             for i in range(self.nclr-1):
                 c, e0, e1 = np.histogram2d(clr[:,i],
                                            clr[:,i+1],
                                            bins=self.cbins)
-                self.cc[:,:,i,0] += c
+                self.cc[self.jcount,:,:,i,0] += c
 
 
     def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            gcc = comm.gather(self.cc, rank=0)
+
+            if rank==0:
+                jc = 0
+                for i, g in enumerate(gcc):
+                    nj = g.shape[0]
+                    self.cc[jc:g,:,:,:] = g
+
+                    jc += nj
+
         area = self.ministry.galaxycatalog.getArea()
-        self.cc = self.cc/area
+        self.jcolor_color = self.cc/area
+        self.jcolor_color, self.color_color, self.varcolor_color = self.jackknife(self.jcolor_color)
+
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
                   usecolors=None, **kwargs):
@@ -561,7 +561,7 @@ class ColorColor(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                l1 = ax[j][i].contour(X, Y, self.cc[:,:,i,j].T, 10,
+                l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,j].T, 10,
                                         **kwargs)
 
         if newaxes:
@@ -700,7 +700,8 @@ class ColorMagnitude(Metric):
 
 
         if not hasattr(self, 'cc'):
-            self.cc = np.zeros((len(self.magbins)-1, len(self.cbins)-1,
+            self.cc = np.zeros((self.njack, len(self.magbins)-1,
+                                len(self.cbins)-1,
                                 self.nbands*(self.nbands-1)/2,
                                 self.nzbins))
 
@@ -716,7 +717,7 @@ class ColorMagnitude(Metric):
                                                    mu[self.mkey][zlidx:zhidx,b1] -
                                                    mu[self.mkey][zlidx:zhidx,b2],
                                                    bins=[self.magbins,self.cbins])
-                        self.cc[:,:,ind,i] += c
+                        self.cc[self.jcount,:,:,ind,i] += c
         else:
             for j, b1 in enumerate(self.usebands):
                 for k, b2 in enumerate(self.usebands):
@@ -726,11 +727,23 @@ class ColorMagnitude(Metric):
                                                mu[self.mkey][:,b1] -
                                                mu[self.mkey][:,b2],
                                                bins=[self.magbins,self.cbins])
-                    self.cc[:,:,ind,0] += c
+                    self.cc[self.jcount,:,:,ind,0] += c
 
     def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            gcc = comm.gather(self.cc, rank=0)
+
+            if rank==0:
+                jc = 0
+                for i, g in enumerate(gcc):
+                    nj = g.shape[0]
+                    self.cc[jc:g,:,:,:,:] = g
+
+                    jc += nj
+
         area = self.ministry.galaxycatalog.getArea()
-        self.cc = self.cc/area
+        self.jcolor_mag = self.cc/area
+        self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
 
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None,
                   compare=False, **kwargs):
@@ -740,10 +753,10 @@ class ColorMagnitude(Metric):
         X, Y = np.meshgrid(x, y)
 
         if self.logscale:
-            cc = np.log10(self.cc)
+            cc = np.log10(self.color_mag)
             cc[cc==(-np.inf)] = 0.0
         else:
-            cc = self.cc
+            cc = self.color_mag
 
         if usecolors is None:
             usecolors = range(self.cc.shape[2])
@@ -842,8 +855,8 @@ class FQuenched(Metric):
     def map(self, mapunit):
 
         if not hasattr(self, 'qscounts'):
-            self.qscounts = np.zeros(self.nzbins)
-            self.tcounts = np.zeros(self.nzbins)
+            self.qscounts = np.zeros((self.njack, self.nzbins))
+            self.tcounts = np.zeros((self.njack,self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
@@ -855,8 +868,8 @@ class FQuenched(Metric):
                                 > (self.m * mapunit['luminosity'][zlidx:zhidx,0]
                                    + self.b))
 
-                self.qscounts[i] = len(qidx)
-                self.tcounts[i] = zhidx-zlidx
+                self.qscounts[self.jcount,i] = len(qidx)
+                self.tcounts[self.jcount,i] = zhidx-zlidx
 
         else:
             qidx = np.where((mapunit['luminosity'][:,0]
@@ -864,12 +877,25 @@ class FQuenched(Metric):
                             > (self.m * mapunit['luminosity'][:,0]
                                + self.b))
 
-            self.qscounts[0] = len(qidx)
-            self.tcounts[0] = len(mapunit['luminosity'])
+            self.qscounts[self.jcount,0] = len(qidx)
+            self.tcounts[self.jcount,0] = len(mapunit['luminosity'])
 
 
     def reduce(self, rank=None, comm=None):
-        self.fquenched = self.qscounts/self.tcounts
+        if rank is not None:
+            gqs = comm.gather(self.qscounts, rank=0)
+            gtc = comm.gather(self.tcounts, rank=0)
+
+            if rank==0:
+                jc = 0
+                for i, g in enumerate(gqs):
+                    nj = g.shape[0]
+                    self.qscounts[jc:g,:] = g
+                    self.tcounts[jc:g,:] = gtc[i]
+                    jc += nj
+
+
+        self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
     def visualize(self, f=None, ax=None, compare=False, plotname=None,
                   **kwargs):
@@ -942,8 +968,8 @@ class FRed(Metric):
     def map(self, mapunit):
 
         if not hasattr(self, 'nred'):
-            self.qscounts = np.zeros(self.nzbins)
-            self.tcounts = np.zeros(self.nzbins)
+            self.qscounts = np.zeros((self.njack,self.nzbins))
+            self.tcounts = np.zeros((self.njack,self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
@@ -955,8 +981,8 @@ class FRed(Metric):
                 else:
                     qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx],3]==1)
 
-                self.qscounts[i] = len(qidx)
-                self.tcounts[i] = zhidx-zlidx
+                self.qscounts[self.jcount, i] = len(qidx)
+                self.tcounts[self.jcount, i] = zhidx-zlidx
 
         else:
             if self.zeroind:
@@ -964,12 +990,24 @@ class FRed(Metric):
             else:
                 qidx, = np.where(self.ctcat[mapunit['ctcatid'],3]==1)
 
-            self.qscounts[0] = len(qidx)
-            self.tcounts[0] = len(mapunit['ctcatid'])
+            self.qscounts[self.jcount,0] = len(qidx)
+            self.tcounts[self.jcount,0] = len(mapunit['ctcatid'])
 
 
     def reduce(self, rank=None, comm=None):
-        self.fquenched = self.qscounts/self.tcounts
+        if rank is not None:
+            gqs = comm.gather(self.qscounts, rank=0)
+            gtc = comm.gather(self.tcounts, rank=0)
+
+            if rank==0:
+                jc = 0
+                for i, g in enumerate(gqs):
+                    nj = g.shape[0]
+                    self.qscounts[jc:g,:] = g
+                    self.tcounts[jc:g,:] = gtc[i]
+                    jc += nj
+
+        self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
 
@@ -1047,8 +1085,10 @@ class FQuenchedLum(Metric):
     def map(self, mapunit):
 
         if not hasattr(self, 'qscounts'):
-            self.qscounts = np.zeros((len(self.magbins)-1,self.nzbins))
-            self.tcounts = np.zeros((len(self.magbins)-1,self.nzbins))
+            self.qscounts = np.zeros((self.njack,
+                                       len(self.magbins)-1,self.nzbins))
+            self.tcounts = np.zeros((self.njack,
+                                      len(self.magbins)-1,self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
@@ -1063,8 +1103,8 @@ class FQuenchedLum(Metric):
                                     > (self.m * mapunit['luminosity'][zlidx:zhidx,0][lidx]
                                        + self.b))
 
-                    self.qscounts[j,i] = len(qidx)
-                    self.tcounts[j,i] = len(lidx)
+                    self.qscounts[self.jcount,j,i] = len(qidx)
+                    self.tcounts[self.jcount,j,i] = len(lidx)
 
         else:
             for i, lum in enumerate(self.magbins[:-1]):
@@ -1075,12 +1115,24 @@ class FQuenchedLum(Metric):
                                 > (self.m * mapunit['luminosity'][:,0][lidx]
                                    + self.b))
 
-                self.qscounts[i] = len(qidx)
-                self.tcounts[i] = len(lidx)
+                self.qscounts[self.jcount,i,0] = len(qidx)
+                self.tcounts[self.jcount,i,0] = len(lidx)
 
 
     def reduce(self, rank=None, comm=None):
-        self.fquenched = self.qscounts/self.tcounts
+        if rank is not None:
+            gqs = comm.gather(self.qscounts, rank=0)
+            gtc = comm.gather(self.tcounts, rank=0)
+
+            if rank==0:
+                jc = 0
+                for i, g in enumerate(gqs):
+                    nj = g.shape[0]
+                    self.qscounts[jc:g,:] = g
+                    self.tcounts[jc:g,:] = gtc[i]
+                    jc += nj
+
+        self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
     def visualize(self, f=None, ax=None, plotname=None,
                   compare=False, **kwargs):
