@@ -122,7 +122,7 @@ class Ministry:
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
 
-    def setHaloCatalog(self, catalog_type, goodpix=1, **kwargs):
+    def setHaloCatalog(self, catalog_type, filestruct, goodpix=1, **kwargs):
         """
         Fill in the halo catalog information
         """

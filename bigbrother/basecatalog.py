@@ -140,9 +140,6 @@ class BaseCatalog:
         for p in upix:
             fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
 
-        print(upix)
-        print(fgrps)
-
         return upix, fgrps
 
     def readFITSMappable(self, mappable, fieldmap):
@@ -227,9 +224,9 @@ class BaseCatalog:
             if self.ctype not in m.catalog_type:
                 continue
             for key in m.unitmap:
+
                 if key in beenconverted: continue
                 if key not in mapunit.keys(): continue
-
                 elif self.unitmap[key]==m.unitmap[key]:
                     continue
 

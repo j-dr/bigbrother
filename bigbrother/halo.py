@@ -15,6 +15,7 @@ class HaloCatalog(BaseCatalog):
     def __init__(self, ministry, filestruct, zbins=None, **kwargs):
 
         self.ctype = 'halocatalog'
+        self.zbins = zbins
         BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
 
 
@@ -124,7 +125,7 @@ class BCCHaloCatalog(HaloCatalog):
         HaloCatalog.__init__(self, ministry, filestruct, **kwargs)
 
         if self.unitmap is None:
-            unitmap = {'halomass':'msunh'}
+            self.unitmap = {'halomass':'msunh'}
 
         self.metrics = [MassFunction(self.ministry, zbins=self.zbins,
                                       lightcone=True),
