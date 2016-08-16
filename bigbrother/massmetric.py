@@ -467,8 +467,8 @@ class Richness(MassMetric):
 
     def map(self, mapunit):
 	
-        print('min z: ' + str(min(mapunit['redshift'])))
-	print('max z: ' + str(max(mapunit['redshift'])))
+        #print('min z: ' + str(min(mapunit['redshift'])))
+	#print('max z: ' + str(max(mapunit['redshift'])))
         # must convert mapunit dict to a recarray
         dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
         
@@ -480,15 +480,18 @@ class Richness(MassMetric):
             color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
     
             if self.splitcolor is None:
-                self.splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
-    
+                split_color = self.splitBimodal(color_bins[:-1], color_counts)
+    	    else:
+                split_color = self.splitcolor
+
             previd = -1
             halo_ids = np.unique(mapunit['haloid'][zcut])
             red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo        
     
             # cut of galaxies: within max_rhalo of parent halo, above min_lum magnitude, and red
             cut_array =((mapunit['rhalo'] < self.max_rhalo) & (mapunit['luminosity'][:,2] < self.min_lum) 
-                & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= self.splitcolor)) & ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1])))
+                & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= split_color)) 
+                & ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1])))
             data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
             for key in mapunit.keys():
                 data_cut[key] = mapunit[key][cut_array]
@@ -513,7 +516,7 @@ class Richness(MassMetric):
     def reduce(self):
         self.y           = self.galaxy_counts/self.halo_counts
         self.ye          = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
-        print(np.shape(self.y))
+        #print('y shape: ' + str(np.shape(self.y)))
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
