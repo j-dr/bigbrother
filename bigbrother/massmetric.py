@@ -381,17 +381,31 @@ class TinkerMassFunction(MassMetric):
 
 class Richness(MassMetric):
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=False,
-                 catalog_type=['galaxycatalog'], tag=None, colorbins=None, maxrhalo=None, minlum=None, redsplit=None, splitinfo=False):
-
+                 catalog_type=['galaxycatalog'], tag=None, colorbins=None, 
+                  maxrhalo=None, minlum=None, redsplit=None, splitinfo=False):
 
         if massbins is None:
-            self.massbins = np.logspace(12, 15, 40)
+            self.massbins = np.logspace(12, 15, 20)
+        else:
+            self.massbins = massbins
 
         if colorbins is None:
-            self.colorbins = 200
+            self.colorbins = 100
         else:
             self.colorbins = colorbins
-        self.zbins = zbins
+
+        if (lightcone):
+            if hasattr(zbins, '__iter__'):
+                self.zbins = zbins   
+            else:
+                if (type(zbins)==int and zbins>1):
+                    self.zbins = np.logspace(-4, 1, zbins)
+                else:   
+                    self.zbins = np.logspace(-4, 1, 5)
+        else:
+            self.zbins = [0, 10]
+        self.nzbins = len(self.zbins) - 1    
+
         self.split_info = splitinfo
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
@@ -417,6 +431,11 @@ class Richness(MassMetric):
         self.splitcolor = redsplit
 
         self.nbands = 1
+     
+        self.galaxy_counts         = np.zeros((len(self.massbins) - 1, 1, len(self.zbins) - 1))
+        self.galaxy_counts_squared = np.zeros((len(self.massbins) - 1, 1, len(self.zbins) - 1))
+        self.halo_counts           = np.zeros((len(self.massbins) - 1, 1, len(self.zbins) - 1))
+       
 
 
     def splitBimodal(self, x, y, largepoly=30):
@@ -447,62 +466,54 @@ class Richness(MassMetric):
 
 
     def map(self, mapunit):
-        
-        g_r_color = mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] # get g-r color
-        color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
-
-        if self.splitcolor is None:
-            self.splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
-
-        previd = -1
-        halo_ids = np.unique(mapunit['haloid'])
-        red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo
-        
+	
+        print('min z: ' + str(min(mapunit['redshift'])))
+	print('max z: ' + str(max(mapunit['redshift'])))
         # must convert mapunit dict to a recarray
         dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
-
-        # cut of galaxies: within max_rhalo of parent halo, above min_lum magnitude, and red
-        cut_array =((mapunit['rhalo'] < self.max_rhalo) & (mapunit['luminosity'][:,2] < self.min_lum) 
-            & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= self.splitcolor)))
-        data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
-        for key in mapunit.keys():
-            data_cut[key] = mapunit[key][cut_array]
-
-        if self.zbins is None:
-            self.zbins = np.logspace(np.log10(min(data_cut['redshift'])), np.log10(max(data_cut['redshift'])), 40)
-
-        data_cut.sort(order='haloid')
-
-        idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
-        newhalos = np.where(idx != 0)[0]
-        newhalos = np.hstack([[0], newhalos + 1, [len(data_cut) - 1]])
         
-        uniquehalos = data_cut[newhalos[:-1]]
+        for ziter in range(len(self.zbins)-1):
 
-        red_counts = newhalos[1:]-newhalos[:-1]
-
-        mass_bins = self.massbins
-        mass_bin_indices = np.digitize(uniquehalos['halomass'], mass_bins)
-
-
-        if not hasattr(self, 'galaxy_counts'):
-            self.galaxy_counts         = np.zeros((len(mass_bins) - 1, 1, 1))
-        if not hasattr(self, 'galaxy_counts_squared'):
-            self.galaxy_counts_squared = np.zeros((len(mass_bins) - 1, 1, 1))
-        if not hasattr(self, 'halo_counts'):
-            self.halo_counts           = np.zeros((len(mass_bins) - 1, 1, 1))
-       
-        self.halo_counts[:,0,0] += np.histogram(uniquehalos['halomass'], bins=mass_bins)[0]
-
-        for i in range(len(mass_bins)-1):
-            self.galaxy_counts[i,0,0]         += np.sum(red_counts[(mass_bin_indices == i+1)])
-            self.galaxy_counts_squared[i,0,0] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
+            zcut = ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1]))
     
+            g_r_color = mapunit['luminosity'][zcut][:,0] - mapunit['luminosity'][zcut][:,1] # get g-r color
+            color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
+    
+            if self.splitcolor is None:
+                self.splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
+    
+            previd = -1
+            halo_ids = np.unique(mapunit['haloid'][zcut])
+            red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo        
+    
+            # cut of galaxies: within max_rhalo of parent halo, above min_lum magnitude, and red
+            cut_array =((mapunit['rhalo'] < self.max_rhalo) & (mapunit['luminosity'][:,2] < self.min_lum) 
+                & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= self.splitcolor)) & ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1])))
+            data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
+            for key in mapunit.keys():
+                data_cut[key] = mapunit[key][cut_array]
+    
+            data_cut.sort(order='haloid')
+    
+            idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
+            newhalos = np.where(idx != 0)[0]
+            newhalos = np.hstack([[0], newhalos + 1, [len(data_cut) - 1]])
+            
+            uniquehalos = data_cut[newhalos[:-1]]
+            red_counts = newhalos[1:]-newhalos[:-1]
+            mass_bin_indices = np.digitize(uniquehalos['halomass'], self.massbins)
+            
+            self.halo_counts[:,0,ziter] += np.histogram(uniquehalos['halomass'], bins=self.massbins)[0]
+    
+            for i in range(len(self.massbins)-1):
+                self.galaxy_counts[i,0,ziter]         += np.sum(red_counts[(mass_bin_indices == i+1)])
+                self.galaxy_counts_squared[i,0,ziter] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
+        
     
     def reduce(self):
         self.y           = self.galaxy_counts/self.halo_counts
         self.ye          = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
-    
+        print(np.shape(self.y))
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
