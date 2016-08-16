@@ -325,7 +325,7 @@ class LcenMass(Metric):
             mu[k] = mapunit[k][mapunit['central']==1]
 
 
-        if not hasattr(self, 'lumcounts'):
+        if not hasattr(self, 'totlum'):
             self.totlum = np.zeros((self.njack, len(self.massbins)-1,
                                       self.nbands, len(self.zbins)-1))
             self.bincount = np.zeros((self.njack, len(self.massbins)-1,

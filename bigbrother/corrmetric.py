@@ -767,7 +767,7 @@ class GalaxyRadialProfileBCC(Metric):
     @jackknifeMap
     def map(self, mapunit):
 
-        if not hasattr(self, 'rprof'):
+        if not hasattr(self, 'rcounts'):
             self.rcounts = np.zeros((self.njack, self.nrbins,
                                     self.nlumbins,
                                     self.nzbins))
@@ -799,11 +799,11 @@ class GalaxyRadialProfileBCC(Metric):
         self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
         vol = 4*np.pi*(self.rmean**3)/3
 
-        self.jrprof = np.zeros(self.rcount.shape)
+        self.jrprof = np.zeros(self.rcounts.shape)
 
         for i in range(self.nzbins):
             for j in range(self.nlumbins):
-                self.jrprof[:,:,j,i] /= vol
+                self.jrprof[:,:,j,i] /= self.rcounts[:,:,j,i] / vol
 
         self.jrprof, self.rprof, self.varrprof = self.jackknife(self.jrprof)
 
