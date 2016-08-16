@@ -162,7 +162,7 @@ class LuminosityFunction(MagnitudeMetric):
         self.jluminosity_function, self.luminosity_function, self.varluminosity_function  = self.jackknife(self.jluminosity_function)
 
         self.y = self.luminosity_function
-        self.ye = self.varluminosity_function
+        self.ye = np.sqrt(self.varluminosity_function)
 
 
     def integrate(self, lmin, lmax, z, band=1):
@@ -269,7 +269,7 @@ class MagCounts(MagnitudeMetric):
         self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
 
         self.y = self.magcounts
-        self.ye = np.sqrt(self.varmagcounts)
+        self.ye = np.sqrt(np.sqrt(self.varmagcounts))
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
