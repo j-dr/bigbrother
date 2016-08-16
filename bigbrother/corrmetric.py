@@ -21,7 +21,7 @@ except:
 import numpy as np
 import healpy as hp
 
-from .metric import Metric, GMetric
+from .metric import Metric, GMetric, jackknifeMap
 
 class CorrelationFunction(Metric):
 
@@ -190,6 +190,7 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
+    @jackknifeMap
     def map(self, mapunit):
         if not hastreecorr:
             return
@@ -197,9 +198,8 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.jsamples += 1
 
         if not hasattr(self, 'wthetaj'):
-            self.wthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
-            self.varwthetaj = np.zeros((self.nabins, self.nlumbins, self.nzbins))
-
+            self.wthetaj = np.zeros((self.njack, self.nabins, self.nlumbins, self.nzbins))
+            self.varwthetaj = np.zeros((self.njack, self.nabins, self.nlumbins, self.nzbins))
 
         #putting this outside loop maybe faster, inside loop
         #lower memory usage
@@ -234,10 +234,10 @@ class AngularCorrelationFunction(CorrelationFunction):
                 dr.process(d,r)
                 rr.process(r)
                 xi,varXi = dd.calculateXi(rr,dr)
-                self.wthetaj[:,j,i] = xi
-                self.varwthetaj[:,j,i] = varXi
+                self.wthetaj[self.jcount,:,j,i] = xi
+                self.varwthetaj[self.jcount,:,j,i] = varXi
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
        pass
 
     def visualize(self):
@@ -252,7 +252,7 @@ class WPrpLightcone(CorrelationFunction):
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, subjack=False, catalog_type=None, tag=None,
-                  njack=None, lcutind=None, same_rand=False, inv_lum=True,
+                  lcutind=None, same_rand=False, inv_lum=True,
                   cosmology_flag=None, **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -294,9 +294,6 @@ class WPrpLightcone(CorrelationFunction):
         else:
             self.pimax = pimax
 
-        if njack is None:
-            self.njack = 1
-
         self.jcount = 0
 
         self.writeCorrfuncBinFile(self.rbins)
@@ -305,17 +302,18 @@ class WPrpLightcone(CorrelationFunction):
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
+    @jackknifeMap
     def map(self, mapunit):
 
         if not hascorrfunc:
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if not hasattr(self, 'wthetaj'):
-            self.dd = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
-            self.dr = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
-            self.rr = np.zeros((self.nrbins, self.nlumbins, self.nzbins, self.njack))
-            self.nd = np.zeros((self.nlumbins, self.nzbins, self.njack))
-            self.nr = np.zeros((self.nlumbins, self.nzbins, self.njack))
+            self.dd = np.zeros((self.njack,self.nrbins, self.nlumbins, self.nzbins))
+            self.dr = np.zeros((self.njack,self.nrbins, self.nlumbins, self.nzbins))
+            self.rr = np.zeros((self.njack,self.nrbins, self.nlumbins, self.nzbins))
+            self.nd = np.zeros((self.njack, self.nlumbins, self.nzbins))
+            self.nr = np.zeros((self.njack, self.nlumbins, self.nzbins))
 
         #calculate DD
         for i in range(self.nzbins):
@@ -337,15 +335,14 @@ class WPrpLightcone(CorrelationFunction):
                     print(self.same_rand)
                     rands = self.generateAngularRandoms(mapunit['azim_ang'][zlidx:zhidx][lidx], mapunit['polar_ang'][zlidx:zhidx][lidx], selectz=True, nside=128)
 
-                self.nd[j,i,self.jcount] = len(mapunit[zlidx:zhidx][lidx])
-                self.nr[j,i,self.jcount] = len(rands)
+                self.nd[self.jcount,j,i] = len(mapunit[zlidx:zhidx][lidx])
+                self.nr[self.jcount,j,i] = len(rands)
 
-                print("Number of galaxies in this z/lum bin: {0}".format(self.nd[j,i,self.jcount]))
-                print("Number of randoms in this z/lum bin: {0}".format(self.nr[j,i,self.jcount]))
+                print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,i]))
+                print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,j,i]))
 
                 #data data
                 print('calculating data data pairs')
-                sys.stdout.flush()
 
                 ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1,
                                         self.cosmology_flag, 1,
@@ -358,7 +355,7 @@ class WPrpLightcone(CorrelationFunction):
                                         mapunit['polar_ang'][zlidx:zhidx][lidx],
                                         mapunit['redshift'][zlidx:zhidx][lidx]*self.c)
 
-                self.dd[:,j,i,self.jcount] = np.array([ddresults[k][4] for k in range(self.nrbins)])
+                self.dd[self.jcount,:,j,i] = np.array([ddresults[k][4] for k in range(self.nrbins)])
 
                 #data randoms
                 print('calculating data random pairs')
@@ -372,7 +369,7 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.dr[:,j,i,self.jcount] = np.array([drresults[k][4] for k in range(self.nrbins)])
+                self.dr[self.jcount,:,j,i] = np.array([drresults[k][4] for k in range(self.nrbins)])
 
                 #randoms randoms
                 print('calculating random random pairs')
@@ -387,11 +384,9 @@ class WPrpLightcone(CorrelationFunction):
                                         rands['polar_ang'],
                                         rands['redshift']*self.c)
 
-                self.rr[:,j,i,self.jcount] = np.array([rrresults[k][4] for k in range(self.nrbins)])
+                self.rr[self.jcount,:,j,i] = np.array([rrresults[k][4] for k in range(self.nrbins)])
 
-        self.jcount += 1
-
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
 
         self.jwprp = np.zeros(self.dd.shape)
 
@@ -591,7 +586,7 @@ class WPrpSnapshot(CorrelationFunction):
 
             self.wprp[:,li] = np.array([wprp[k][3] for k in range(self.nrbins)])
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         pass
 
 
@@ -778,7 +773,7 @@ class GalaxyRadialProfileBCC(Metric):
                 c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][lidx], bins=self.rbins)
                 self.rprof[:,j,i] += c
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         if not hascorrfunc:
             return
 
