@@ -546,7 +546,7 @@ class ColorColor(Metric):
                               for i in range(len(self.cbins)-1)])
 
         if usecolors is None:
-            usecolors = range(self.cc.shape[2])
+            usecolors = range(self.color_color.shape[2])
 
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
@@ -759,7 +759,7 @@ class ColorMagnitude(Metric):
             cc = self.color_mag
 
         if usecolors is None:
-            usecolors = range(self.cc.shape[2])
+            usecolors = range(self.color_mag.shape[2])
 
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
