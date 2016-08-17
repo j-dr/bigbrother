@@ -178,9 +178,9 @@ class BCCHaloCatalog(HaloCatalog):
             self.unitmap = {'halomass':'msunh'}
 
         self.metrics = [MassFunction(self.ministry, zbins=self.zbins,
-                                      lightcone=True),
+                                      lightcone=True,jtype=self.jtype),
                         OccMass(self.ministry, zbins=self.zbins,
-                                      lightcone=True)]
+                                      lightcone=True,jtype=self.jtype)]
 
         if self.fieldmap is None:
             self.fieldmap = {'halomass':OrderedDict([('MVIR',['htruth'])]),

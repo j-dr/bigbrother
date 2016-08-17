@@ -89,9 +89,9 @@ class Area(Metric):
         if rank is not None:
             from mpi4py import MPI
 
-            area = 0.0
-            comm.Reduce(self.area, area, root=0, op=MPI.SUM)
-            self.area = area
+            area = np.array([0.0])
+            comm.Reduce(np.array([self.area]), area, root=0, op=MPI.SUM)
+            self.area = area[0]
 
     def visualize(self):
         pass

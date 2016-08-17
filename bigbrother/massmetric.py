@@ -545,7 +545,10 @@ class Richness(MassMetric):
                   lightcone=False,
                   catalog_type=['galaxycatalog'], tag=None,
                   colorbins=None, maxrhalo=None, minlum=None,
-                  redsplit=None, splitinfo=False):
+                  redsplit=None, splitinfo=False, **kwargs):
+
+        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         if massbins is None:
             self.massbins = np.logspace(12, 15, 20)
@@ -570,9 +573,6 @@ class Richness(MassMetric):
         self.nzbins = len(self.zbins) - 1
 
         self.split_info = splitinfo
-
-        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
 
         self.aschema = 'galaxyonly'
 
@@ -676,9 +676,9 @@ class Richness(MassMetric):
 
     def reduce(self,rank=None,comm=None):
         if rank is not None:
-            ghc = comm.gather(self.lumcounts, root=0)
-            ggc = comm.gather(self.lumcounts, root=0)
-            ggcs = comm.gather(self.lumcounts, root=0)
+            ghc = comm.gather(self.halo_counts, root=0)
+            ggc = comm.gather(self.galaxy_counts, root=0)
+            ggcs = comm.gather(self.galaxy_counts_squared, root=0)
             if rank==0:
                 jc = 0
                 for i, g in enumerate(ghc):
