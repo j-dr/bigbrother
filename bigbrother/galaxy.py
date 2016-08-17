@@ -188,24 +188,24 @@ class BCCCatalog(GalaxyCatalog):
     def __init__(self, ministry, filestruct, **kwargs):
 
         GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
-        self.metrics = [Area(self.ministry),
+        self.metrics = [Area(self.ministry, jtype=self.jtype),
                         LuminosityFunction(self.ministry, zbins=self.zbins,
-                            tag="AllLF"),
-                        MagCounts(self.ministry, zbins=self.zbins, tag="BinZ"),
-                        MagCounts(self.ministry, zbins=None, tag="AllZ"),
-                        LuminosityFunction(self.ministry, zbins=self.zbins, central_only=True, tag="CentralLF"),
-                        LcenMass(self.ministry, zbins=self.zbins),
-                        ColorMagnitude(self.ministry, zbins=self.zbins, usebands=[0,1], tag="AllCMBinZ"),
+                            tag="AllLF", jtype=self.jtype),
+                        MagCounts(self.ministry, zbins=self.zbins, tag="BinZ",jtype=self.jtype),
+                        MagCounts(self.ministry, zbins=None, tag="AllZ", jtype=self.jtype),
+                        LuminosityFunction(self.ministry, zbins=self.zbins, central_only=True, tag="CentralLF", jtype=self.jtype),
+                        LcenMass(self.ministry, zbins=self.zbins, jtype=self.jtype),
+                        ColorMagnitude(self.ministry, zbins=self.zbins, usebands=[0,1], tag="AllCMBinZ", jtype=self.jtype),
                         ColorMagnitude(self.ministry, zbins=self.zbins,
                                         usebands=[0,1],
-                                        central_only=True, tag="CentralCMBinZ"),
-                        ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="BinZ"),
-                        ColorColor(self.ministry, zbins=np.linspace(0.0, 0.2, 5), usebands=[0,1,2], tag="SDSSZ"),
+                                        central_only=True, tag="CentralCMBinZ", jtype=self.jtype),
+                        ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="BinZ", jtype=self.jtype),
+                        ColorColor(self.ministry, zbins=np.linspace(0.0, 0.2, 5), usebands=[0,1,2], tag="SDSSZ", jtype=self.jtype),
                         ColorColor(self.ministry, zbins=None,
-                         usebands=[0,1,2], tag="AllZ"),
-                        FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),
-                        FQuenchedLum(self.ministry, zbins=self.zbins),
-                        GalaxyRadialProfileBCC(self.ministry, zbins=self.zbins)]
+                         usebands=[0,1,2], tag="AllZ", jtype=self.jtype),
+                        FQuenched(self.ministry, zbins=np.linspace(0,2.0,30), jtype=self.jtype),
+                        FQuenchedLum(self.ministry, zbins=self.zbins, jtype=self.jtype),
+                        GalaxyRadialProfileBCC(self.ministry, zbins=self.zbins, jtype=self.jtype)]
 
         if self.filters is None:
             self.filters = ['Appmag']
