@@ -81,6 +81,7 @@ class Metric(object):
             self.njack = 1
         else:
             self.njack = self.ministry.njack
+            self.njacktot = self.ministry.njacktot
 
 
 class GMetric(Metric):

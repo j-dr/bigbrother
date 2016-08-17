@@ -122,8 +122,16 @@ class MassFunction(MassMetric):
 
             if rank==0:
                 jc = 0
+                dshape = self.masscounts.shape
+                print('dshape : {0}'.format(dshape))
+                dshape[0] = self.njacktot
+                self.masscounts = np.zeros(dshape)
+
                 for g in gdata:
                     nj = g.shape[0]
+                    print('nj : {0}'.format(nj))
+                    print('jc : {0}'.format(jc))
+                    print('dtshape : {0}'.format(dshape))
                     self.masscounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj

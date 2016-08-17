@@ -796,10 +796,12 @@ class Ministry:
                     sbz = True
 
             mappables = self.genMappables(mg)
-            self.njack = len(mappables)
+            self.njacktot = len(mappables)
 
             if parallel:
                 mappables = mappables[rank::size]
+
+            self.njack = len(mappables)
 
             for i, mappable in enumerate(mappables):
                 if (nmap is not None) & (i>=nmap): break
