@@ -395,7 +395,25 @@ class WPrpLightcone(CorrelationFunction):
             gdr = comm.gather(self.dr, root=0)
             grr = comm.gather(self.rr, root=0)
 
+            ndshape = [self.nd.shape[i] for i in range(len(self.nr.shape))]
+            nrshape = [self.nr.shape[i] for i in range(len(self.nd.shape))]
+            ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+            drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
+            rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+
+            ndshape[0] = self.njacktot
+            nrshape[0] = self.njacktot
+            ddshape[0] = self.njacktot
+            drshape[0] = self.njacktot
+            rrshape[0] = self.njacktot
+
             if rank==0:
+                self.nd = np.zeros(ndshape)
+                self.nr = np.zeros(nrshape)
+                self.dd = np.zeros(ddshape)
+                self.dr = np.zeros(drshape)
+                self.rr = np.zeros(rrshape)
+
                 jc = 0
                 for i, g in enumerate(gnd):
                     nj = g.shape[0]
@@ -787,6 +805,11 @@ class GalaxyRadialProfileBCC(Metric):
             gdata = comm.gather(self.rcounts, root=0)
 
             if rank==0:
+                dshape = self.cc.shape
+                dshape = [dshape[i] for i in range(len(dshape))]
+                dshape[0] = self.njacktot
+                self.rcounts = np.zeros(dshape)
+
                 jc = 0
                 #iterate over gathered arrays, filling in arrays of rank==0
                 #process

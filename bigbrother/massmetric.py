@@ -123,16 +123,12 @@ class MassFunction(MassMetric):
             if rank==0:
                 jc = 0
                 dshape = self.masscounts.shape
-                print('dshape : {0}'.format(dshape))
                 dshape = [dshape[i] for i in range(len(dshape))]
                 dshape[0] = self.njacktot
                 self.masscounts = np.zeros(dshape)
 
                 for g in gdata:
                     nj = g.shape[0]
-                    print('nj : {0}'.format(nj))
-                    print('jc : {0}'.format(jc))
-                    print('dtshape : {0}'.format(dshape))
                     self.masscounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj
@@ -424,7 +420,7 @@ class OccMass(MassMetric):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             for j in range(self.ndefs):
-                mb = np.digitize(mapunit['halomass'][zlidx:zhidx,j], bins=self.massbins)
+                mb = np.digitize(mapunit['halofmass'][zlidx:zhidx,j], bins=self.massbins)
 
                 for k, m in enumerate(self.massbins[:-1]):
                     o  = mapunit['occ'][zlidx:zhidx][mb==k]
@@ -688,7 +684,21 @@ class Richness(MassMetric):
             ghc = comm.gather(self.halo_counts, root=0)
             ggc = comm.gather(self.galaxy_counts, root=0)
             ggcs = comm.gather(self.galaxy_counts_squared, root=0)
+
+            hshape = [self.halo_counts.shape[i] for i in range(len(self.halo_counts.shape))]
+            gshape = [self.galaxy_counts.shape[i] for i in range(len(self.galaxy_counts.shape))]
+            gsshape = [self.galaxy_counts_squared.shape[i] for i in range(len(self.galaxy_counts.shape))]
+
+            hshape[0] = self.njacktot
+            gshape[0] = self.njacktot
+            gsshape[0] = self.njacktot
+
+
             if rank==0:
+                self.halo_counts = np.zeros(hshape)
+                self.galaxy_counts = np.zeros(gshape)
+                self.galaxy_counts_squared = np.zeros(gsshape)
+
                 jc = 0
                 for i, g in enumerate(ghc):
                     nj = g.shape[0]

@@ -143,7 +143,11 @@ class LuminosityFunction(MagnitudeMetric):
         if rank is not None:
             gdata = comm.gather(self.lumcounts, root=0)
 
+            gshape = [self.lumcounts.shape[i] for i in range(len(self.lumcounts.shape))]
+            gshape[0] = self.njacktot
+
             if rank==0:
+                self.lumcounts = np.zeros(gshape)
                 jc = 0
                 #iterate over gathered arrays, filling in arrays of rank==0
                 #process
@@ -251,7 +255,11 @@ class MagCounts(MagnitudeMetric):
         if rank is not None:
             gdata = comm.gather(self.magcounts, root=0)
 
+            gshape = [self.magcounts.shape[i] for i in range(len(self.magcounts.shape))]
+            gshape[0] = self.njacktot
+
             if rank==0:
+                self.magcounts = np.zeros(gshape)
                 jc = 0
                 for g in gdata:
                     nj = g.shape[0]
@@ -348,7 +356,16 @@ class LcenMass(Metric):
             gtotlum = comm.gather(self.totlum, root=0)
             gbincount = comm.gather(self.bincount, root=0)
 
+            tshape = [self.totlum.shape[i] for i in range(len(self.totlum.shape))]
+            bshape = [self.bincount.shape[i] for i in range(len(self.bincount.shape))]
+
+            tshape[0] = self.njacktot
+            bshape[0] = self.njacktot
+
             if rank==0:
+                self.bincount = np.zeros(tshape)
+                self.totlum = np.zeros(bshape)
+
                 jc = 0
                 for i, g in enumerate(gtotlum):
                     nj = g.shape[0]
@@ -523,7 +540,11 @@ class ColorColor(Metric):
         if rank is not None:
             gcc = comm.gather(self.cc, root=0)
 
+            gshape = [self.cc.shape[i] for i in range(len(self.cc.shape))]
+            gshape[0] = self.njacktot
+
             if rank==0:
+                self.cc = np.zeros(gshape)
                 jc = 0
                 for i, g in enumerate(gcc):
                     nj = g.shape[0]
@@ -735,7 +756,12 @@ class ColorMagnitude(Metric):
 
             if rank==0:
                 jc = 0
+                dshape = self.cc.shape
+                dshape = [dshape[i] for i in range(len(dshape))]
+                dshape[0] = self.njacktot
+
                 for i, g in enumerate(gcc):
+                    self.cc = np.zeros(dshape)
                     nj = g.shape[0]
                     self.cc[jc:jc+nj,:,:,:,:] = g
 
@@ -886,14 +912,22 @@ class FQuenched(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
+            qcshape = [self.qscounts.shape for i in range(len(self.qscounts.shape))]
+            tcshape = [self.tcounts.shape for i in range(len(self.tcounts.shape))]
+
+            qcshape[0] = self.njacktot
+            tcshape[0] = self.njacktot
+
             if rank==0:
+                self.qscounts = np.zeros(qcshape)
+                self.tcounts = np.zeros(tcshape)
+
                 jc = 0
                 for i, g in enumerate(gqs):
                     nj = g.shape[0]
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
-
 
         self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
@@ -999,7 +1033,16 @@ class FRed(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
+            qcshape = [self.qscounts.shape for i in range(len(self.qscounts.shape))]
+            tcshape = [self.tcounts.shape for i in range(len(self.tcounts.shape))]
+
+            qcshape[0] = self.njacktot
+            tcshape[0] = self.njacktot
+
             if rank==0:
+                self.qscounts = np.zeros(qcshape)
+                self.tcounts = np.zeros(tcshape)
+
                 jc = 0
                 for i, g in enumerate(gqs):
                     nj = g.shape[0]
@@ -1124,7 +1167,17 @@ class FQuenchedLum(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
+
+            qcshape = [self.qscounts.shape for i in range(len(self.qscounts.shape))]
+            tcshape = [self.tcounts.shape for i in range(len(self.tcounts.shape))]
+
+            qcshape[0] = self.njacktot
+            tcshape[0] = self.njacktot
+
             if rank==0:
+                self.qscounts = np.zeros(qcshape)
+                self.tcounts = np.zeros(tcshape)
+
                 jc = 0
                 for i, g in enumerate(gqs):
                     nj = g.shape[0]
@@ -1164,7 +1217,6 @@ class FQuenchedLum(Metric):
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
-
 
         return f, ax
 
