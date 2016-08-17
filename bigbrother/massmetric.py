@@ -124,6 +124,7 @@ class MassFunction(MassMetric):
                 jc = 0
                 dshape = self.masscounts.shape
                 print('dshape : {0}'.format(dshape))
+                dshape = [dshape[i] for i in range(len(dshape))]
                 dshape[0] = self.njacktot
                 self.masscounts = np.zeros(dshape)
 
