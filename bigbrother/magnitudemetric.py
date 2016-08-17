@@ -141,7 +141,7 @@ class LuminosityFunction(MagnitudeMetric):
         """
 
         if rank is not None:
-            gdata = comm.gather(self.lumcounts, rank=0)
+            gdata = comm.gather(self.lumcounts, root=0)
 
             if rank==0:
                 jc = 0
@@ -249,7 +249,7 @@ class MagCounts(MagnitudeMetric):
     def reduce(self, rank=None, comm=None):
 
         if rank is not None:
-            gdata = comm.gather(self.lumcounts, rank=0)
+            gdata = comm.gather(self.magcounts, root=0)
 
             if rank==0:
                 jc = 0
@@ -345,8 +345,8 @@ class LcenMass(Metric):
     def reduce(self, rank=None, comm=None):
 
         if rank is not None:
-            gtotlum = comm.gather(self.totlum, rank=0)
-            gbincount = comm.gather(self.bincount, rank=0)
+            gtotlum = comm.gather(self.totlum, root=0)
+            gbincount = comm.gather(self.bincount, root=0)
 
             if rank==0:
                 jc = 0
@@ -521,7 +521,7 @@ class ColorColor(Metric):
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
-            gcc = comm.gather(self.cc, rank=0)
+            gcc = comm.gather(self.cc, root=0)
 
             if rank==0:
                 jc = 0
@@ -731,7 +731,7 @@ class ColorMagnitude(Metric):
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
-            gcc = comm.gather(self.cc, rank=0)
+            gcc = comm.gather(self.cc, root=0)
 
             if rank==0:
                 jc = 0
@@ -883,8 +883,8 @@ class FQuenched(Metric):
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
-            gqs = comm.gather(self.qscounts, rank=0)
-            gtc = comm.gather(self.tcounts, rank=0)
+            gqs = comm.gather(self.qscounts, root=0)
+            gtc = comm.gather(self.tcounts, root=0)
 
             if rank==0:
                 jc = 0
@@ -996,8 +996,8 @@ class FRed(Metric):
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
-            gqs = comm.gather(self.qscounts, rank=0)
-            gtc = comm.gather(self.tcounts, rank=0)
+            gqs = comm.gather(self.qscounts, root=0)
+            gtc = comm.gather(self.tcounts, root=0)
 
             if rank==0:
                 jc = 0
@@ -1121,8 +1121,8 @@ class FQuenchedLum(Metric):
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
-            gqs = comm.gather(self.qscounts, rank=0)
-            gtc = comm.gather(self.tcounts, rank=0)
+            gqs = comm.gather(self.qscounts, root=0)
+            gtc = comm.gather(self.tcounts, root=0)
 
             if rank==0:
                 jc = 0

@@ -124,7 +124,7 @@ class CorrelationFunction(Metric):
        #only keep points which fall within the healpix cells overlapping the catalog
        cpix = hp.ang2pix(nside, (pla+90)*np.pi/180., aza*np.pi/180., nest=nest)
        ucpix = np.unique(cpix)
-       rpix = hp.ang2pix(nside, (pla+90)*np.pi/180, aza*np.pi/180., nest=nest)
+       rpix = hp.ang2pix(nside, (grand['polar_ang']+90)*np.pi/180, grand['azim_ang']*np.pi/180., nest=nest)
        inarea = np.in1d(rpix, ucpix)
 
        grand = grand[inarea]
@@ -335,7 +335,7 @@ class WPrpLightcone(CorrelationFunction):
                     print(self.same_rand)
                     rands = self.generateAngularRandoms(mapunit['azim_ang'][zlidx:zhidx][lidx], mapunit['polar_ang'][zlidx:zhidx][lidx], z=mapunit['redshift'][zlidx:zhidx][lidx], nside=128)
 
-                self.nd[self.jcount,j,i] = len(mapunit[zlidx:zhidx][lidx])
+                self.nd[self.jcount,j,i] = len(mapunit['azim_ang'][zlidx:zhidx][lidx])
                 self.nr[self.jcount,j,i] = len(rands)
 
                 print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,i]))
@@ -389,11 +389,11 @@ class WPrpLightcone(CorrelationFunction):
     def reduce(self, rank=None, comm=None):
 
         if rank is not None:
-            gnd = comm.gather(self.nd, rank=0)
-            gnr = comm.gather(self.nr, rank=0)
-            gdd = comm.gather(self.dd, rank=0)
-            gdr = comm.gather(self.dr, rank=0)
-            grr = comm.gather(self.rr, rank=0)
+            gnd = comm.gather(self.nd, root=0)
+            gnr = comm.gather(self.nr, root=0)
+            gdd = comm.gather(self.dd, root=0)
+            gdr = comm.gather(self.dr, root=0)
+            grr = comm.gather(self.rr, root=0)
 
             if rank==0:
                 jc = 0
@@ -784,7 +784,7 @@ class GalaxyRadialProfileBCC(Metric):
     def reduce(self, rank=None, comm=None):
 
         if rank is not None:
-            gdata = comm.gather(self.rcounts, rank=0)
+            gdata = comm.gather(self.rcounts, root=0)
 
             if rank==0:
                 jc = 0

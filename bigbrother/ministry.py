@@ -776,14 +776,15 @@ class Ministry:
 
         self.metric_groups = self.genMetricGroups(metrics)
 
-        if (__name__ == '__main__') & (parallel):
+        if parallel:
             from mpi4py import MPI
 
             comm = MPI.COMM_WORLD
-            size = comm.Size()
-            rank = comm.Rank()
+            size = comm.Get_size()
+            rank = comm.Get_rank()
         else:
             rank = None
+            comm = None
 
 
         for mg in self.metric_groups:
@@ -838,4 +839,4 @@ class Ministry:
             ms = mg[1]
 
             for m in ms:
-                m.reduce(rank=rank)
+                m.reduce(rank=rank,comm=comm)

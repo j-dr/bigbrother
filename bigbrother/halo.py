@@ -1,11 +1,10 @@
 from __future__ import print_function, division
 from collections import OrderedDict
 from .massmetric import SimpleHOD, MassFunction, OccMass
-from .basecatalog import BaseCatalog
+from .basecatalog     import BaseCatalog
 from helpers import SimulationAnalysis
 import numpy as np
 import healpy as hp
-
 
 class HaloCatalog(BaseCatalog):
     """
@@ -58,6 +57,57 @@ class HaloCatalog(BaseCatalog):
         """
         self.filestruct = filestruct
         self.filetypes = self.filestruct.keys()
+
+    def getFilePixels(self, nside):
+        """
+        Get the healpix cells occupied by galaxies
+        in each file. Assumes files have already been
+        sorted correctly by parseFileStruct
+        """
+        fpix = []
+
+        #BCC catalogs have pixels in filenames
+        if (('BCC' in self.__class__.__name__) &
+          (self.filenside is not None) & (self.filenside>=self.groupnside)):
+            fk = self.filestruct.keys()
+
+            for f in self.filestruct[fk[0]]:
+                p = int(f.split('.')[-2])
+
+                if (self.filenside == self.groupnside):
+                    fpix.append([p])
+                else:
+                    if not self.nest:
+                        while p > 12*self.filenside**2:
+                            p = p - 1000
+                        p = hp.ring2nest(self.filenside, p)
+
+                    o1 = int(np.log2(self.filenside))
+                    o2 = int(np.log2(self.groupnside))
+
+                    base = int(p >> 2*o1)
+                    hosubpix = int(p & ( ( 1 << ( 2 * o1 ) ) - 1 ))
+                    losubpix = int(hosubpix // ( 1 << 2 * ( o1 - o2) ))
+                    p  = int(base * ( 1 << ( 2 * o2 ) ) + losubpix)
+
+                    fpix.append([p])
+
+        else:
+            ct = ['halocatalog']
+
+            pmetric = PixMetric(self.ministry, self.groupnside, catalog_type=ct)
+            mg = self.ministry.genMetricGroups([pmetric])
+            ms = mg[0][1]
+            fm = mg[0][0]
+
+            for mappable in self.ministry.genMappable(fm):
+                mapunit = self.ministry.readMappable(mappable, fm)
+                mapunit = self.ministry.treeToDict(mapunit)
+                mapunit = self.convert(mapunit, ms)
+                fpix.append(pmetric(mapunit))
+
+        return fpix
+
 
     def unitConversion(self, mapunit):
 

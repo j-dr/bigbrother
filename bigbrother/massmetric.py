@@ -118,7 +118,7 @@ class MassFunction(MassMetric):
         """
 
         if rank is not None:
-            gdata = comm.gather(self.masscounts, rank=0)
+            gdata = comm.gather(self.masscounts, root=0)
 
             if rank==0:
                 jc = 0
@@ -674,11 +674,11 @@ class Richness(MassMetric):
                 self.galaxy_counts_squared[self.jcount, i,0,ziter] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
 
 
-    def reduce(self):
+    def reduce(self,rank=None,comm=None):
         if rank is not None:
-            ghc = comm.gather(self.lumcounts, rank=0)
-            ggc = comm.gather(self.lumcounts, rank=0)
-            ggcs = comm.gather(self.lumcounts, rank=0)
+            ghc = comm.gather(self.lumcounts, root=0)
+            ggc = comm.gather(self.lumcounts, root=0)
+            ggcs = comm.gather(self.lumcounts, root=0)
             if rank==0:
                 jc = 0
                 for i, g in enumerate(ghc):

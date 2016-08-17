@@ -53,7 +53,7 @@ class PixMetric(Metric):
 
         return pix
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         pass
 
     def visualize(self):
@@ -85,8 +85,13 @@ class Area(Metric):
         area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
         self.area += area
 
-    def reduce(self):
-        pass
+    def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            from mpi4py import MPI
+
+            area = 0.0
+            comm.Reduce(self.area, area, root=0, op=MPI.SUM)
+            self.area = area
 
     def visualize(self):
         pass
@@ -134,8 +139,11 @@ class HealpixMap(Metric):
                 c, e = np.histogram(pix[cidx], bins=self.pbins)
                 self.hmap[:,i] += c
 
-    def reduce(self):
-        pass
+    def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            comm.Reduce(self.hmap, hmap, root=0)
+            self.hmap = hmap
+
 
     def visualize(self, plotname=None, compare=False):
         hp.mollview(self.hmap)
