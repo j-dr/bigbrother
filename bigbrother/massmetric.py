@@ -420,7 +420,7 @@ class OccMass(MassMetric):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             for j in range(self.ndefs):
-                mb = np.digitize(mapunit['halofmass'][zlidx:zhidx,j], bins=self.massbins)
+                mb = np.digitize(mapunit['halomass'][zlidx:zhidx,j], bins=self.massbins)
 
                 for k, m in enumerate(self.massbins[:-1]):
                     o  = mapunit['occ'][zlidx:zhidx][mb==k]
