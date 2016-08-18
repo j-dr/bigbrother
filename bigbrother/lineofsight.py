@@ -40,9 +40,11 @@ class DNDz(Metric):
         normed - boolean
           Whether the metric integrates to N/deg^2 or not. Usually want True.
         """
+        print(magbins)
 
         Metric.__init__(self, ministry, tag=tag, **kwargs)
 
+        print(magbins)
         self.catalog_type = catalog_type
 
         if zbins is None:
@@ -68,6 +70,7 @@ class DNDz(Metric):
         self.lower_limit = lower_limit
 
         if magbins is None:
+            print("no mag bins")
             self.magbins = None
             self.nmagbins = 0
             self.nomags = True
@@ -96,7 +99,7 @@ class DNDz(Metric):
         Map function for dn/dz. Extracts relevant information from a mapunit. Usually only called by a Ministry object, not manually.
         """
         if self.nmagbins>0:
-            if not hasattr(self, 'dndz'):
+            if not hasattr(self, 'zcounts'):
                 self.zcounts = np.zeros((self.njack, self.nzbins,
                                           self.nmagbins))
 
@@ -118,7 +121,7 @@ class DNDz(Metric):
                                       bins=self.zbins)
                 self.zcounts[self.jcount,:,i] += c
         else:
-            if not hasattr(self, 'dndz'):
+            if not hasattr(self, 'zcounts'):
                 self.zcounts = np.zeros((self.njack,self.nzbins,1))
 
             c, e = np.histogram(mapunit['redshift'],
@@ -148,7 +151,7 @@ class DNDz(Metric):
 
         area = self.ministry.galaxycatalog.getArea()
         if self.normed:
-            dz = self.zbins[1:]-self.zbins[:-1]
+            dz = (self.zbins[1:]-self.zbins[:-1]).reshape((self.zcounts.shape[0],self.zcounts.shape[1],1))
             self.jdndz = self.zcounts/area/dz
         else:
             self.jdndz = self.zcounts/area
@@ -288,7 +291,7 @@ class DNDz(Metric):
 
 class PeakDNDz(DNDz):
 
-    def __init(self, ministry, **kwargs):
+    def __init__(self, ministry, **kwargs):
 
         if 'zbins' not in kwargs.keys():
             kwargs['zbins'] = np.linspace(ministry.minz, ministry.maxz, 60)
@@ -297,6 +300,8 @@ class PeakDNDz(DNDz):
         if 'magbins' not in kwargs.keys():
             kwargs['magbins'] = np.linspace(19.5, 22, 30)
 
+        print(kwargs.keys())
+
         DNDz.__init__(self, ministry, **kwargs)
 
 
@@ -304,14 +309,14 @@ class PeakDNDz(DNDz):
 
         DNDz.reduce(self, rank=rank, comm=comm)
 
-        self.jzpeak = np.argmax(self.jdndz, axis=1)
+        self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
 
         self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
         self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
 
 
     def visualize(self, xlabel=None, ylabel=None, compare=False,
-                    ax=None, f=None, **kwargs):
+                    ax=None, f=None, plotname=None, **kwargs):
 
         if f is None:
             f, ax = plt.subplots(1, figsize=(15,15))
@@ -330,7 +335,7 @@ class PeakDNDz(DNDz):
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
             if ylabel is None:
-                sax.set_ylabel(r'$\Peak of frac{dN}{dZ}\, [deg^{-2}]$')
+                sax.set_ylabel(r'$Peak of \frac{dN}{dZ}\, [deg^{-2}]$')
             else:
                 sax.set_xlabel(xlabel)
 
@@ -339,7 +344,7 @@ class PeakDNDz(DNDz):
             else:
                 sax.set_ylabel(xlabel)
 
-            l1 = ax[i].errorbar(self.magbins, self.zpeak, yerr=np.sqrt(self.varzpeak), **kwargs)
+            l1 = ax[0].errorbar(self.magbins, self.zpeak, yerr=np.sqrt(self.varzpeak), **kwargs)
 
         #plt.tight_layout()
 
