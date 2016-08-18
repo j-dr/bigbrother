@@ -3,7 +3,6 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
-import treecorr as tc
 import numpy as np
 
 from metric import Metric
@@ -13,9 +12,33 @@ class DNDz(Metric):
 
     def __init__(self, ministry, zbins=None, magbins=None,
                   catalog_type=['galaxycatalog'], tag=None, appmag=True,
-                  lower_limit=True, cutband=None, normed=False):
+                  lower_limit=True, cutband=None, normed=True):
         """
         Angular Number density of objects as a function of redshift.
+
+        inputs
+        --------
+        ministry - Ministry
+
+        keywords
+        ------
+        zbins - np.array
+          An array containing the edges of the redshift bins to use for dn/dz
+        lower_limit - boolean
+          Whether or not the magnitudes in magbins should be interpreted
+          as bin edges or lower limits of cuts (i.e. mag<magbins[i])
+        magbins - np.array
+          A list of magnitudes to use as bin edges or lower limits of cuts
+        catalog_type - list
+          A list of catalog types, ususally not used
+        tag - string
+          A name for the metric to be used when making comparisons using bb-compare
+        appmag - boolean
+          True if we want to use apparent magnitude for cuts, false for absolute magnitudes
+        cutband - int
+          The index of the column of a vector of magnitudes to use
+        normed - boolean
+          Whether the metric integrates to N/deg^2 or not. Usually want True.
         """
 
         Metric.__init__(self, ministry, tag=tag)
@@ -68,7 +91,9 @@ class DNDz(Metric):
             self.unitmap = {}
 
     def map(self, mapunit):
-
+        """
+        Map function for dn/dz. Extracts relevant information from a mapunit. Usually only called by a Ministry object, not manually.
+        """
         if self.nmagbins>0:
             if not hasattr(self, 'dndz'):
                 self.dndz = np.zeros((self.nzbins, self.nmagbins))
@@ -100,6 +125,9 @@ class DNDz(Metric):
 
 
     def reduce(self):
+        """
+        Converts extracted redshift information into a (normalized) dn/dz output and stores it as an attribute of the metric.
+        """
         area = self.ministry.galaxycatalog.getArea()
         if self.normed:
             dz = self.zbins[1:]-self.zbins[:-1]
@@ -110,6 +138,34 @@ class DNDz(Metric):
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
                   usecuts=None, onepanel=False, **kwargs):
+        """
+        Plot dn/dz for an individual instance.
+
+        keywords
+        -------
+        plotname - string
+          File name to save plot to
+        xlim - list
+          x-axis limits (needs to be of length 2, e.g. [xmin, xmax])
+        ylim - list
+          Same as xlim but for y-axis
+        fylim - list
+          Fractional deviation subplot y limits. Same format as for xlim.
+        f - Figure
+          A matplotlib Figure object to use
+        ax - Axes
+          A matplotlib Axes object to plot on
+        xlabel - string
+          Label of the x-axis
+        ylabel - string
+          Label of the y-axis
+        compare - boolean
+          Whether or not this function is being called from the compare function.
+        usecuts - list
+          A list of indices of self.dndz to use. I.e. self.dndz[:,usecuts] will be plotted
+        onepanel - boolean
+          Whether all cuts should be plotted on a single panel
+        """
 
         if not hasattr(self, 'zmean'):
             self.zmean = (self.zbins[:-1]+self.zbins[1:])/2
@@ -160,6 +216,23 @@ class DNDz(Metric):
 
     def compare(self, othermetrics, plotname=None, usecuts=None, labels=None,
                   **kwargs):
+        """
+        Compare this DNDz metric to a list of other metrics
+
+        inputs
+        --------
+        othermetrics - list
+          A list of DNDz metrics (can also be TabulatedDNDz) to compare this metric to
+
+        keywords
+        --------
+        plotname - string
+          See visualize method
+        usecuts - list
+          See visualize method
+        labels - list
+          A list of labels to use for the legend. Order should be the label for this metric first, followed by labels in the order that metrics are given in othermetrics
+        """
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -196,12 +269,28 @@ class DNDz(Metric):
 
 class TabulatedDNDz(DNDz):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fname, *args, **kwargs):
+        """
+        Create a DNDz object from a tabulated file
 
-        if 'fname' in kwargs:
-            self.fname = kwargs.pop('fname')
-        else:
-            raise(ValueError("Please supply a path to the tabulated luminosity function using the fname kwarg!"))
+        inputs
+        ------
+        fname - string
+          Name of the file containing the tabulated data
+
+        keywords
+        -------
+        ncuts - string
+          Number of cuts to use in the file. Defaults to 1.
+        lowzcol - int
+          The column containing the low z edge of the bins
+        highzcol - int
+          The column containing the high z edge of the bins
+        ycol - int
+          The column containing the dn/dz measurements
+        """
+
+        self.fname = fname
 
         if 'ncuts' in kwargs:
             self.ncuts = kwargs.pop('ncuts')
@@ -216,12 +305,12 @@ class TabulatedDNDz(DNDz):
         if 'highzcol' in kwargs:
             self.highzcol = int(kwargs.pop('highzcol'))
         else:
-            self.highzcol = 0
+            self.highzcol = 1
 
         if 'ycol' in kwargs:
             self.ycol = int(kwargs.pop('ycol'))
         else:
-            self.ycol = 1
+            self.ycol = 2
 
         DNDz.__init__(self,*args,**kwargs)
 
@@ -230,6 +319,10 @@ class TabulatedDNDz(DNDz):
         self.loadDNDz()
 
     def loadDNDz(self):
+        """
+        Loads the data from the file specified
+        """
+
         tab = np.genfromtxt(self.fname)
         self.dndz = np.zeros((tab.shape[0], self.ncuts))
 

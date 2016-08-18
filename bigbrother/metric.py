@@ -94,7 +94,7 @@ class GMetric(Metric):
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
-                  logx=False, **kwargs):
+                  logx=False, rusecols=None, **kwargs):
         """
         Plot the calculated metric.
 
@@ -143,9 +143,12 @@ class GMetric(Metric):
         if usecols is None:
             usecols = range(self.nbands)
 
+        if (rusecols is None) and (ref_y is not None):
+            rusecols = range(ref_y.shape[1])
+
         if usez is None:
             usez = range(self.nzbins)
-
+        print(usez)
         nzbins = len(usez)
 
         #If want to plot fractional deviations, and ref_y
@@ -204,17 +207,17 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
                     if fracdev==False:
-                        print(ax.shape)
                         l1 = ax[i][j].semilogy(mxs, self.y[:,b,j],
                                           **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
                     else:
+                        rb = rusecols[i]
                         l1 = ax[2*i][j].semilogy(mxs, self.y[:,b,j],
                                           **kwargs)
                         ax[2*i+1][j].plot(mxs[li:hi],
-                                          (self.y[li:hi,b,j]-ref_y[:,b,j])\
-                                              /ref_y[:,b,j], **kwargs)
+                                          (self.y[li:hi,b,j]-ref_y[:,rb,j])\
+                                              /ref_y[:,rb,j], **kwargs)
                         if logx:
                             ax[2*i][j].set_xscale('log')
                             ax[2*i+1][j].set_xscale('log')
@@ -243,12 +246,11 @@ class GMetric(Metric):
                         if logx:
                             ax.set_xscale('log')
                 else:
-                    print(len(mxs))
-                    print(len(self.y))
+                    rb = rusecols[i]
                     l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0],
                                         **kwargs)
-                    ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,b,0])\
-                                      /ref_y[:,b,0], **kwargs)
+                    ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,rb,0])\
+                                      /ref_y[:,rb,0], **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
                         ax[2*i+1][0].set_xscale('log')
@@ -284,8 +286,9 @@ class GMetric(Metric):
         return f, ax, l1
 
 
-    def compare(self, othermetrics, plotname=None, usecols=None, fracdev=True,
-                    xlim=None, ylim=None, fylim=None, labels=None, **kwargs):
+    def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
+                fracdev=True, xlim=None, ylim=None, fylim=None, labels=None,
+                **kwargs):
         """
         Compare a list of other metrics of the same type
 
@@ -310,6 +313,14 @@ class GMetric(Metric):
         else:
             usecols = [None]*len(tocompare)
 
+        if usez!=None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
         if fracdev:
             if hasattr(self, 'xmean'):
                 ref_x = self.xmean
@@ -320,8 +331,8 @@ class GMetric(Metric):
         if labels is None:
             labels = [None]*len(tocompare)
 
-        print("labels: {0}".format(labels[0]))
-        print("usecols: {0}".format(usecols[0]))
+        print("labels: {0}".format(labels))
+        print("usecols: {0}".format(usecols))
 
         lines = []
 
@@ -330,22 +341,26 @@ class GMetric(Metric):
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
-                                        ref_y=self.y, xlim=xlim, compare=True,
-                                        ylim=ylim, fylim=fylim, label=labels[i],**kwargs)
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
+                                             ref_y=self.y, xlim=xlim, compare=True,
+                                             ylim=ylim, fylim=fylim, label=labels[i],
+                                             usez=usez[i],**kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, compare=True,
-                                        fracdev=False, fylim=fylim,label=labels[i],**kwargs)
+                                             fracdev=False, fylim=fylim,label=labels[i],usez=usez[i],
+                                             **kwargs)
             else:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
-                                        ref_y=tocompare[0].y, compare=True,
-                                        xlim=xlim, ylim=ylim, fylim=fylim,
-                                        f=f, ax=ax, label=labels[i], **kwargs)
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
+                                             ref_y=tocompare[0].y, compare=True,
+                                             xlim=xlim, ylim=ylim, fylim=fylim,
+                                             f=f, ax=ax, label=labels[i], usez=usez[i],
+                                             **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
-                                        fylim=fylim, f=f, ax=ax, fracdev=False,
-                                        compare=True, label=labels[i], **kwargs)
+                                             fylim=fylim, f=f, ax=ax, fracdev=False,
+                                             compare=True, label=labels[i], usez=usez[i],
+                                             **kwargs)
             lines.extend(l)
 
         if labels[0]!=None:

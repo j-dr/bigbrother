@@ -3,14 +3,13 @@ from .metric import Metric, GMetric
 #if __name__=='__main__':
 import matplotlib as mpl
 mpl.use('TkAgg')
-import matplotlib.gridspec as gridspec
 import matplotlib.pylab as plt
 import numpy as np
 
 
 class MagnitudeMetric(GMetric):
     """
-    Restruct GMetric to magnitudes
+    Restrict GMetric to magnitudes
     """
 
     def __init__(self, ministry, zbins=None, magbins=None,
@@ -73,7 +72,7 @@ class LuminosityFunction(MagnitudeMetric):
         """
 
         if zbins is None:
-            zbins = [0.0, 0.2]
+            zbins = np.linspace(ministry.minz, ministry.maxz, 5)
 
         if magbins is None:
             magbins = np.linspace(-25, -11, 30)
@@ -95,8 +94,13 @@ class LuminosityFunction(MagnitudeMetric):
         Map functions always take mapunits as input.
         """
 
+
         #The number of bands to measure the LF for
-        self.nbands = mapunit['luminosity'].shape[1]
+        if len(mapunit['luminosity'].shape)>1:
+            self.nbands = mapunit['luminosity'].shape[1]
+        else:
+            mapunit['luminosity'] = np.atleast_2d(mapunit['luminosity']).T
+            self.nbands = 1
 
         #If only measuring for centrals, get the appropriate
         #rows of the mapunit
@@ -174,7 +178,7 @@ class LuminosityFunction(MagnitudeMetric):
 
         if xlabel is None:
             xlabel = "Mag"
-            
+
         if ylabel is None:
             ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
 

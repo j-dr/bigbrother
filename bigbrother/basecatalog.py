@@ -13,12 +13,13 @@ class BaseCatalog:
     Base class for catalog type
     """
 
-    _valid_reader_types = ['fits', 'rockstar']
+    _valid_reader_types = ['fits', 'rockstar', 'ascii']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
                  unitmap=None, nside=None, maskfile=None,
                  filters=None, goodpix=None, reader=None,
                  area=None):
+
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
@@ -223,7 +224,7 @@ class BaseCatalog:
                 except:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
 
-                mapunit[key] = conversion(mapunit[key])
+                mapunit[key] = conversion(mapunit, key)
                 beenconverted.append(key)
 
         return mapunit
@@ -234,6 +235,7 @@ class BaseCatalog:
 
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
+
             if key.lower() not in mapunit.keys():
                 continue
 

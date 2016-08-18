@@ -80,7 +80,39 @@ class GalaxyCatalog(BaseCatalog):
 
     def readMappable(self, mappable, fieldmap):
 
-        return self.readFITSMappable(mappable, fieldmap)
+        if self.reader=='fits':
+            return self.readFITSMappable(mappable, fieldmap)
+        elif self.reader=='ascii':
+            return self.readAsciiMappable(mappable, fieldmap)
+        else:
+            raise(ValueError("Reader {0} is not supported for galaxy catalogs".format(self.reader)))
+
+    def readAsciiMappable(self, mappable, fieldmap):
+
+        mapunit = {}
+        ft      = mappable.dtype
+        fname   = mappable.name
+
+        fields = []
+        for val in fieldmap[ft].values():
+            if hasattr(val, '__iter__'):
+                fields.extend(val)
+            else:
+                fields.extend([val])
+
+        data = np.genfromtxt(fname, usecols=fields)
+        data = data.reshape((len(data), len(fields)))
+
+        for mapkey in fieldmap[ft].keys():
+            mapunit[mapkey] = data[:,fields.index(fieldmap[ft][mapkey])]
+            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+                dt = mapunit[mapkey].dtype[0]
+                ne = len(mapunit[mapkey])
+                nf = len(fieldmap[ft][mapkey])
+                mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
+
+        return mapunit
+
 
     def filterAppmag(self, mapunit, bands=None, badval=99.):
 
@@ -122,6 +154,7 @@ class BCCCatalog(GalaxyCatalog):
                                         usebands=[0,1],
                                         central_only=True, tag="CentralCMBinZ"),
                         ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2], tag="BinZ"),
+                        ColorColor(self.ministry, zbins=np.linspace(0.0, 0.2, 5), usebands=[0,1,2], tag="SDSSZ"),
                         ColorColor(self.ministry, zbins=None,
                          usebands=[0,1,2], tag="AllZ"),
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),

@@ -67,11 +67,11 @@ class HaloCatalog(BaseCatalog):
 
     def unitConversion(self, mapunit):
 
-        midx = mapunit['mass']!=0.0
+        midx = mapunit['halomass']!=0.0
 
         for mapkey in mapunit.keys():
             mapunit[mapkey] = mapunit[mapkey][midx]
-            if mapkey=='mass':
+            if mapkey=='halomass':
                 mapunit[mapkey] = np.log10(mapunit[mapkey][midx])
 
         return mapunit
@@ -128,7 +128,7 @@ class BCCHaloCatalog(HaloCatalog):
                  goodpix=None):
 
         if unitmap is None:
-            unitmap = {'mass':'msunh'}
+            unitmap = {'halomass':'msunh'}
 
         HaloCatalog.__init__(self, ministry, filestruct, unitmap=unitmap,
                              maskfile=maskfile, filters=filters,
@@ -142,7 +142,7 @@ class BCCHaloCatalog(HaloCatalog):
         self.nside = nside
 
         if fieldmap is None:
-            self.fieldmap = {'mass':OrderedDict([('MVIR',['htruth'])]),
+            self.fieldmap = {'halomass':OrderedDict([('MVIR',['htruth'])]),
                              'occ':OrderedDict([('N19', ['htruth'])]),
                              'redshift':OrderedDict([('Z',['htruth'])])}
             self.hasz = True
@@ -153,7 +153,7 @@ class BCCHaloCatalog(HaloCatalog):
             else:
                 self.sortbyz = False
 
-        self.unitmap = {'mass':'msunh'}
+        self.unitmap = {'halomass':'msunh'}
 
     def parseFileStruct(self, filestruct):
         """

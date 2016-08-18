@@ -296,7 +296,7 @@ class Ministry:
             fm = fms.pop()
             while len(fms)>0:
                 fm = self.combineFieldMaps(fm, fms.pop())
-                
+
             return [fm]
 
         nodes = range(len(fms))
@@ -443,7 +443,38 @@ class Ministry:
 
     def galaxyGalaxyMappable(self, fieldmap):
 
-        raise NotImplementedError
+        filetypes = fieldmap.keys()
+        mappables = []
+
+        #need to put filetypes with redshifts in
+        #them first
+        zft = []
+        nzft = []
+        for ft in filetypes:
+            if 'redshift' in fieldmap[ft]:
+                zft.append(ft)
+            else:
+                nzft.append(ft)
+
+        filetypes = zft
+        filetypes.extend(nzft)
+
+        #Create mappables out of filestruct and fieldmaps
+        for i in range(len(fs[filetypes[0]])):
+
+            for j, ft in enumerate(filetypes):
+                if j==0:
+                    root = Mappable(fs[ft][i], ft)
+                    last = root
+                else:
+                    node = Mappable(fs[ft][i], ft)
+                    last.children.append(node)
+                    last = node
+
+            mappables.append(root)
+
+        return mappables
+
 
     def haloHaloMappable(self, fieldmap):
 
