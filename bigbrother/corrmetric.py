@@ -438,8 +438,8 @@ class WPrpLightcone(CorrelationFunction):
 
         self.jwprp = (self.jDD - 2 * self.jDR + self.jRR) / self.jRR
 
-        self.wprp = np.sum(self.jwprp, axis=0)/self.njack
-        self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njack - 1) / self.njack
+        self.wprp = np.sum(self.jwprp, axis=0)/self.njacktot
+        self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,

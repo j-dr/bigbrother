@@ -150,8 +150,9 @@ class DNDz(Metric):
                     jc += nj
 
         area = self.ministry.galaxycatalog.getArea()
+
         if self.normed:
-            dz = (self.zbins[1:]-self.zbins[:-1]).reshape((self.zcounts.shape[0],self.zcounts.shape[1],1))
+            dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
             self.jdndz = self.zcounts/area/dz
         else:
             self.jdndz = self.zcounts/area
@@ -299,8 +300,6 @@ class PeakDNDz(DNDz):
 
         if 'magbins' not in kwargs.keys():
             kwargs['magbins'] = np.linspace(19.5, 22, 30)
-
-        print(kwargs.keys())
 
         DNDz.__init__(self, ministry, **kwargs)
 

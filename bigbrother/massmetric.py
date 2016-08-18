@@ -714,10 +714,10 @@ class Richness(MassMetric):
         self.jgalaxy_counts_squared = self.jackknife(self.galaxy_counts_squared, reduce_jk=False)
 
         jmass_richness = self.jgalaxy_counts/self.jhalo_counts
-        self.mass_richness = np.sum(self.jgalaxy_counts / self.jhalo_counts, axis=0)
-        self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njack - 1 ) / self.njack
+        self.mass_richness = np.sum(self.jgalaxy_counts / self.jhalo_counts, axis=0) / self.njacktot
+        self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
         self.galaxy_counts_squared = np.sum( self.jgalaxy_counts_squared, axis=0)
-        self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njack
+        self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njacktot
 
         self.y           = self.mass_richness
         if self.njack==1:

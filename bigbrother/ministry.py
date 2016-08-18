@@ -776,6 +776,21 @@ class Ministry:
 
         self.metric_groups = self.genMetricGroups(metrics)
 
+        #metric group w/ Area in it should be first
+        areaidx = None
+        for mi, mg in enumerate(self.metric_groups):
+            ms = mg[1]
+            for m in ms:
+                if m.__class__.__name__ == 'Area':
+                    areaidx = mi
+                    
+        if areaidx is not None:
+            mgs = []
+            mgs.append(self.metric_groups[areaidx])
+            mgs.extend(self.metric_groups[:areaidx])
+            mgs.extend(self.metric_groups[areaidx+1:])
+            self.metric_groups = mgs
+
         if parallel:
             from mpi4py import MPI
 
@@ -796,6 +811,10 @@ class Ministry:
                     sbz = True
 
             mappables = self.genMappables(mg)
+
+            if nmap is not None:
+                mappables = mappables[:nmap]
+
             self.njacktot = len(mappables)
 
             if parallel:
@@ -804,7 +823,6 @@ class Ministry:
             self.njack = len(mappables)
 
             for i, mappable in enumerate(mappables):
-                if (nmap is not None) & (i>=nmap): break
 
                 mapunit = self.readMappable(mappable, fm)
 
@@ -836,6 +854,8 @@ class Ministry:
                     m.map(mapunit)
 
                 del mapunit
+
+        #need to reduce area first
 
         for mg in self.metric_groups:
             ms = mg[1]
