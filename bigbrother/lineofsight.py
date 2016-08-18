@@ -290,11 +290,11 @@ class PeakDNDz(DNDz):
 
     def __init(self, ministry, **kwargs):
 
-        if zbins is None:
+        if 'zbins' not in kwargs.keys():
             zbins = np.linspace(ministry.minz, ministry.maxz, 60)
 
-        if magbins is None:
-            self.magbins = np.linspace(19.5, 22, 30)
+        if 'magbins' not in kwargs.keys():
+            magbins = np.linspace(19.5, 22, 30)
 
 
         DNDz.__init__(self, ministry, magbins=magbins, zbins=zbins,
