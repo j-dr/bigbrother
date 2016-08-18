@@ -597,7 +597,7 @@ class TinkerMassFunction(MassMetric):
 
 class Richness(MassMetric):
     def __init__(self, ministry, zbins=None, massbins=None,
-                  lightcone=False,
+                  lightcone=True,
                   catalog_type=['galaxycatalog'], tag=None,
                   colorbins=None, maxrhalo=None, minlum=None,
                   redsplit=None, splitinfo=False, **kwargs):
@@ -649,8 +649,6 @@ class Richness(MassMetric):
         self.splitcolor = redsplit
 
         self.nbands = 1
-
-
 
 
     def splitBimodal(self, x, y, largepoly=30):

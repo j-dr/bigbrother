@@ -34,22 +34,29 @@ if __name__=="__main__":
 
     mstry.validate(nmap=nmap, parallel=parallel)
 
-    if 'outdir' in cfg['Validate'].keys():
-        with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
-                    cfg['Ministry']['ministry_name']), 'w') as fp:
-            pickle.dump(mstry, fp)
-
     pnames = {}
 
-    noplot = False
+    noplot = True
     if 'parallel' in cfg['Validate'].keys():
         from mpi4py import MPI
         
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
         
-        if rank!=0:
-            noplot = True
+        if rank==0:
+            noplot = False
+
+            if 'outdir' in cfg['Validate'].keys():
+                with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
+                            cfg['Ministry']['ministry_name']), 'w') as fp:
+                    pickle.dump(mstry, fp)
+
+    else:
+        if 'outdir' in cfg['Validate'].keys():
+            with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
+                        cfg['Ministry']['ministry_name']), 'w') as fp:
+                pickle.dump(mstry, fp)
+        
         
     for m in mstry.metrics:
         if m.novis or noplot: continue
