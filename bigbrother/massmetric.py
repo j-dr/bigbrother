@@ -602,18 +602,10 @@ class Richness(MassMetric):
                   colorbins=None, maxrhalo=None, minlum=None,
                   redsplit=None, splitinfo=False, **kwargs):
 
-        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag, **kwargs)
-
         if massbins is None:
-            self.massbins = np.logspace(12, 15, 20)
+            massbins = np.logspace(12, 15, 20)
         else:
-            self.massbins = massbins
-
-        if colorbins is None:
-            self.colorbins = 100
-        else:
-            self.colorbins = colorbins
+            massbins = massbins
 
         if (lightcone):
             if hasattr(zbins, '__iter__'):
@@ -626,6 +618,15 @@ class Richness(MassMetric):
         else:
             self.zbins = [0, 10]
         self.nzbins = len(self.zbins) - 1
+
+        MassMetric.__init__(self, ministry, zbins=self.zbins, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag, **kwargs)
+
+        if colorbins is None:
+            self.colorbins = 100
+        else:
+            self.colorbins = colorbins
+
 
         self.split_info = splitinfo
 
@@ -769,7 +770,7 @@ class Richness(MassMetric):
 
                 self.y           = self.mass_richness
 
-                if self.njaccktot==1:
+                if self.njacktot==1:
                     self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
                 else:
                     self.ye          = np.sqrt(self.varmass_richness)
