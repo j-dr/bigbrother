@@ -79,6 +79,7 @@ class Metric(object):
     def setNJack(self):
         if self.jtype is None:
             self.njack = 1
+            self.njacktot = 1
         else:
             self.njack = self.ministry.njack
             self.njacktot = self.ministry.njacktot
