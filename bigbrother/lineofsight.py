@@ -12,7 +12,7 @@ class DNDz(Metric):
 
     def __init__(self, ministry, zbins=None, magbins=None,
                   catalog_type=['galaxycatalog'], tag=None, appmag=True,
-                  lower_limit=True, cutband=None, normed=True):
+                  lower_limit=True, cutband=None, normed=True, **kwargs):
         """
         Angular Number density of objects as a function of redshift.
 
@@ -41,7 +41,7 @@ class DNDz(Metric):
           Whether the metric integrates to N/deg^2 or not. Usually want True.
         """
 
-        Metric.__init__(self, ministry, tag=tag)
+        Metric.__init__(self, ministry, tag=tag, **kwargs)
 
         self.catalog_type = catalog_type
 
@@ -124,7 +124,7 @@ class DNDz(Metric):
             self.dndz[:,0] += c
 
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Converts extracted redshift information into a (normalized) dn/dz output and stores it as an attribute of the metric.
         """

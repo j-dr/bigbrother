@@ -15,7 +15,6 @@ class Jackknife:
 
 
     def healpixJackknifeRegions(self):
-
         pass
 
     def subboxJackknifeRegions(self):
@@ -23,5 +22,4 @@ class Jackknife:
         pass
 
     def combineJackknife(self):
-
         pass

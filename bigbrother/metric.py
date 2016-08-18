@@ -16,10 +16,10 @@ class Metric(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, ministry, catalog_type=None, tag=None, nomap=False,
-                   novis=False):
+    def __init__(self, ministry, catalog_type=None, tag=None,
+                  nomap=False, novis=False, jtype=None):
         """
-        Simple init method. At the very least, init methods for subclasses
+        At the very least, init methods for subclasses
         should take a ministry object as an argument.
         """
         self.ministry = ministry
@@ -27,13 +27,17 @@ class Metric(object):
         self.tag = tag
         self.nomap = nomap
         self.novis = novis
+        self.jtype = jtype
+        #njack will be determined at the time that map is called
+        self.njack = None
+        self.jcount = 0
 
     @abstractmethod
     def map(self, mapunit):
         pass
 
     @abstractmethod
-    def reduce(self):
+    def reduce(self, ntasks=None):
         pass
 
     @abstractmethod
@@ -44,6 +48,42 @@ class Metric(object):
     def compare(self, othermetric, plotname=None):
         pass
 
+    def jackknife(self, arg, reduce_jk=True):
+
+        jdata = []
+
+        for i in range(self.njack):
+            #generalized so can be used if only one region
+            if self.njack==1:
+                idx = [0]
+            else:
+                idx = [j for j in range(self.njack) if i!=j]
+
+            jdata = np.zeros(arg.shape)
+
+            #jackknife indices should always be last
+            jl = len(arg.shape)
+            jidx = [slice(0,arg.shape[j]) if j!=0 else idx for j in range(jl)]
+            jdidx = [slice(0,arg.shape[j]) if j!=0 else i for j in range(jl)]
+            jdata[jdidx] = np.sum(arg[jidx], axis=0)
+
+        if reduce_jk:
+            jest = np.sum(jdata, axis=0) / self.njack
+            jvar = np.sum((jdata - jest)**2, axis=0) * (self.njack - 1) / self.njack
+
+            return jdata, jest, jvar
+
+        else:
+            return jdata
+
+    def setNJack(self):
+        if self.jtype is None:
+            self.njack = 1
+        else:
+            self.njack = self.ministry.njack
+            self.njacktot = self.ministry.njacktot
+
+
 class GMetric(Metric):
     """
     A generic metric class that deals with measurements made over
@@ -52,7 +92,7 @@ class GMetric(Metric):
     """
 
     def __init__(self, ministry, zbins=None, xbins=None, catalog_type=None,
-                    tag=None):
+                    tag=None, **kwargs):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -69,7 +109,8 @@ class GMetric(Metric):
             A 1-d array containing the edges of the magnitude bins to
             measure the metric in.
         """
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag,
+                        **kwargs)
 
         if zbins is None:
             self.zbins = zbins
@@ -88,13 +129,13 @@ class GMetric(Metric):
         pass
 
     @abstractmethod
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         pass
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
-                  logx=False, rusecols=None, **kwargs):
+                  logx=False, logy=True, rusecols=None, **kwargs):
         """
         Plot the calculated metric.
 
@@ -166,7 +207,6 @@ class GMetric(Metric):
                     iref_y[:,i,j] = spl(mxs[li:hi])
 
             ref_y = iref_y
-
         else:
             li = 0
             hi = len(mxs)
@@ -207,20 +247,29 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
                     if fracdev==False:
-                        l1 = ax[i][j].semilogy(mxs, self.y[:,b,j],
-                                          **kwargs)
+                        l1 = ax[i][j].errorbar(mxs, self.y[:,b,j],
+                                          yerr=self.ye[:,b,j], **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
+                        if logy:
+                            ax[i][j].set_yscale('log')
                     else:
                         rb = rusecols[i]
-                        l1 = ax[2*i][j].semilogy(mxs, self.y[:,b,j],
-                                          **kwargs)
-                        ax[2*i+1][j].plot(mxs[li:hi],
-                                          (self.y[li:hi,b,j]-ref_y[:,rb,j])\
-                                              /ref_y[:,rb,j], **kwargs)
+                        l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
+                                          self.ye[:,b,j], **kwargs)
+                        ax[2*i+1][j].errorbar(mxs[li:hi],
+                                              (self.y[li:hi,b,j]-ref_y[:,rb,j])\
+                                              /ref_y[:,rb,j],
+                                              yerr=self.ye[li:hi,b,j],
+                                              **kwargs)
                         if logx:
                             ax[2*i][j].set_xscale('log')
                             ax[2*i+1][j].set_xscale('log')
+
+                        if logy:
+                            ax[2*i][j].set_yscale('log')
+                            ax[2*i+1][j].set_yscale('log')
+
 
                         if (i==0) & (j==0):
                             if xlim!=None:
@@ -234,23 +283,33 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 if fracdev==False:
                     try:
-                        l1 = ax[0][i].semilogy(mxs, self.y[:,b,0],
-                                            **kwargs)
+                        l1 = ax[0][i].errorbar(mxs, self.y[:,b,0],
+                                                yerr=self.ye[:,b,0],
+                                                **kwargs)
                         if logx:
                             ax[0][i].set_xscale('log')
+                        if logy:
+                            ax[0][i].set_yscale('log')
 
                     except Exception as e:
                         print(e)
-                        l1 = ax.semilogy(mxs, self.y[:,b,0],
-                                         **kwargs)
+                        l1 = ax.errorbar(mxs, self.y[:,b,0],
+                                          yerr=self.ye[:,b,0],
+                                          **kwargs)
                         if logx:
                             ax.set_xscale('log')
+                        if logy:
+                            ax.set_yscale('log')
+
                 else:
                     rb = rusecols[i]
-                    l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0],
-                                        **kwargs)
-                    ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,rb,0])\
-                                      /ref_y[:,rb,0], **kwargs)
+                    l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],
+                                              yerr=self.ye[:,b,0], **kwargs)
+                    ax[2*i+1][0].errorbar(mxs[li:hi],
+                                           (self.y[li:hi,b,0]-ref_y[:,rb,0])\
+                                            /ref_y[:,rb,0],
+                                            yerr=self.ye[li:hi,b,0],
+                                            **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
                         ax[2*i+1][0].set_xscale('log')
@@ -372,3 +431,16 @@ class GMetric(Metric):
         #plt.tight_layout()
 
         return f, ax
+
+
+def jackknifeMap(func):
+    def wrapper(self, mapunit):
+        if self.njack is None:
+            self.setNJack()
+
+        func(self, mapunit)
+
+        if self.jtype is not None:
+            self.jcount += 1
+
+    return wrapper

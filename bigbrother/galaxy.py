@@ -7,30 +7,25 @@ import numpy as np
 import fitsio
 import time
 
-from .basecatalog     import BaseCatalog
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum
 from .healpix_utils   import Area
 from .corrmetric      import GalaxyRadialProfileBCC
-
+from .basecatalog     import BaseCatalog
 
 class GalaxyCatalog(BaseCatalog):
     """
     Base class for galaxy catalogs
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=None,
-                 reader=None):
+    def __init__(self, ministry, filestruct, zbins=None, **kwargs):
+
 
         self.ctype = 'galaxycatalog'
-        BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=fieldmap, nside=nside,
-                                maskfile=maskfile, filters=filters,
-                                unitmap=unitmap, goodpix=goodpix,
-                                reader=reader)
+        self.zbins = zbins
+        BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
 
-    def calculateArea(self, pixels, nside):
+
+    def calculateMaskArea(self, pixels, nside):
         """
         Calculate the area in the given pixels provided a mask
         that is pixelated with an nside greater than that of
@@ -63,6 +58,57 @@ class GalaxyCatalog(BaseCatalog):
         self.filestruct = filestruct
         self.filetypes = self.filestruct.keys()
 
+    def getFilePixels(self, nside):
+        """
+        Get the healpix cells occupied by galaxies
+        in each file. Assumes files have already been
+        sorted correctly by parseFileStruct
+        """
+        fpix = []
+
+        #BCC catalogs have pixels in filenames
+        if (('BCC' in self.__class__.__name__) &
+          (self.filenside is not None) & (self.filenside>=self.groupnside)):
+            fk = self.filestruct.keys()
+
+            for f in self.filestruct[fk[0]]:
+                p = int(f.split('.')[-2])
+
+                if (self.filenside == self.groupnside):
+                    fpix.append([p])
+                else:
+                    if not self.nest:
+                        while p > 12*self.filenside**2:
+                            p = p - 1000
+                        p = hp.ring2nest(self.filenside, p)
+
+                    o1 = int(np.log2(self.filenside))
+                    o2 = int(np.log2(self.groupnside))
+
+                    base = int(p >> 2*o1)
+                    hosubpix = int(p & ( ( 1 << ( 2 * o1 ) ) - 1 ))
+                    losubpix = int(hosubpix // ( 1 << 2 * ( o1 - o2) ))
+                    p  = int(base * ( 1 << ( 2 * o2 ) ) + losubpix)
+
+                    fpix.append([p])
+
+        else:
+            ct = ['galaxycatalog']
+
+            pmetric = PixMetric(self.ministry, self.groupnside, catalog_type=ct)
+            mg = self.ministry.genMetricGroups([pmetric])
+            ms = mg[0][1]
+            fm = mg[0][0]
+
+            for mappable in self.ministry.genMappable(fm):
+                mapunit = self.ministry.readMappable(mappable, fm)
+                mapunit = self.ministry.treeToDict(mapunit)
+                mapunit = self.convert(mapunit, ms)
+                fpix.append(pmetric(mapunit))
+
+        return fpix
+
+
     def getArea(self):
 
         arm = np.array([True if m.__class__.__name__=="Area" else False
@@ -76,16 +122,18 @@ class GalaxyCatalog(BaseCatalog):
         elif am:
             return self.ministry.metrics[idx].area
         else:
-            return self.calculateArea()
+            return self.calculateMaskArea()
 
     def readMappable(self, mappable, fieldmap):
 
         if self.reader=='fits':
-            return self.readFITSMappable(mappable, fieldmap)
+            mapunit =  self.readFITSMappable(mappable, fieldmap)
         elif self.reader=='ascii':
-            return self.readAsciiMappable(mappable, fieldmap)
+            mapunit = self.readAsciiMappable(mappable, fieldmap)
         else:
             raise(ValueError("Reader {0} is not supported for galaxy catalogs".format(self.reader)))
+
+        return self.maskMappable(mapunit, mappable)
 
     def readAsciiMappable(self, mappable, fieldmap):
 
@@ -137,40 +185,36 @@ class BCCCatalog(GalaxyCatalog):
     BCC style ADDGALS catalog
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=None):
-        GalaxyCatalog.__init__(self, ministry, filestruct, maskfile=maskfile, goodpix=goodpix)
-        self.min = ministry
-        self.metrics = [Area(self.ministry),
-                        LuminosityFunction(self.ministry, zbins=zbins,
-                            tag="AllLF"),
-                        MagCounts(self.ministry, zbins=zbins, tag="BinZ"),
-                        MagCounts(self.ministry, zbins=None, tag="AllZ"),
-                        LuminosityFunction(self.ministry, zbins=zbins, central_only=True, tag="CentralLF"),
-                        LcenMass(self.ministry, zbins=zbins),
-                        ColorMagnitude(self.ministry, zbins=zbins, usebands=[0,1], tag="AllCMBinZ"),
-                        ColorMagnitude(self.ministry, zbins=zbins,
+    def __init__(self, ministry, filestruct, **kwargs):
+
+        GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
+        self.metrics = [Area(self.ministry, jtype=self.jtype),
+                        LuminosityFunction(self.ministry, zbins=self.zbins,
+                            tag="AllLF", jtype=self.jtype),
+                        MagCounts(self.ministry, zbins=self.zbins, tag="BinZ",jtype=self.jtype),
+                        MagCounts(self.ministry, zbins=None, tag="AllZ", jtype=self.jtype),
+                        LuminosityFunction(self.ministry, zbins=self.zbins, central_only=True, tag="CentralLF", jtype=self.jtype),
+                        LcenMass(self.ministry, zbins=self.zbins, jtype=self.jtype),
+                        ColorMagnitude(self.ministry, zbins=self.zbins, usebands=[0,1], tag="AllCMBinZ", jtype=self.jtype),
+                        ColorMagnitude(self.ministry, zbins=self.zbins,
                                         usebands=[0,1],
-                                        central_only=True, tag="CentralCMBinZ"),
-                        ColorColor(self.ministry, zbins=zbins, usebands=[0,1,2], tag="BinZ"),
-                        ColorColor(self.ministry, zbins=np.linspace(0.0, 0.2, 5), usebands=[0,1,2], tag="SDSSZ"),
+                                        central_only=True, tag="CentralCMBinZ", jtype=self.jtype),
+                        ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="BinZ", jtype=self.jtype),
+                        ColorColor(self.ministry, zbins=np.linspace(0.0, 0.2, 5), usebands=[0,1,2], tag="SDSSZ", jtype=self.jtype),
                         ColorColor(self.ministry, zbins=None,
-                         usebands=[0,1,2], tag="AllZ"),
-                        FQuenched(self.ministry, zbins=np.linspace(0,2.0,30)),
-                        FQuenchedLum(self.ministry, zbins=zbins),
-                        GalaxyRadialProfileBCC(self.ministry, zbins=zbins)]
+                         usebands=[0,1,2], tag="AllZ", jtype=self.jtype),
+                        FQuenched(self.ministry, zbins=np.linspace(0,2.0,30), jtype=self.jtype),
+                        FQuenchedLum(self.ministry, zbins=self.zbins, jtype=self.jtype),
+                        GalaxyRadialProfileBCC(self.ministry, zbins=self.zbins, jtype=self.jtype)]
 
-        self.nside = nside
-        if filters is None:
+        if self.filters is None:
             self.filters = ['Appmag']
-        else:
-            self.filters = filters
 
-        self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
-                          'azim_ang':'ra', 'polar_ang':'dec'}
+        if self.unitmap is None:
+            self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
+                            'azim_ang':'ra', 'polar_ang':'dec'}
 
-        if fieldmap is None:
+        if self.fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['gtruth'])]),
                              'appmag':OrderedDict([('MAG_G',['obs']), ('MAG_R',['obs']),
                                                    ('MAG_I',['obs']), ('MAG_Z',['obs']),
@@ -178,8 +222,7 @@ class BCCCatalog(GalaxyCatalog):
                              'redshift':OrderedDict([('Z',['gtruth'])])}
             self.sortbyz = True
         else:
-            self.fieldmap = fieldmap
-            if 'redshift' in fieldmap.keys():
+            if 'redshift' in self.fieldmap.keys():
                 self.sortbyz = True
             else:
                 self.sortbyz = False
@@ -228,31 +271,14 @@ class BCCCatalog(GalaxyCatalog):
 
         return pix
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-        mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
-
-        if self.maskfile!=None:
-            pix = self.pixelVal(mappable)
-            a = self.calculateArea([pix],self.nside)
-            self.area += a[0]
-
-        for m in self.metrics:
-            m.map(mapunit)
-
-
 class S82SpecCatalog(GalaxyCatalog):
     """
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, filters=None, nside=8):
-        GalaxyCatalog.__init__(self, ministry, filestruct,
-                               unitmap=unitmap, filters=filters)
-        self.ministry = ministry
+    def __init__(self, ministry, filestruct, **kwargs):
+        GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
+
         self.parseFileStruct(None)
         self.metrics = [LuminosityFunction(self.ministry)]
         self.fieldmap = {'luminosity':OrderedDict([('AMAG',['spec'])]),
@@ -266,32 +292,15 @@ class S82SpecCatalog(GalaxyCatalog):
         self.filestruct = {'spec':['/nfs/slac/g/ki/ki01/mbusha/data/sdss/dr6/cooper/combined_dr6_cooper.fit']}
         self.filetypes = self.filestruct.keys()
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable)
-        for m in self.metrics:
-            m.map(mapunit)
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
-
 class S82PhotCatalog(GalaxyCatalog):
     """
     SDSS DR6 stripe82 photometric galaxy catalog (for mag/count, color comparisons)
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None, unitmap=None,
-                 filters=None, nside=8):
-        GalaxyCatalog.__init__(self, ministry, filestruct, filters=filters,
-                               unitmap=unitmap)
-        self.ministry = ministry
+    def __init__(self, ministry, filestruct, **kwargs):
+
+        GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
+
         self.parseFileStruct(None)
         self.metrics = [MagCounts(self.ministry), ColorColor(self.ministry)]
         self.fieldmap = {'appmag':OrderedDict([('G',['phot']), ('R',['phot']),
@@ -306,45 +315,24 @@ class S82PhotCatalog(GalaxyCatalog):
         self.filetypes = self.filestruct.keys()
 
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable)
-        for m in self.metrics:
-            m.map(mapunit)
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
-
-
 class DESGoldCatalog(GalaxyCatalog):
     """
     DES Gold catalog in the style of Y1A1.
     """
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, filters=None, nside=8,
-                 maskfile=None, goodpix=1):
+    def __init__(self, ministry, filestruct, **kwargs):
 
-        GalaxyCatalog.__init__(self, ministry, filestruct,
-                               maskfile=maskfile,goodpix=goodpix,
-                               filters=filters, unitmap=unitmap)
+
+        GalaxyCatalog.__init__(self, ministry, filestruct, goodpix=1, **kwargs)
+
         self.necessaries = ['modest']
-        self.ministry = ministry
         self.parseFileStruct(filestruct)
-        self.nside = nside
         self.metrics = [Area(self.ministry),
                         MagCounts(self.ministry, tag='AllZ',
                                     zbins=None),
                         ColorColor(self.ministry, appmag=True,
                                     tag='AllZ', zbins=None)]
-        if fieldmap==None:
+        if self.fieldmap==None:
             self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']),
                                                    ('FLUX_AUTO_R',['auto']),
                                                    ('FLUX_AUTO_I',['auto']),
@@ -352,18 +340,12 @@ class DESGoldCatalog(GalaxyCatalog):
                              'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
                              'polar_ang':OrderedDict([('DEC',['basic'])]),
                              'azim_ang':OrderedDict([('RA',['basic'])])}
-        else:
-            self.fieldmap = fieldmap
 
-        if unitmap is None:
+        if self.unitmap is None:
             self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra'}
-        else:
-            self.unitmap = unitmap
 
-        if filters is None:
+        if self.filters is None:
             self.filters = ['Modest', 'Appmag']
-        else:
-            self.filters = filters
 
     def parseFileStruct(self, filestruct):
 
@@ -400,23 +382,6 @@ class DESGoldCatalog(GalaxyCatalog):
         return pix
 
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable)
-        mapunit = self.unitConversion(mapunit)
-        mapunit = self.filterModest(mapunit)
-
-        if self.maskfile!=None:
-            pix = self.pixelVal(mappable)
-            a = self.calculateArea([pix],self.nside)
-            self.area += a[0]
-
-        for m in self.metrics:
-            m.map(mapunit)
-
     def unitConversion(self, mapunit):
 
         for mapkey in mapunit.keys():
@@ -428,10 +393,3 @@ class DESGoldCatalog(GalaxyCatalog):
     def filterModest(self, mapunit):
 
         return mapunit['modest']==1
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
