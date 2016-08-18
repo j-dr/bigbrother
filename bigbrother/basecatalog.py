@@ -26,7 +26,10 @@ class BaseCatalog:
         self.filestruct = filestruct
         self.fieldmap = fieldmap
         self.unitmap  = unitmap
-        self.filters = filters
+        if filters is not None:
+            self.filters = filters
+        else:
+            self.filters = []
         self.parseFileStruct(filestruct)
         self.maskfile = maskfile
         self.mask = None

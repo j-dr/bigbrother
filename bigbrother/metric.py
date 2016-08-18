@@ -50,16 +50,14 @@ class Metric(object):
 
     def jackknife(self, arg, reduce_jk=True):
 
-        jdata = []
+        jdata = np.zeros(arg.shape)
 
-        for i in range(self.njack):
+        for i in range(self.njacktot):
             #generalized so can be used if only one region
-            if self.njack==1:
+            if self.njacktot==1:
                 idx = [0]
             else:
-                idx = [j for j in range(self.njack) if i!=j]
-
-            jdata = np.zeros(arg.shape)
+                idx = [j for j in range(self.njacktot) if i!=j]
 
             #jackknife indices should always be last
             jl = len(arg.shape)
@@ -68,8 +66,8 @@ class Metric(object):
             jdata[jdidx] = np.sum(arg[jidx], axis=0)
 
         if reduce_jk:
-            jest = np.sum(jdata, axis=0) / self.njack
-            jvar = np.sum((jdata - jest)**2, axis=0) * (self.njack - 1) / self.njack
+            jest = np.sum(jdata, axis=0) / self.njacktot
+            jvar = np.sum((jdata - jest)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
             return jdata, jest, jvar
 
@@ -79,6 +77,7 @@ class Metric(object):
     def setNJack(self):
         if self.jtype is None:
             self.njack = 1
+            self.njacktot = 1
         else:
             self.njack = self.ministry.njack
             self.njacktot = self.ministry.njacktot

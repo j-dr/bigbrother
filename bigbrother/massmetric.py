@@ -132,18 +132,31 @@ class MassFunction(MassMetric):
                     self.masscounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj
+                
+                area = self.ministry.halocatalog.getArea()
+                self.jmass_function = np.zeros(self.masscounts.shape)
 
-        area = self.ministry.halocatalog.getArea()
-        self.jmass_function = np.zeros(self.masscounts.shape)
+                for i in range(self.nzbins):
+                    vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+                    self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
 
-        for i in range(self.nzbins):
-            vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
-            self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
+                self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
 
-        self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
+                self.y = self.mass_function
+                self.ye = np.sqrt(self.varmass_function)
+        else:
+            area = self.ministry.halocatalog.getArea()
+            self.jmass_function = np.zeros(self.masscounts.shape)
 
-        self.y = self.mass_function
-        self.ye = np.sqrt(self.varmass_function)
+            for i in range(self.nzbins):
+                vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+                self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
+
+                self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
+                
+            self.y = self.mass_function
+            self.ye = np.sqrt(self.varmass_function)
+            
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
@@ -401,6 +414,7 @@ class OccMass(MassMetric):
         self.aschema = 'haloonly'
         self.unitmap = {'halomass':'msunh'}
 
+    @jackknifeMap
     def map(self, mapunit):
 
         if len(mapunit['halomass'].shape)>1:
@@ -412,9 +426,9 @@ class OccMass(MassMetric):
         self.nbands = self.ndefs
 
         if not hasattr(self, 'occmass'):
-            self.occ   = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
-            self.occsq = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
-            self.count = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
+            self.occ   = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
+            self.occsq = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
+            self.count = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
@@ -424,17 +438,53 @@ class OccMass(MassMetric):
 
                 for k, m in enumerate(self.massbins[:-1]):
                     o  = mapunit['occ'][zlidx:zhidx][mb==k]
-                    self.occ[k,j,i]   += np.sum(o)
-                    self.occsq[k,j,i] += np.sum(o**2)
-                    self.count[k,j,i] += np.sum(mb==k)
+                    self.occ[self.jcount,k,j,i]   += np.sum(o)
+                    self.occsq[self.jcount,k,j,i] += np.sum(o**2)
+                    self.count[self.jcount,k,j,i] += np.sum(mb==k)
 
     def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            gocc = comm.gather(self.occ, root=0)
+            goccsq = comm.gather(self.occsq, root=0)
+            gcount = comm.gather(self.count, root=0)
 
-        self.occmass = self.occ/self.count
-        self.occvar  = (self.count*self.occsq - self.occ**2)/(self.count*(self.count-1))
+            if rank==0:
+                jc = 0
+                oshape = [self.occ.shape[i] for i in range(len(self.occ.shape))]
+                osshape = [self.occsq.shape[i] for i in range(len(self.occsq.shape))]
+                cshape = [self.count.shape[i] for i in range(len(self.count.shape))]
 
-        self.y = self.occmass
-        self.ye = np.sqrt(self.occvar)
+                oshape[0] = self.njacktot
+                osshape[0] = self.njacktot
+                cshape[0] = self.njacktot
+
+                self.occ = np.zeros(oshape)
+                self.occsq = np.zeros(osshape)
+                self.cshape = np.zeros(cshape)
+
+                for i, g in enumerate(gocc):
+                    nj = g.shape[0]
+                    self.occ[jc:jc+nj,:,:,:] = g
+                    self.occsq[jc:jc+nj,:,:,:] = goccsq[i]
+                    self.count[jc:jc+nj,:,:,:] = gcount[i]
+
+                    jc += nj
+
+
+                self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
+
+                self.y = self.occmass
+                self.ye = np.sqrt(self.varoccmass)
+
+        else:
+            self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
+            
+            if self.njacktot < 2:
+
+                _, self.varoccmass, _ = self.jackknife((self.count*self.occsq - self.occ**2)/(self.count*(self.count-1)))
+                
+            self.y = self.occmass
+            self.ye = np.sqrt(self.varoccmass)
 
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
@@ -547,7 +597,7 @@ class TinkerMassFunction(MassMetric):
 
 class Richness(MassMetric):
     def __init__(self, ministry, zbins=None, massbins=None,
-                  lightcone=False,
+                  lightcone=True,
                   catalog_type=['galaxycatalog'], tag=None,
                   colorbins=None, maxrhalo=None, minlum=None,
                   redsplit=None, splitinfo=False, **kwargs):
@@ -710,24 +760,41 @@ class Richness(MassMetric):
 
                     jc += nj
 
-        self.jgalaxy_counts = self.jackknife(self.galaxy_counts, reduce_jk=False)
-        self.jhalo_counts = self.jackknife(self.halo_counts,
-                                            reduce_jk=False)
-        self.jgalaxy_counts_squared = self.jackknife(self.galaxy_counts_squared, reduce_jk=False)
+                self.jgalaxy_counts = self.jackknife(self.galaxy_counts, reduce_jk=False)
+                self.jhalo_counts = self.jackknife(self.halo_counts, reduce_jk=False)
+                self.jgalaxy_counts_squared = self.jackknife(self.galaxy_counts_squared,reduce_jk=False)
 
-        jmass_richness = self.jgalaxy_counts/self.jhalo_counts
-        self.mass_richness = np.sum(self.jgalaxy_counts / self.jhalo_counts, axis=0)
-        self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njack - 1 ) / self.njack
-        self.galaxy_counts_squared = np.sum( self.jgalaxy_counts_squared, axis=0)
-        self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njack
+                jmass_richness = self.jgalaxy_counts/self.jhalo_counts
+                self.mass_richness = np.sum(jmass_richness, axis=0) / self.njacktot
+                self.varmass_richness = np.sum((jmass_richness - self.mass_richness) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
+                self.galaxy_counts_squared = np.sum(self.jgalaxy_counts_squared, axis=0) / self.njacktot
+                self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njacktot
 
-        self.y           = self.mass_richness
-        if self.njack==1:
-            self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
+                self.y           = self.mass_richness
+
+                if self.njaccktot==1:
+                    self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
+                else:
+                    self.ye          = np.sqrt(self.varmass_richness)
         else:
-            self.ye          = np.sqrt(self.varmass_richness)
 
-        print(np.shape(self.y))
+            self.jgalaxy_counts = self.jackknife(self.galaxy_counts, reduce_jk=False)
+            self.jhalo_counts = self.jackknife(self.halo_counts, reduce_jk=False)
+            self.jgalaxy_counts_squared = self.jackknife(self.galaxy_counts_squared, reduce_jk=False)
+
+            jmass_richness = self.jgalaxy_counts/self.jhalo_counts
+
+            self.mass_richness = np.sum(jmass_richness, axis=0) / self.njacktot
+            self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
+            self.galaxy_counts_squared = np.sum( self.jgalaxy_counts_squared, axis=0) / self.njacktot
+            self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njacktot
+            
+            self.y           = self.mass_richness
+            if self.njack==1:
+                self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
+            else:
+                self.ye          = np.sqrt(self.varmass_richness)
+
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,

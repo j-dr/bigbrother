@@ -5,7 +5,7 @@ mpl.use('Agg')
 import matplotlib.pylab as plt
 import numpy as np
 
-from metric import Metric
+from metric import Metric, jackknifeMap
 
 
 class DNDz(Metric):
@@ -40,9 +40,11 @@ class DNDz(Metric):
         normed - boolean
           Whether the metric integrates to N/deg^2 or not. Usually want True.
         """
+        print(magbins)
 
         Metric.__init__(self, ministry, tag=tag, **kwargs)
 
+        print(magbins)
         self.catalog_type = catalog_type
 
         if zbins is None:
@@ -68,6 +70,7 @@ class DNDz(Metric):
         self.lower_limit = lower_limit
 
         if magbins is None:
+            print("no mag bins")
             self.magbins = None
             self.nmagbins = 0
             self.nomags = True
@@ -90,13 +93,15 @@ class DNDz(Metric):
             self.mapkeys = ['redshift']
             self.unitmap = {}
 
+    @jackknifeMap
     def map(self, mapunit):
         """
         Map function for dn/dz. Extracts relevant information from a mapunit. Usually only called by a Ministry object, not manually.
         """
         if self.nmagbins>0:
-            if not hasattr(self, 'dndz'):
-                self.dndz = np.zeros((self.nzbins, self.nmagbins))
+            if not hasattr(self, 'zcounts'):
+                self.zcounts = np.zeros((self.njack, self.nzbins,
+                                          self.nmagbins))
 
             for i in range(self.nmagbins):
                 if self.lower_limit:
@@ -114,26 +119,56 @@ class DNDz(Metric):
 
                 c, e = np.histogram(mapunit['redshift'][idx],
                                       bins=self.zbins)
-                self.dndz[:,i] += c
+                self.zcounts[self.jcount,:,i] += c
         else:
-            if not hasattr(self, 'dndz'):
-                self.dndz = np.zeros((self.nzbins,1))
+            if not hasattr(self, 'zcounts'):
+                self.zcounts = np.zeros((self.njack,self.nzbins,1))
 
             c, e = np.histogram(mapunit['redshift'],
                                   bins=self.zbins)
-            self.dndz[:,0] += c
+            self.zcounts[self.jcount,:,0] += c
 
 
     def reduce(self, rank=None, comm=None):
         """
         Converts extracted redshift information into a (normalized) dn/dz output and stores it as an attribute of the metric.
         """
-        area = self.ministry.galaxycatalog.getArea()
-        if self.normed:
-            dz = self.zbins[1:]-self.zbins[:-1]
-            self.dndz = self.dndz/area/dz
+        if rank is not None:
+            gzcounts = comm.gather(self.zcounts, root=0)
+
+            gshape = [self.zcounts.shape[i] for i in range(len(self.zcounts.shape))]
+            gshape[0] = self.njacktot
+
+            if rank==0:
+                self.zcounts = np.zeros(gshape)
+                jc = 0
+
+                for g in gzcounts:
+                    nj = g.shape[0]
+                    self.zcounts[jc:jc+nj,:,:] = g
+
+                    jc += nj
+
+                area = self.ministry.galaxycatalog.getArea()
+
+                if self.normed:
+                    dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
+                    self.jdndz = self.zcounts/area/dz
+                else:
+                    self.jdndz = self.zcounts/area
+
+                self.jdndz, self.dndz, self.vardndz = self.jackknife(self.jdndz)
         else:
-            self.dndz = self.dndz/area
+            area = self.ministry.galaxycatalog.getArea()
+
+            if self.normed:
+                dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
+                self.jdndz = self.zcounts/area/dz
+            else:
+                self.jdndz = self.zcounts/area
+
+            self.jdndz, self.dndz, self.vardndz = self.jackknife(self.jdndz)
+
 
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
@@ -258,6 +293,100 @@ class DNDz(Metric):
                                     f=f, ax=ax, **kwargs)
             lines.extend(l1)
 
+        if (labels is not None) & (len(labels)==len(lines)):
+            f.legend(lines, labels, 'best')
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+class PeakDNDz(DNDz):
+
+    def __init__(self, ministry, **kwargs):
+
+        if 'zbins' not in kwargs.keys():
+            kwargs['zbins'] = np.linspace(ministry.minz, ministry.maxz, 60)
+
+
+        if 'magbins' not in kwargs.keys():
+            kwargs['magbins'] = np.linspace(19.5, 22, 30)
+
+        DNDz.__init__(self, ministry, **kwargs)
+
+
+    def reduce(self, rank=None, comm=None):
+
+        DNDz.reduce(self, rank=rank, comm=comm)
+
+        if (rank is not None) & (rank==0):
+
+            self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+            
+            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
+            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+        else:
+            self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+
+            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
+            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+
+
+
+    def visualize(self, xlabel=None, ylabel=None, compare=False,
+                    ax=None, f=None, plotname=None, **kwargs):
+
+        if f is None:
+            f, ax = plt.subplots(1, figsize=(15,15))
+            ax = np.atleast_1d(ax)
+            newaxes = True
+        else:
+            newaxes = False
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            if ylabel is None:
+                sax.set_ylabel(r'$Peak of \frac{dN}{dZ}\, [deg^{-2}]$')
+            else:
+                sax.set_xlabel(xlabel)
+
+            if xlabel is None:
+                sax.set_xlabel(r'$mag$')
+            else:
+                sax.set_ylabel(xlabel)
+
+            l1 = ax[0].errorbar(self.magbins, self.zpeak, yerr=np.sqrt(self.varzpeak), **kwargs)
+
+        #plt.tight_layout()
+
+        if (plotname is not None) and (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1
+
+
+    def compare(self, othermetrics, labels=None, plotname=None):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax, l1 = m.visualize(compare=True,
+                                         **kwargs)
+            else:
+                f, ax, l1 = m.visualize(compare=True,
+                                          f=f, ax=ax, **kwargs)
+            lines.extend(l1)
+
         if labels[0]!=None:
             f.legend(lines, labels, 'best')
 
@@ -265,6 +394,7 @@ class DNDz(Metric):
             plt.savefig(plotname)
 
         return f, ax
+
 
 
 class TabulatedDNDz(DNDz):

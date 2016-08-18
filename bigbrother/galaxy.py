@@ -8,6 +8,7 @@ import fitsio
 import time
 
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum
+from .massmetric      import Richness
 from .healpix_utils   import Area
 from .corrmetric      import GalaxyRadialProfileBCC
 from .basecatalog     import BaseCatalog
@@ -115,7 +116,7 @@ class GalaxyCatalog(BaseCatalog):
                   for m in self.ministry.metrics])
         am = any(arm)
         if am:
-            idx, = np.where(arm==True)
+            idx, = np.where(arm==True)[0]
 
         if (self.mask is None) & (not am):
             return self.ministry.area
@@ -205,7 +206,8 @@ class BCCCatalog(GalaxyCatalog):
                          usebands=[0,1,2], tag="AllZ", jtype=self.jtype),
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30), jtype=self.jtype),
                         FQuenchedLum(self.ministry, zbins=self.zbins, jtype=self.jtype),
-                        GalaxyRadialProfileBCC(self.ministry, zbins=self.zbins, jtype=self.jtype)]
+                        GalaxyRadialProfileBCC(self.ministry, zbins=self.zbins, jtype=self.jtype),
+                        Richness(self.ministry, zbins=self.zbins, jtype=self.jtype)]
 
         if self.filters is None:
             self.filters = ['Appmag']
