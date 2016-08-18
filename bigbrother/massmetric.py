@@ -715,7 +715,7 @@ class Richness(MassMetric):
 
         jmass_richness = self.jgalaxy_counts/self.jhalo_counts
         self.mass_richness = np.sum(self.jgalaxy_counts / self.jhalo_counts, axis=0)
-        self.varmass_richness = np.sum((jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njack - 1 ) / self.njack
+        self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njack - 1 ) / self.njack
         self.galaxy_counts_squared = np.sum( self.jgalaxy_counts_squared, axis=0)
         self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njack
 

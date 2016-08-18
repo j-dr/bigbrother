@@ -119,7 +119,7 @@ class DNDz(Metric):
                 self.zcounts[self.jcount,:,i] += c
         else:
             if not hasattr(self, 'dndz'):
-                self.zcounts = np.zeros((self.nzbins,1))
+                self.zcounts = np.zeros((self.njack,self.nzbins,1))
 
             c, e = np.histogram(mapunit['redshift'],
                                   bins=self.zbins)
@@ -291,14 +291,13 @@ class PeakDNDz(DNDz):
     def __init(self, ministry, **kwargs):
 
         if 'zbins' not in kwargs.keys():
-            zbins = np.linspace(ministry.minz, ministry.maxz, 60)
+            kwargs['zbins'] = np.linspace(ministry.minz, ministry.maxz, 60)
+
 
         if 'magbins' not in kwargs.keys():
-            magbins = np.linspace(19.5, 22, 30)
+            kwargs['magbins'] = np.linspace(19.5, 22, 30)
 
-
-        DNDz.__init__(self, ministry, magbins=magbins, zbins=zbins,
-                        **kwargs)
+        DNDz.__init__(self, ministry, **kwargs)
 
 
     def reduce(self, rank=None, comm=None):
