@@ -70,6 +70,7 @@ class MassFunction(MassMetric):
 
         self.unitmap = {'halomass':'msunh'}
 
+    @jackknifeMap
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
@@ -599,9 +600,6 @@ class Richness(MassMetric):
 
         self.nbands = 1
 
-
-
-
     def splitBimodal(self, x, y, largepoly=30):
         p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
 
@@ -627,7 +625,8 @@ class Richness(MassMetric):
             print('Peaks: ' + str(peakvals) + ' at color ' + str(peaks))
 
         return midpoint
-
+    
+    @jackknifeMap
     def map(self, mapunit):
 	
         #print('min z: ' + str(min(mapunit['redshift'])))
@@ -718,7 +717,7 @@ class Richness(MassMetric):
 
         jmass_richness = self.jgalaxy_counts/self.jhalo_counts
         self.mass_richness = np.sum(self.jgalaxy_counts / self.jhalo_counts, axis=0)
-        self.varmass_richness = np.sum((jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njack - 1 ) / self.njack
+        self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njack - 1 ) / self.njack
         self.galaxy_counts_squared = np.sum( self.jgalaxy_counts_squared, axis=0)
         self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njack
 
