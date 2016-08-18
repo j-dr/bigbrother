@@ -58,7 +58,6 @@ class BaseCatalog:
             self.goodpix = goodpix
 
         self.necessaries = []
-        self.filters = []
 
         if reader in BaseCatalog._valid_reader_types:
             self.reader = reader

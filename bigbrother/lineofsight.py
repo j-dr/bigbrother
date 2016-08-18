@@ -124,7 +124,7 @@ class DNDz(Metric):
             self.dndz[:,0] += c
 
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Converts extracted redshift information into a (normalized) dn/dz output and stores it as an attribute of the metric.
         """

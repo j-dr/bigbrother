@@ -272,7 +272,7 @@ class MagCounts(MagnitudeMetric):
         if not self.cumulative:
             self.jmagcounts = self.magcounts/area
         else:
-            self.jmagcounts = np.cumsum(self.magcounts, axis=0)/area
+            self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
 
         self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
 
@@ -370,7 +370,7 @@ class LcenMass(Metric):
                 for i, g in enumerate(gtotlum):
                     nj = g.shape[0]
                     self.totlum[jc:jc+nj,:,:,:] = g
-                    self.bincount[jc:jc+nj,:,:,:] = gbincount
+                    self.bincount[jc:jc+nj,:,:,:] = gbincount[i]
 
                     jc += nj
 
@@ -1166,7 +1166,6 @@ class FQuenchedLum(Metric):
         if rank is not None:
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
-
 
             qcshape = [self.qscounts.shape for i in range(len(self.qscounts.shape))]
             tcshape = [self.tcounts.shape for i in range(len(self.tcounts.shape))]

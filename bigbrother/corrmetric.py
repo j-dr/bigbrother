@@ -805,7 +805,7 @@ class GalaxyRadialProfileBCC(Metric):
             gdata = comm.gather(self.rcounts, root=0)
 
             if rank==0:
-                dshape = self.cc.shape
+                dshape = self.rcounts.shape
                 dshape = [dshape[i] for i in range(len(dshape))]
                 dshape[0] = self.njacktot
                 self.rcounts = np.zeros(dshape)
