@@ -157,17 +157,27 @@ class LuminosityFunction(MagnitudeMetric):
 
                     jc += nj
 
-        self.jluminosity_function = self.lumcounts
-        area = self.ministry.galaxycatalog.getArea()
-        for i in range(self.nzbins):
-            vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
-            self.jluminosity_function[:,:,:,i] /= vol
+                self.jluminosity_function = self.lumcounts
+                area = self.ministry.galaxycatalog.getArea()
+                for i in range(self.nzbins):
+                    vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+                    self.jluminosity_function[:,:,:,i] /= vol
 
-        self.jluminosity_function, self.luminosity_function, self.varluminosity_function  = self.jackknife(self.jluminosity_function)
+                self.jluminosity_function, self.luminosity_function, self.varluminosity_function  = self.jackknife(self.jluminosity_function)
+                self.y = self.luminosity_function
+                self.ye = np.sqrt(self.varluminosity_function)
 
-        self.y = self.luminosity_function
-        self.ye = np.sqrt(self.varluminosity_function)
 
+        else:
+            self.jluminosity_function = self.lumcounts
+            area = self.ministry.galaxycatalog.getArea()
+            for i in range(self.nzbins):
+                vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+                self.jluminosity_function[:,:,:,i] /= vol
+
+            self.jluminosity_function, self.luminosity_function, self.varluminosity_function  = self.jackknife(self.jluminosity_function)
+            self.y = self.luminosity_function
+            self.ye = np.sqrt(self.varluminosity_function)
 
     def integrate(self, lmin, lmax, z, band=1):
         """
@@ -266,18 +276,30 @@ class MagCounts(MagnitudeMetric):
                     self.magcounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj
+                
+                area = self.ministry.galaxycatalog.getArea()
 
-        area = self.ministry.galaxycatalog.getArea()
+                if not self.cumulative:
+                    self.jmagcounts = self.magcounts/area
+                else:
+                    self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
+                    
+                self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
 
-        if not self.cumulative:
-            self.jmagcounts = self.magcounts/area
+                self.y = self.magcounts
+                self.ye = np.sqrt(np.sqrt(self.varmagcounts))
         else:
-            self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
+            area = self.ministry.galaxycatalog.getArea()
 
-        self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
+            if not self.cumulative:
+                self.jmagcounts = self.magcounts/area
+            else:
+                self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
+                
+            self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
 
-        self.y = self.magcounts
-        self.ye = np.sqrt(np.sqrt(self.varmagcounts))
+            self.y = self.magcounts
+            self.ye = np.sqrt(np.sqrt(self.varmagcounts))
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
@@ -374,7 +396,9 @@ class LcenMass(Metric):
 
                     jc += nj
 
-        self.jblcen_mass, self.lcen_mass, self.varlcen_mass = self.jackknife(self.totlum/self.bincount)
+                self.jblcen_mass, self.lcen_mass, self.varlcen_mass = self.jackknife(self.totlum/self.bincount)
+        else:
+            self.jblcen_mass, self.lcen_mass, self.varlcen_mass = self.jackknife(self.totlum/self.bincount)
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
                   usebands=None, **kwargs):
@@ -551,10 +575,15 @@ class ColorColor(Metric):
                     self.cc[jc:jc+nj,:,:,:] = g
 
                     jc += nj
+                
+                area = self.ministry.galaxycatalog.getArea()
+                self.jcolor_color = self.cc/area
+                self.jcolor_color, self.color_color, self.varcolor_color = self.jackknife(self.jcolor_color)
+        else:
+            area = self.ministry.galaxycatalog.getArea()
+            self.jcolor_color = self.cc/area
+            self.jcolor_color, self.color_color, self.varcolor_color = self.jackknife(self.jcolor_color)
 
-        area = self.ministry.galaxycatalog.getArea()
-        self.jcolor_color = self.cc/area
-        self.jcolor_color, self.color_color, self.varcolor_color = self.jackknife(self.jcolor_color)
 
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
@@ -723,7 +752,7 @@ class ColorMagnitude(Metric):
         if not hasattr(self, 'cc'):
             self.cc = np.zeros((self.njack, len(self.magbins)-1,
                                 len(self.cbins)-1,
-                                self.nbands*(self.nbands-1)/2,
+                                int(self.nbands*(self.nbands-1)/2),
                                 self.nzbins))
 
         if self.zbins is not None:
@@ -733,7 +762,7 @@ class ColorMagnitude(Metric):
                 for j, b1 in enumerate(self.usebands):
                     for k, b2 in enumerate(self.usebands):
                         if k<=j: continue
-                        ind = k*(k-1)/2+j-1
+                        ind = int(k*(k-1)//2+j-1)
                         c, e0, e1 = np.histogram2d(mu[self.mkey][zlidx:zhidx,b1],
                                                    mu[self.mkey][zlidx:zhidx,b1] -
                                                    mu[self.mkey][zlidx:zhidx,b2],
@@ -743,7 +772,7 @@ class ColorMagnitude(Metric):
             for j, b1 in enumerate(self.usebands):
                 for k, b2 in enumerate(self.usebands):
                     if k<=j: continue
-                    ind = int(k*(k-1)/2+j-1)
+                    ind = int(k*(k-1)//2+j-1)
                     c, e0, e1 = np.histogram2d(mu[self.mkey][:,b1],
                                                mu[self.mkey][:,b1] -
                                                mu[self.mkey][:,b2],
@@ -766,11 +795,17 @@ class ColorMagnitude(Metric):
                     self.cc[jc:jc+nj,:,:,:,:] = g
 
                     jc += nj
+            
+                area = self.ministry.galaxycatalog.getArea()
+                self.jcolor_mag = self.cc/area
+                self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
 
-        area = self.ministry.galaxycatalog.getArea()
-        self.jcolor_mag = self.cc/area
-        self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
-
+        else:
+            area = self.ministry.galaxycatalog.getArea()
+            self.jcolor_mag = self.cc/area
+            self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
+                
+                
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None,
                   compare=False, **kwargs):
 
@@ -912,8 +947,8 @@ class FQuenched(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
-            qcshape = [self.qscounts.shape for i in range(len(self.qscounts.shape))]
-            tcshape = [self.tcounts.shape for i in range(len(self.tcounts.shape))]
+            qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
+            tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
 
             qcshape[0] = self.njacktot
             tcshape[0] = self.njacktot
@@ -929,7 +964,9 @@ class FQuenched(Metric):
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
 
-        self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+                self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+        else:
+            self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
     def visualize(self, f=None, ax=None, compare=False, plotname=None,
                   **kwargs):
@@ -1033,8 +1070,8 @@ class FRed(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
-            qcshape = [self.qscounts.shape for i in range(len(self.qscounts.shape))]
-            tcshape = [self.tcounts.shape for i in range(len(self.tcounts.shape))]
+            qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
+            tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
 
             qcshape[0] = self.njacktot
             tcshape[0] = self.njacktot
@@ -1049,8 +1086,11 @@ class FRed(Metric):
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
+                    
+                self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+        else:
+            self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
-        self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
 
@@ -1167,8 +1207,8 @@ class FQuenchedLum(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
-            qcshape = [self.qscounts.shape for i in range(len(self.qscounts.shape))]
-            tcshape = [self.tcounts.shape for i in range(len(self.tcounts.shape))]
+            qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
+            tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
 
             qcshape[0] = self.njacktot
             tcshape[0] = self.njacktot
@@ -1183,8 +1223,11 @@ class FQuenchedLum(Metric):
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
+                
+                self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+        else:
+            self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
-        self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
 
     def visualize(self, f=None, ax=None, plotname=None,
                   compare=False, **kwargs):

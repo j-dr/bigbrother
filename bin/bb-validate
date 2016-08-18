@@ -41,8 +41,18 @@ if __name__=="__main__":
 
     pnames = {}
 
+    noplot = False
+    if 'parallel' in cfg['Validate'].keys():
+        from mpi4py import MPI
+        
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        
+        if rank!=0:
+            noplot = True
+        
     for m in mstry.metrics:
-        if m.novis: continue
+        if m.novis or noplot: continue
 
         plt.clf()
         if m.__class__.__name__ in pnames.keys():

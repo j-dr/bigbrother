@@ -424,22 +424,38 @@ class WPrpLightcone(CorrelationFunction):
                     self.rr[jc:jc+nj,:,:,:] = grr[i]
 
                     jc += nj
+                    
+                self.jwprp = np.zeros(self.dd.shape)
 
-        self.jwprp = np.zeros(self.dd.shape)
+                self.jnd = self.jackknife(self.nd, reduce_jk=False)
+                self.jnr = self.jackknife(self.nr, reduce_jk=False)
+                self.jDD = self.jackknife(self.dd  / ( self.jnd * ( self.jnd - 1) / 2),
+                                          reduce_jk=False)
+                self.jDR = self.jackknife(self.dr / (self.jnd * self.jnr),
+                                          reduce_jk=False)
+                self.jRR = self.jackknife(self.rr / ( self.jnr * ( self.jnr - 1) / 2),
+                                          reduce_jk=False)
 
-        self.jnd = self.jackknife(self.nd, reduce_jk=False)
-        self.jnr = self.jackknife(self.nr, reduce_jk=False)
-        self.jDD = self.jackknife(self.dd  / ( self.jnd * ( self.jnd - 1) / 2),
-                                    reduce_jk=False)
-        self.jDR = self.jackknife(self.dr / (self.jnd * self.jnr),
-                                    reduce_jk=False)
-        self.jRR = self.jackknife(self.rr / ( self.jnr * ( self.jnr - 1) / 2),
-                                    reduce_jk=False)
+                self.jwprp = (self.jDD - 2 * self.jDR + self.jRR) / self.jRR
 
-        self.jwprp = (self.jDD - 2 * self.jDR + self.jRR) / self.jRR
+                self.wprp = np.sum(self.jwprp, axis=0)/self.njacktot
+                self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+        else:
+            self.jwprp = np.zeros(self.dd.shape)
 
-        self.wprp = np.sum(self.jwprp, axis=0)/self.njacktot
-        self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+            self.jnd = self.jackknife(self.nd, reduce_jk=False)
+            self.jnr = self.jackknife(self.nr, reduce_jk=False)
+            self.jDD = self.jackknife(self.dd  / ( self.jnd * ( self.jnd - 1) / 2),
+                                      reduce_jk=False)
+            self.jDR = self.jackknife(self.dr / (self.jnd * self.jnr),
+                                      reduce_jk=False)
+            self.jRR = self.jackknife(self.rr / ( self.jnr * ( self.jnr - 1) / 2),
+                                      reduce_jk=False)
+            
+            self.jwprp = (self.jDD - 2 * self.jDR + self.jRR) / self.jRR
+
+            self.wprp = np.sum(self.jwprp, axis=0)/self.njacktot
+            self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
@@ -819,16 +835,28 @@ class GalaxyRadialProfileBCC(Metric):
 
                     jc += nj
 
-        self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
-        vol = 4*np.pi*(self.rmean**3)/3
+                self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
+                vol = 4*np.pi*(self.rmean**3)/3
 
-        self.jrprof = np.zeros(self.rcounts.shape)
+                self.jrprof = np.zeros(self.rcounts.shape)
 
-        for i in range(self.nzbins):
-            for j in range(self.nlumbins):
-                self.jrprof[:,:,j,i] /= self.rcounts[:,:,j,i] / vol
+                for i in range(self.nzbins):
+                    for j in range(self.nlumbins):
+                        self.jrprof[:,:,j,i] /= self.rcounts[:,:,j,i] / vol
 
-        self.jrprof, self.rprof, self.varrprof = self.jackknife(self.jrprof)
+                self.jrprof, self.rprof, self.varrprof = self.jackknife(self.jrprof)
+
+        else:
+            self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
+            vol = 4*np.pi*(self.rmean**3)/3
+
+            self.jrprof = np.zeros(self.rcounts.shape)
+
+            for i in range(self.nzbins):
+                for j in range(self.nlumbins):
+                    self.jrprof[:,:,j,i] /= self.rcounts[:,:,j,i] / vol
+
+            self.jrprof, self.rprof, self.varrprof = self.jackknife(self.jrprof)
 
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):

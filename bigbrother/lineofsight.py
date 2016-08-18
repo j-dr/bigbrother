@@ -149,15 +149,26 @@ class DNDz(Metric):
 
                     jc += nj
 
-        area = self.ministry.galaxycatalog.getArea()
+                area = self.ministry.galaxycatalog.getArea()
 
-        if self.normed:
-            dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
-            self.jdndz = self.zcounts/area/dz
+                if self.normed:
+                    dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
+                    self.jdndz = self.zcounts/area/dz
+                else:
+                    self.jdndz = self.zcounts/area
+
+                self.jdndz, self.dndz, self.vardndz = self.jackknife(self.jdndz)
         else:
-            self.jdndz = self.zcounts/area
+            area = self.ministry.galaxycatalog.getArea()
 
-        self.jdndz, self.dndz, self.vardndz = self.jackknife(self.jdndz)
+            if self.normed:
+                dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
+                self.jdndz = self.zcounts/area/dz
+            else:
+                self.jdndz = self.zcounts/area
+
+            self.jdndz, self.dndz, self.vardndz = self.jackknife(self.jdndz)
+
 
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
@@ -308,10 +319,18 @@ class PeakDNDz(DNDz):
 
         DNDz.reduce(self, rank=rank, comm=comm)
 
-        self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+        if (rank is not None) & (rank==0):
 
-        self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
-        self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+            self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+            
+            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
+            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+        else:
+            self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+
+            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
+            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+
 
 
     def visualize(self, xlabel=None, ylabel=None, compare=False,

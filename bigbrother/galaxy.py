@@ -115,7 +115,7 @@ class GalaxyCatalog(BaseCatalog):
                   for m in self.ministry.metrics])
         am = any(arm)
         if am:
-            idx, = np.where(arm==True)
+            idx, = np.where(arm==True)[0]
 
         if (self.mask is None) & (not am):
             return self.ministry.area
