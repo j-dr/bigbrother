@@ -302,13 +302,19 @@ class WPrpLightcone(CorrelationFunction):
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
+        self.nd = None
+        self.nr = None
+        self.dd = None
+        self.dr = None
+        self.rr = None
+
     @jackknifeMap
     def map(self, mapunit):
 
         if not hascorrfunc:
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
-        if not hasattr(self, 'wthetaj'):
+        if self.dd is None:
             self.dd = np.zeros((self.njack,self.nrbins, self.nlumbins, self.nzbins))
             self.dr = np.zeros((self.njack,self.nrbins, self.nlumbins, self.nzbins))
             self.rr = np.zeros((self.njack,self.nrbins, self.nlumbins, self.nzbins))
@@ -401,6 +407,9 @@ class WPrpLightcone(CorrelationFunction):
             drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
             rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
 
+            ndshape.insert(1,1)
+            nrshape.insert(1,1)
+
             ndshape[0] = self.njacktot
             nrshape[0] = self.njacktot
             ddshape[0] = self.njacktot
@@ -416,9 +425,10 @@ class WPrpLightcone(CorrelationFunction):
 
                 jc = 0
                 for i, g in enumerate(gnd):
+                    if g is None: continue
                     nj = g.shape[0]
-                    self.nd[jc:jc+nj,:,:] = g
-                    self.nr[jc:jc+nj,:,:] = gnr[i]
+                    self.nd[jc:jc+nj,0,:,:] = g
+                    self.nr[jc:jc+nj,0,:,:] = gnr[i]
                     self.dd[jc:jc+nj,:,:,:] = gdd[i]
                     self.dr[jc:jc+nj,:,:,:] = gdr[i]
                     self.rr[jc:jc+nj,:,:,:] = grr[i]
@@ -480,7 +490,10 @@ class WPrpLightcone(CorrelationFunction):
 
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
-                l1 = ax[j][i].loglog(rmean, self.wprp[:,i,j])
+                l1 = ax[j][i].errorbar(rmean, self.wprp[:,i,j], yerr=np.sqrt(self.varwprp[:,i,j]))
+                ax[j][i].set_xscale('log')
+                ax[j][i].set_yscale('log')
+                
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -649,8 +662,6 @@ class WPrpSnapshot(CorrelationFunction):
         rmeans = self.rbins[1:]-self.rbins[:-1]
 
         for i, l in enumerate(usecols):
-            print(len(rmeans))
-            print(len(self.wprp[:,i]))
             l1 = ax[usez[0]][i].loglog(rmeans, self.wprp[:,i])
 
         if newaxes:

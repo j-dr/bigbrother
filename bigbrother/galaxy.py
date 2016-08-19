@@ -70,6 +70,7 @@ class GalaxyCatalog(BaseCatalog):
         #BCC catalogs have pixels in filenames
         if (('BCC' in self.__class__.__name__) &
           (self.filenside is not None) & (self.filenside>=self.groupnside)):
+            print('BCC')
             fk = self.filestruct.keys()
 
             for f in self.filestruct[fk[0]]:
@@ -79,6 +80,7 @@ class GalaxyCatalog(BaseCatalog):
                     fpix.append([p])
                 else:
                     if not self.nest:
+                        print('not nest')
                         while p > 12*self.filenside**2:
                             p = p - 1000
                         p = hp.ring2nest(self.filenside, p)
