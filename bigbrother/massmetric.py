@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-from .metric import Metric, GMetric
+from .metric import Metric, GMetric, jackknifeMap
 #if __name__=='__main__':
 import matplotlib as mpl
 mpl.use('Agg')
@@ -15,7 +15,7 @@ class MassMetric(GMetric):
     """
 
     def __init__(self, ministry, zbins=None, massbins=None,
-                 catalog_type=None, tag=None):
+                 catalog_type=None, tag=None, **kwargs):
         """
         Initialize a MassMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -46,18 +46,18 @@ class MassMetric(GMetric):
 
 
         GMetric.__init__(self, ministry, zbins=zbins, xbins=massbins,
-                         catalog_type=catalog_type, tag=tag)
+                         catalog_type=catalog_type, tag=tag, **kwargs)
 
 class MassFunction(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.aschema = 'haloonly'
 
@@ -70,6 +70,7 @@ class MassFunction(MassMetric):
 
         self.unitmap = {'halomass':'msunh'}
 
+    @jackknifeMap
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
@@ -86,8 +87,10 @@ class MassFunction(MassMetric):
         #self.nbands different bands in self.nzbins
         #redshift bins
         if not hasattr(self, 'masscounts'):
-            self.masscounts = np.zeros((len(self.massbins)-1, self.ndefs,
-                                       self.nzbins))
+            self.masscounts = np.zeros((self.njack,
+                                        len(self.massbins)-1,
+                                        self.ndefs,
+                                        self.nzbins))
 
         if self.lightcone:
             for i, z in enumerate(self.zbins[:-1]):
@@ -98,14 +101,13 @@ class MassFunction(MassMetric):
                 for j in range(self.ndefs):
                     c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j],
                                         bins=self.massbins)
-                    self.masscounts[:,j,i] += c
+                    self.masscounts[self.jcount,:,j,i] += c
         else:
             for j in range(self.ndefs):
                 c, e = np.histogram(mapunit['halomass'][:,j], bins=self.massbins)
-                self.masscounts[:,j,0] += c
+                self.masscounts[self.jcount,:,j,0] += c
 
-
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
         This will be called after all the mapunits are mapped by the map
@@ -113,14 +115,47 @@ class MassFunction(MassMetric):
         for a luminosity function. The LF is then saved as an attribute of the
         LuminosityFunction object.
         """
-        area = self.ministry.halocatalog.getArea()
-        self.mass_function = self.masscounts
 
-        for i in range(self.nzbins):
-            vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
-            self.mass_function[:,:,i] /= vol
+        if rank is not None:
+            gdata = comm.gather(self.masscounts, root=0)
 
-        self.y = self.mass_function
+            if rank==0:
+                jc = 0
+                dshape = self.masscounts.shape
+                dshape = [dshape[i] for i in range(len(dshape))]
+                dshape[0] = self.njacktot
+                self.masscounts = np.zeros(dshape)
+
+                for g in gdata:
+                    nj = g.shape[0]
+                    self.masscounts[jc:jc+nj,:,:,:] = g
+
+                    jc += nj
+
+                area = self.ministry.halocatalog.getArea()
+                self.jmass_function = np.zeros(self.masscounts.shape)
+
+                for i in range(self.nzbins):
+                    vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+                    self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
+
+                self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
+
+                self.y = self.mass_function
+                self.ye = np.sqrt(self.varmass_function)
+        else:
+            area = self.ministry.halocatalog.getArea()
+            self.jmass_function = np.zeros(self.masscounts.shape)
+
+            for i in range(self.nzbins):
+                vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+                self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
+
+                self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
+
+            self.y = self.mass_function
+            self.ye = np.sqrt(self.varmass_function)
+
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
@@ -131,23 +166,21 @@ class MassFunction(MassMetric):
         if ylabel is None:
             ylabel = r'$\phi \, [Mpc^{-3}\, h^{3}]$'
 
-        MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
+        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
                              fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
                              ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
                              ylabel=ylabel, compare=compare,logx=True,**kwargs)
 
-
-
 class SimpleHOD(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.aschema = 'haloonly'
 
@@ -204,7 +237,7 @@ class SimpleHOD(MassMetric):
                     self.halocounts[k,j,i] += len(mapunit['occ'][mb==k])
 
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
         This will be called after all the mapunits are mapped by the map
@@ -224,13 +257,13 @@ class GalHOD(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
                  catalog_type=['galaxycatalog'], tag=None, magcuts=None,
-                 cutband=None):
+                 cutband=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.magcuts = magcuts
 
@@ -340,15 +373,8 @@ class GalHOD(MassMetric):
 
         else:
             raise(NotImplementedError)
-#            for j in range(self.ndefs):
-#                mb = np.digitize(mu['halomass'][:,j], bins=self.massbins)-1
-#                for k in range(len(self.massbins)-1):
-#                    self.occcounts[k,j,i] += np.sum(mu['occ'][mb==k])
-#                    self.sqocccounts[k,j,i] += np.sum(mu['occ'][mb==k]**2)
-#                    self.halocounts[k,j,i] += len(mu['occ'][mb==k])
 
-
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
         This will be called after all the mapunits are mapped by the map
@@ -366,17 +392,16 @@ class GalHOD(MassMetric):
         self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
 
 
-
 class OccMass(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         if lightcone:
             self.mapkeys   = ['halomass', 'occ', 'redshift']
@@ -388,6 +413,7 @@ class OccMass(MassMetric):
         self.aschema = 'haloonly'
         self.unitmap = {'halomass':'msunh'}
 
+    @jackknifeMap
     def map(self, mapunit):
 
         if len(mapunit['halomass'].shape)>1:
@@ -399,9 +425,9 @@ class OccMass(MassMetric):
         self.nbands = self.ndefs
 
         if not hasattr(self, 'occmass'):
-            self.occ   = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
-            self.occsq = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
-            self.count = np.zeros((self.nmassbins,self.ndefs,self.nzbins))
+            self.occ   = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
+            self.occsq = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
+            self.count = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
@@ -411,17 +437,53 @@ class OccMass(MassMetric):
 
                 for k, m in enumerate(self.massbins[:-1]):
                     o  = mapunit['occ'][zlidx:zhidx][mb==k]
-                    self.occ[k,j,i]   += np.sum(o)
-                    self.occsq[k,j,i] += np.sum(o**2)
-                    self.count[k,j,i] += np.sum(mb==k)
+                    self.occ[self.jcount,k,j,i]   += np.sum(o)
+                    self.occsq[self.jcount,k,j,i] += np.sum(o**2)
+                    self.count[self.jcount,k,j,i] += np.sum(mb==k)
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            gocc = comm.gather(self.occ, root=0)
+            goccsq = comm.gather(self.occsq, root=0)
+            gcount = comm.gather(self.count, root=0)
 
-        self.occmass = self.occ/self.count
-        self.occvar  = (self.count*self.occsq - self.occ**2)/(self.count*(self.count-1))
+            if rank==0:
+                jc = 0
+                oshape = [self.occ.shape[i] for i in range(len(self.occ.shape))]
+                osshape = [self.occsq.shape[i] for i in range(len(self.occsq.shape))]
+                cshape = [self.count.shape[i] for i in range(len(self.count.shape))]
 
-        self.y = self.occmass
-        self.ye = np.sqrt(self.occvar)
+                oshape[0] = self.njacktot
+                osshape[0] = self.njacktot
+                cshape[0] = self.njacktot
+
+                self.occ = np.zeros(oshape)
+                self.occsq = np.zeros(osshape)
+                self.cshape = np.zeros(cshape)
+
+                for i, g in enumerate(gocc):
+                    nj = g.shape[0]
+                    self.occ[jc:jc+nj,:,:,:] = g
+                    self.occsq[jc:jc+nj,:,:,:] = goccsq[i]
+                    self.count[jc:jc+nj,:,:,:] = gcount[i]
+
+                    jc += nj
+
+
+                self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
+
+                self.y = self.occmass
+                self.ye = np.sqrt(self.varoccmass)
+
+        else:
+            self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
+
+            if self.njacktot < 2:
+
+                _, self.varoccmass, _ = self.jackknife((self.count*self.occsq - self.occ**2)/(self.count*(self.count-1)))
+
+            self.y = self.occmass
+            self.ye = np.sqrt(self.varoccmass)
 
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
@@ -441,13 +503,13 @@ class OccMass(MassMetric):
 class TinkerMassFunction(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
-                 catalog_type=['halocatalog'], tag=None):
+                 catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag)
+                            catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.aschema = 'haloonly'
 
@@ -490,8 +552,6 @@ class TinkerMassFunction(MassMetric):
                "SpectralIndex":0.96,
                "w0":-1.0,
                "wa":0.0
-               #,"As":2.1e-9,
-               #"As_pivot":0.05
 	}
 	cosmocalc.set_cosmology(cd)
 
@@ -511,7 +571,7 @@ class TinkerMassFunction(MassMetric):
     def map(self, mapunit):
         self.map(mapunit)
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         self.reduce()
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
@@ -523,7 +583,232 @@ class TinkerMassFunction(MassMetric):
         if ylabel is None:
             ylabel = r"$N \, [Mpc^{-3}\, h^{3}]$"
 
-        return MassMetric.visualize(self, plotname=plotname, usecols=usecols, usez=usez,
-                             fracdev=fracdev, ref_y=ref_y, ref_x=ref_x, xlim=xlim,
-                             ylim=ylim, fylim=fylim, f=f, ax=ax, xlabel=xlabel,
-                             ylabel=ylabel, compare=compare,logx=True,**kwargs)
+        return MassMetric.visualize(self, plotname=plotname,
+                                    usecols=usecols, usez=usez,
+                                    fracdev=fracdev,
+                                    ref_y=ref_y, ref_x=ref_x,
+                                    xlim=xlim, ylim=ylim,
+                                    fylim=fylim, f=f, ax=ax,
+                                    xlabel=xlabel,
+                                    ylabel=ylabel,
+                                    compare=compare,logx=True,
+                                    **kwargs)
+
+class Richness(MassMetric):
+    def __init__(self, ministry, zbins=None, massbins=None,
+                  lightcone=True,
+                  catalog_type=['galaxycatalog'], tag=None,
+                  colorbins=None, maxrhalo=None, minlum=None,
+                  redsplit=None, splitinfo=False, **kwargs):
+
+        if massbins is None:
+            massbins = np.logspace(12, 15, 20)
+        else:
+            massbins = massbins
+
+        if (lightcone):
+            if hasattr(zbins, '__iter__'):
+                self.zbins = zbins
+            else:
+                if (type(zbins)==int and zbins>1):
+                    self.zbins = np.logspace(-4, 1, zbins)
+                else:
+                    self.zbins = np.logspace(-4, 1, 5)
+        else:
+            self.zbins = [0, 10]
+        self.nzbins = len(self.zbins) - 1
+
+        MassMetric.__init__(self, ministry, zbins=self.zbins, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag, **kwargs)
+
+        if colorbins is None:
+            self.colorbins = 100
+        else:
+            self.colorbins = colorbins
+
+
+        self.split_info = splitinfo
+
+        self.aschema = 'galaxyonly'
+
+        if lightcone:
+            self.mapkeys   = ['halomass', 'redshift', 'luminosity', 'haloid', 'rhalo']
+            self.lightcone = True
+        else:
+            self.mapkeys   = ['halomass', 'luminosity', 'haloid', 'rhalo']
+            self.lightcone = False
+
+        self.unitmap = {'halomass':'msunh'}
+        self.nomap = False
+
+        if maxrhalo is None:
+            self.max_rhalo  = 1
+        if minlum is None:
+            self.min_lum    = -19
+
+        self.splitcolor = redsplit
+
+        self.nbands = 1
+
+
+    def splitBimodal(self, x, y, largepoly=30):
+        p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
+
+        extrema = np.roots(np.polyder(p))
+        extrema = extrema[np.isreal(extrema)]
+        extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
+
+        root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
+        peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
+
+        mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
+        p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
+
+        midpoint = np.roots(np.polyder(p_mid))[0]
+
+        if (self.split_info): # debug info
+            mpl.pyplot.plot(x,y)
+            mpl.pyplot.plot(x[mid],[sum([p_mid[len(p_mid)-1-i]*(xval**i) for i in range(len(p_mid))]) for xval in x[mid]])
+            mpl.pyplot.plot(x,[sum([p[len(p)-1-i]*(xval**i) for i in range(len(p))]) for xval in x])
+            mpl.pyplot.plot(peaks, np.partition(root_vals, -2)[-2:], 'ro')
+            mpl.pyplot.plot([midpoint], sum([p_mid[::-1][i]*midpoint**i for i in range(len(p_mid))]), 'ro')
+            peakvals = np.partition(root_vals, -2)[-2:]
+            print('Peaks: ' + str(peakvals) + ' at color ' + str(peaks))
+
+        return midpoint
+
+    @jackknifeMap
+    def map(self, mapunit):
+        print('min z: ' + str(min(mapunit['redshift'])))
+        print('max z: ' + str(max(mapunit['redshift'])))
+        # must convert mapunit dict to a recarray
+
+        self.galaxy_counts         = np.zeros((self.njack, len(self.massbins) - 1, 1, len(self.zbins) - 1))
+        self.galaxy_counts_squared = np.zeros((self.njack, len(self.massbins) - 1, 1, len(self.zbins) - 1))
+        self.halo_counts           = np.zeros((self.njack, len(self.massbins) - 1, 1, len(self.zbins) - 1))
+
+        dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
+
+        for ziter in range(len(self.zbins)-1):
+
+            zcut = ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1]))
+
+            g_r_color = mapunit['luminosity'][zcut][:,0] - mapunit['luminosity'][zcut][:,1] # get g-r color
+            color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
+
+            if self.splitcolor is None:
+                self.splitcolor = self.splitBimodal(color_bins[:-1], color_counts)
+
+            previd = -1
+            halo_ids = np.unique(mapunit['haloid'][zcut])
+            red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo
+
+            # cut of galaxies: within max_rhalo of parent halo, above min_lum magnitude, and red
+            cut_array =((mapunit['rhalo'] < self.max_rhalo) & (mapunit['luminosity'][:,2] < self.min_lum)
+                & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= self.splitcolor)) & ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1])))
+            data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
+            for key in mapunit.keys():
+                data_cut[key] = mapunit[key][cut_array]
+
+            data_cut.sort(order='haloid')
+
+            idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
+            newhalos = np.where(idx != 0)[0]
+            newhalos = np.hstack([[0], newhalos + 1, [len(data_cut) - 1]])
+
+            uniquehalos = data_cut[newhalos[:-1]]
+            red_counts = newhalos[1:]-newhalos[:-1]
+            mass_bin_indices = np.digitize(uniquehalos['halomass'], self.massbins)
+
+            self.halo_counts[self.jcount,:,0,ziter] += np.histogram(uniquehalos['halomass'], bins=self.massbins)[0]
+
+            for i in range(len(self.massbins)-1):
+                self.galaxy_counts[self.jcount, i,0,ziter]         += np.sum(red_counts[(mass_bin_indices == i+1)])
+                self.galaxy_counts_squared[self.jcount, i,0,ziter] += np.sum(red_counts[(mass_bin_indices == i+1)]**2)
+
+
+    def reduce(self,rank=None,comm=None):
+        if rank is not None:
+            ghc = comm.gather(self.halo_counts, root=0)
+            ggc = comm.gather(self.galaxy_counts, root=0)
+            ggcs = comm.gather(self.galaxy_counts_squared, root=0)
+
+            hshape = [self.halo_counts.shape[i] for i in range(len(self.halo_counts.shape))]
+            gshape = [self.galaxy_counts.shape[i] for i in range(len(self.galaxy_counts.shape))]
+            gsshape = [self.galaxy_counts_squared.shape[i] for i in range(len(self.galaxy_counts.shape))]
+
+            hshape[0] = self.njacktot
+            gshape[0] = self.njacktot
+            gsshape[0] = self.njacktot
+
+
+            if rank==0:
+                self.halo_counts = np.zeros(hshape)
+                self.galaxy_counts = np.zeros(gshape)
+                self.galaxy_counts_squared = np.zeros(gsshape)
+
+                jc = 0
+                for i, g in enumerate(ghc):
+                    nj = g.shape[0]
+                    self.halo_counts[jc:jc+nj,:,:,:] = g
+                    self.galaxy_counts[jc:jc+nj,:,:,:] = ggc[i]
+                    self.galaxy_counts_squared[jc:jc+nj,:,:,:] = ggcs[i]
+
+                    jc += nj
+
+                self.jgalaxy_counts = self.jackknife(self.galaxy_counts, reduce_jk=False)
+                self.jhalo_counts = self.jackknife(self.halo_counts, reduce_jk=False)
+                self.jgalaxy_counts_squared = self.jackknife(self.galaxy_counts_squared,reduce_jk=False)
+
+                jmass_richness = self.jgalaxy_counts/self.jhalo_counts
+
+                self.mass_richness = np.sum(jmass_richness, axis=0) / self.njacktot
+                self.varmass_richness = np.sum((jmass_richness - self.mass_richness) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
+                self.galaxy_counts_squared = np.sum(self.jgalaxy_counts_squared, axis=0) / self.njacktot
+                self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njacktot
+
+                self.y           = self.mass_richness
+
+                if self.njacktot==1:
+                    self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
+                else:
+                    self.ye          = np.sqrt(self.varmass_richness)
+        else:
+
+            self.jgalaxy_counts = self.jackknife(self.galaxy_counts, reduce_jk=False)
+            self.jhalo_counts = self.jackknife(self.halo_counts, reduce_jk=False)
+            self.jgalaxy_counts_squared = self.jackknife(self.galaxy_counts_squared, reduce_jk=False)
+
+            jmass_richness = self.jgalaxy_counts/self.jhalo_counts
+
+            self.mass_richness = np.sum(jmass_richness, axis=0) / self.njacktot
+            self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
+            self.galaxy_counts_squared = np.sum( self.jgalaxy_counts_squared, axis=0) / self.njacktot
+            self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njacktot
+
+            self.y           = self.mass_richness
+            if self.njack==1:
+                self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
+            else:
+                self.ye          = np.sqrt(self.varmass_richness)
+
+
+    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
+                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+        if xlabel is None:
+            xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
+        if ylabel is None:
+            ylabel = r"$<N_{red}> \, [Mpc^{-3}\, h^{3}]$"
+
+        return MassMetric.visualize(self, plotname=plotname,
+                                    usecols=usecols, usez=usez,
+                                    fracdev=fracdev,
+                                    ref_y=ref_y, ref_x=ref_x,
+                                    xlim=xlim, ylim=ylim,
+                                    fylim=fylim, f=f, ax=ax,
+                                    xlabel=xlabel,
+                                    ylabel=ylabel,
+                                    compare=compare,logx=True,
+                                    **kwargs)

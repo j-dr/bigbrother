@@ -11,6 +11,7 @@ import healpy as hp
 import fitsio
 import time
 
+
 TZERO = None
 def tprint(info):
     global TZERO
@@ -24,7 +25,8 @@ class Mappable(object):
     A tree which contains information on the order in which files should be read
     """
 
-    def __init__(self, name, dtype, children=None, childtype=None):
+    def __init__(self, name, dtype, children=None, childtype=None, jtype=None,
+                  gnside=None, nbox=None, grp=None):
 
         self.name = name
         self.dtype = dtype
@@ -32,7 +34,12 @@ class Mappable(object):
             self.children = []
         else:
             self.children = children
+
         self.data = None
+        self.jtype = jtype
+        self.gnside = gnside
+        self.nbox = nbox
+        self.grp = grp
 
 
 class Ministry:
@@ -97,40 +104,32 @@ class Ministry:
             return (self.boxsize*self.h)**3
 
 
-    def setGalaxyCatalog(self, catalog_type, filestruct, fieldmap=None,
-                         unitmap=None, filters=None, zbins=None, maskfile=None,
-                         goodpix=None):
+    def setGalaxyCatalog(self, catalog_type, filestruct, **kwargs):
+
         """
         Fill in the galaxy catalog information
         """
 
         if catalog_type == "BCC":
-            self.galaxycatalog = BCCCatalog(self, filestruct,  zbins=zbins,
-                                            fieldmap=fieldmap, unitmap=unitmap,
-                                            filters=filters, maskfile=maskfile,
-                                            goodpix=goodpix)
+            self.galaxycatalog = BCCCatalog(self, filestruct, **kwargs)
         elif catalog_type == "S82Phot":
             self.galaxycatalog = S82PhotCatalog(self, None)
         elif catalog_type == "S82Spec":
             self.galaxycatalog = S82SpecCatalog(self, None)
         elif catalog_type == "DESGold":
-            self.galaxycatalog = DESGoldCatalog(self, filestruct, maskfile=maskfile,
-                                                goodpix=goodpix, fieldmap=fieldmap,
-                                                unitmap=unitmap, filters=filters)
+            self.galaxycatalog = DESGoldCatalog(self, filestruct, **kwargs)
+
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
 
-    def setHaloCatalog(self, catalog_type, filestruct, fieldmap=None,
-                       zbins=None, maskfile=None, goodpix=1, unitmap=None,
-                       filters=None):
+    def setHaloCatalog(self, catalog_type, filestruct, goodpix=1, **kwargs):
         """
         Fill in the halo catalog information
         """
 
         if catalog_type == "BCC":
-            self.halocatalog = BCCHaloCatalog(self, filestruct, zbins=zbins,
-                                              fieldmap=fieldmap, maskfile=maskfile,
-                                              goodpix=goodpix)
+            self.halocatalog = BCCHaloCatalog(self, filestruct, goodpix=goodpix, **kwargs)
+
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
 
@@ -268,6 +267,17 @@ class Ministry:
                                 return False
         return True
 
+    def compJackknife(self, mg0, mg1):
+        """
+        Check if metrics have compatible jackknife
+        requirements
+        """
+        for m0 in mg0:
+            for m1 in mg1:
+                if (m0.jtype is not None) and (m0.jtype != m1.jtype):
+                    return False
+
+        return True
 
     def genMetricGroups(self, metrics):
         """
@@ -310,7 +320,8 @@ class Ministry:
             node = nodes[i]
             nomerge = True
             for edge in graph[node]:
-                if self.compFieldMaps(fms[node][0], fms[edge][0]) & self.compAssoc(fms[node][1], fms[edge][1]) & self.compUnits(fms[node][1], fms[edge][1]):
+                if (self.compFieldMaps(fms[node][0], fms[edge][0]) & self.compAssoc(fms[node][1], fms[edge][1]) & self.compUnits(fms[node][1], fms[edge][1]) &
+                  self.compJackknife(fms[node][1], fms[edge][1])):
                     nomerge=False
                     m = [node, edge]
                     mg0 = fms[node]
@@ -459,17 +470,26 @@ class Ministry:
         filetypes = zft
         filetypes.extend(nzft)
 
-        #Create mappables out of filestruct and fieldmaps
-        for i in range(len(fs[filetypes[0]])):
+        g, fgroups = self.galaxycatalog.groupFiles()
+        jt = self.galaxycatalog.jtype
+        nb = self.galaxycatalog.nbox
+        gn = self.galaxycatalog.groupnside
 
-            for j, ft in enumerate(filetypes):
-                if j==0:
-                    root = Mappable(fs[ft][i], ft)
-                    last = root
-                else:
-                    node = Mappable(fs[ft][i], ft)
-                    last.children.append(node)
-                    last = node
+        fs = self.galaxycatalog.filestruct
+
+        #Create mappables out of filestruct and fieldmaps
+        for i, fg in enumerate(fgroups):
+            for fc, j in enumerate(fg):
+                for k, ft in enumerate(filetypes):
+                    if (fc==0) & (k==0):
+                        root = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last = root
+                    else:
+                        node = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last.children.append(node)
+                        last = node
 
             mappables.append(root)
 
@@ -598,12 +618,45 @@ class Ministry:
 
         return mappable
 
-    def treeToDict(self, mapunit):
+    def dcListToDict(self, mapunit):
         """
-        Most general form of map unit is a tree. Most
-        metrics don't require this. If the schema we
-        are working with doesn't, turn the tree
-        into the old dict structure
+        Association schemas with double catalog types (e.g. galaxygalaxy)
+        result in mappables which are lists. This method compresses
+        such a list into one dict, adding appending rows to columns when
+        the same fields exist in multiple nodes of the list. Appropriate
+        for combining small pieces of catalogs into larger ones.
+        """
+
+        mu = {}
+
+        while len(mapunit.children)>0:
+            if len(mapunit.children)>1:
+                raise ValueError("mapunit has more than one branch!")
+
+            for key in mapunit.data.keys():
+                if key in mu.keys():
+                    mu[key] = np.hstack([mu[key], mapunit.data[key]])
+                else:
+                    mu[key] = mapunit.data[key]
+
+            mapunit = mapunit.children[0]
+
+        for key in mapunit.data.keys():
+            if key in mu.keys():
+                mu[key] = np.hstack([mu[key], mapunit.data[key]])
+            else:
+                mu[key] = mapunit.data[key]
+
+        return mu
+
+
+    def scListToDict(self, mapunit):
+        """
+        Association schemas with only one catalog type
+        result in mappables which are lists. This method compresses
+        such a list into one dict, adding new columns when
+        the same field exists in multiple nodes of the list. Appropriate
+        for combining different files for the same galaxies.
         """
 
         mu = {}
@@ -617,14 +670,13 @@ class Ministry:
                     shp0 = mu[key].shape
                     shp1 = mapunit.data[key].shape
 
-                    if os[0]!=ns[0]:
-                        raise ValueError("Sizes of data for same mapkey {0} do not match!".format(key))
-
                     nshp = [shp0[0], shp0[1]+shp1[1]]
 
                     d = np.ndarray(nshp)
                     d[:,:shp0[1]] = mu[key]
                     d[:,shp0[1]:] = mapunit.data[key]
+
+                    mu[key] = d
                 else:
                     mu[key] = mapunit.data[key]
 
@@ -635,20 +687,18 @@ class Ministry:
                 shp0 = mu[key].shape
                 shp1 = mapunit.data[key].shape
 
-                if os[0]!=ns[0]:
-                    raise ValueError("Sizes of data for same mapkey {0} do not match!".format(key))
-
                 nshp = [shp0[0], shp0[1]+shp1[1]]
 
                 d = np.ndarray(nshp)
                 d[:,:shp0[1]] = mu[key]
                 d[:,shp0[1]:] = mapunit.data[key]
+                mu[key] = d
             else:
                 mu[key] = mapunit.data[key]
 
         return mu
 
-    def sortByZ(self, mappable, fieldmap, idx):
+    def sortMappableByZ(self, mappable, fieldmap, idx):
         """
         Sort a mappable by redshift for each galaxy type
         """
@@ -665,7 +715,19 @@ class Ministry:
 
         if len(mappable.children)>0:
             for child in mappable.children:
-                self.sortByZ(child, fieldmap, idx)
+                self.sortMappableByZ(child, fieldmap, idx)
+
+    def sortMapunitByZ(self, mapunit):
+
+        dk = mapunit.keys()
+
+        if 'redshift' in dk:
+            idx = mapunit['redshift'].argsort()
+
+        for k in dk:
+            mapunit[k] = mapunit[k][idx]
+
+        return mapunit
 
     def convert(self, mapunit, metrics):
 
@@ -685,7 +747,7 @@ class Ministry:
 
         return mapunit
 
-    def validate(self, nmap=None, metrics=None, verbose=False):
+    def validate(self, nmap=None, metrics=None, verbose=False, parallel=False):
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
@@ -710,6 +772,32 @@ class Ministry:
 
         self.metric_groups = self.genMetricGroups(metrics)
 
+        #metric group w/ Area in it should be first
+        areaidx = None
+        for mi, mg in enumerate(self.metric_groups):
+            ms = mg[1]
+            for m in ms:
+                if m.__class__.__name__ == 'Area':
+                    areaidx = mi
+                    
+        if areaidx is not None:
+            mgs = []
+            mgs.append(self.metric_groups[areaidx])
+            mgs.extend(self.metric_groups[:areaidx])
+            mgs.extend(self.metric_groups[areaidx+1:])
+            self.metric_groups = mgs
+
+        if parallel:
+            from mpi4py import MPI
+
+            comm = MPI.COMM_WORLD
+            size = comm.Get_size()
+            rank = comm.Get_rank()
+        else:
+            rank = None
+            comm = None
+
+
         for mg in self.metric_groups:
             sbz = False
             ms  = mg[1]
@@ -718,22 +806,44 @@ class Ministry:
                 if 'redshift' in fm[ft].keys():
                     sbz = True
 
-            for i, mappable in enumerate(self.genMappables(mg)):
-                if (nmap is not None) & (i>=nmap): break
+            mappables = self.genMappables(mg)
+
+            if nmap is not None:
+                mappables = mappables[:nmap]
+
+            self.njacktot = len(mappables)
+
+            if parallel:
+                mappables = mappables[rank::size]
+
+            self.njack = len(mappables)
+
+            for i, mappable in enumerate(mappables):
 
                 mapunit = self.readMappable(mappable, fm)
 
-                if sbz:
-                    self.sortByZ(mapunit, fm, [])
+                if (sbz & (ms[0].aschema != 'galaxygalaxy')
+                  & (ms[0].aschema != 'halohalo')):
+                    self.sortMappableByZ(mapunit, fm, [])
 
                 if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
-                    mapunit = self.treeToDict(mapunit)
+                    mapunit = self.scListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
+
                 elif 'only' in ms[0].aschema:
-                    mapunit = self.treeToDict(mapunit)
+                    mapunit = self.scListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
+
+                if sbz & ((ms[0].aschema == 'galaxygalaxy')
+                  | (ms[0].aschema == 'halohalo')):
+                    mapunit = self.dcListToDict(mapunit)
+                    mapunit = self.convert(mapunit, ms)
+                    print(mapunit)
+                    mapunit = self.filter(mapunit)
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
 
                 for m in ms:
                     print('*****{0}*****'.format(m.__class__.__name__))
@@ -741,8 +851,10 @@ class Ministry:
 
                 del mapunit
 
+        #need to reduce area first
+
         for mg in self.metric_groups:
             ms = mg[1]
 
             for m in ms:
-                m.reduce()
+                m.reduce(rank=rank,comm=comm)
