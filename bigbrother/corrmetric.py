@@ -345,9 +345,6 @@ class WPrpLightcone(CorrelationFunction):
         if self.ncbins > 1:
             clr = mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1]
 
-            if self.splitcolor is None:
-                ccounts, cbins = np.histogram(clr, self.hcbins)
-                self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
 
         if self.dd is None:
             self.dd = np.zeros((self.njack,self.nrbins, self.ncbins, self.nlumbins, self.nzbins))
@@ -362,6 +359,10 @@ class WPrpLightcone(CorrelationFunction):
 
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+
+            if self.splitcolor is None:
+                ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
 
             for li, j in enumerate(self.luminds):
                 print('Finding luminosity indices')
