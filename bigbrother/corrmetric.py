@@ -350,11 +350,11 @@ class WPrpLightcone(CorrelationFunction):
                 self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
 
         if self.dd is None:
-            self.dd = np.zeros((self.njack,self.nrbins, self.nccuts, self.nlumbins, self.nzbins))
-            self.dr = np.zeros((self.njack,self.nrbins, self.nccuts, self.nlumbins, self.nzbins))
-            self.rr = np.zeros((self.njack,self.nrbins, self.nccuts, self.nlumbins, self.nzbins))
-            self.nd = np.zeros((self.njack, self.nccuts, self.nlumbins, self.nzbins))
-            self.nr = np.zeros((self.njack, self.nccuts, self.nlumbins, self.nzbins))
+            self.dd = np.zeros((self.njack,self.nrbins, self.ncbins, self.nlumbins, self.nzbins))
+            self.dr = np.zeros((self.njack,self.nrbins, self.ncbins, self.nlumbins, self.nzbins))
+            self.rr = np.zeros((self.njack,self.nrbins, self.ncbins, self.nlumbins, self.nzbins))
+            self.nd = np.zeros((self.njack, self.ncbins, self.nlumbins, self.nzbins))
+            self.nr = np.zeros((self.njack, self.ncbins, self.nlumbins, self.nzbins))
 
         #calculate DD
         for i in range(self.nzbins):
@@ -377,6 +377,7 @@ class WPrpLightcone(CorrelationFunction):
                     if self.ncbins == 1:
                         cidx = lidx
                     else:
+                        print(self.splitcolor)
                         if k==0:
                             cidx = lidx & (self.splitcolor < clr[zlidx:zhidx])
                         else:
@@ -391,6 +392,9 @@ class WPrpLightcone(CorrelationFunction):
                     #data data
                     print('calculating data data pairs')
 
+                    if self.nd[self.jcount,k,j,i]<2:
+                        continue
+
                     ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1,
                                             self.cosmology_flag, 1,
                                             self.pimax,
@@ -400,9 +404,9 @@ class WPrpLightcone(CorrelationFunction):
                                             mapunit['redshift'][zlidx:zhidx][cidx]*self.c,
                                             mapunit['azim_ang'][zlidx:zhidx][cidx],
                                             mapunit['polar_ang'][zlidx:zhidx][cidx],
-                                            mapunit['redshift'][zcidx:zhidx][idx]*self.c)
+                                            mapunit['redshift'][zlidx:zhidx][cidx]*self.c)
 
-                    self.dd[self.jcount,:,j,i] = np.array([ddresults[k][4] for k in range(self.nrbins)])
+                    self.dd[self.jcount,:,k,j,i] = np.array([ddresults[l][4] for l in range(self.nrbins)])
 
                     #data randoms
                     print('calculating data random pairs')
@@ -416,7 +420,7 @@ class WPrpLightcone(CorrelationFunction):
                                             rands['polar_ang'],
                                             rands['redshift']*self.c)
 
-                    self.dr[self.jcount,:,j,i] = np.array([drresults[k][4] for k in range(self.nrbins)])
+                    self.dr[self.jcount,:,k,j,i] = np.array([drresults[k][4] for l in range(self.nrbins)])
 
                     #randoms randoms
                     print('calculating random random pairs')
@@ -431,7 +435,7 @@ class WPrpLightcone(CorrelationFunction):
                                             rands['polar_ang'],
                                             rands['redshift']*self.c)
 
-                    self.rr[self.jcount,:,j,i] = np.array([rrresults[k][4] for k in range(self.nrbins)])
+                    self.rr[self.jcount,:,k,j,i] = np.array([rrresults[l][4] for l in range(self.nrbins)])
 
     def reduce(self, rank=None, comm=None):
 
@@ -535,7 +539,7 @@ class WPrpLightcone(CorrelationFunction):
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
                 for k, c in enumerate(usecolors):
-                    l1 = ax[j][i].errorbar(rmean, self.wprp[:,k,i,j], yerr=np.sqrt(self.varwprp[:,i,j]))
+                    l1 = ax[j][i].errorbar(rmean, self.wprp[:,k,i,j], yerr=np.sqrt(self.varwprp[:,k,i,j]))
 
                 ax[j][i].set_xscale('log')
                 ax[j][i].set_yscale('log')

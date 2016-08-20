@@ -182,7 +182,7 @@ class BCCHaloCatalog(HaloCatalog):
                                       lightcone=True,jtype=self.jtype),
                         OccMass(self.ministry, zbins=self.zbins,
                                       lightcone=True,jtype=self.jtype)]
-        if fieldmap is None:
+        if self.fieldmap is None:
             self.fieldmap = {'halomass':OrderedDict([('MVIR',['htruth'])]),
                              'occ':OrderedDict([('N19', ['htruth'])]),
                              'redshift':OrderedDict([('Z',['htruth'])])}
@@ -232,13 +232,3 @@ class BCCHaloCatalog(HaloCatalog):
 
         return pix
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
-        mapunit = self.unitConversion(mapunit)
-
-        for m in self.metrics:
-            m.map(mapunit)
