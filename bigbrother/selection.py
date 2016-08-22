@@ -44,7 +44,7 @@ class Selector:
             elif self.selection_dict[label]['selection_type'] =='cut1d':
                 selections[label].extend(self.cut1dSelection(sel))
             elif self.selection_dict[label]['selection_type'] == 'cut2D':
-                selections[labe].extend(self.cut2DSelection(sel))
+                selections[label].extend(self.cut2DSelection(sel))
 
         return selections
 
