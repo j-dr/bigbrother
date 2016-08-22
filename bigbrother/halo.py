@@ -172,10 +172,11 @@ class BCCHaloCatalog(HaloCatalog):
 
     def __init__(self, ministry, filestruct, **kwargs):
 
+
         HaloCatalog.__init__(self, ministry, filestruct, **kwargs)
 
         if self.unitmap is None:
-            self.unitmap = {'halomass':'msunh'}
+            unitmap = {'halomass':'msunh'}
 
         self.metrics = [MassFunction(self.ministry, zbins=self.zbins,
                                       lightcone=True,jtype=self.jtype),
@@ -232,13 +233,3 @@ class BCCHaloCatalog(HaloCatalog):
 
         return pix
 
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-        mapunit = self.readFITSMappable(mappable, sortbyz=self.sortbyz)
-        mapunit = self.unitConversion(mapunit)
-
-        for m in self.metrics:
-            m.map(mapunit)

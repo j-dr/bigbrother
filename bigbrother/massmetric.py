@@ -107,7 +107,6 @@ class MassFunction(MassMetric):
                 c, e = np.histogram(mapunit['halomass'][:,j], bins=self.massbins)
                 self.masscounts[self.jcount,:,j,0] += c
 
-
     def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
@@ -132,7 +131,7 @@ class MassFunction(MassMetric):
                     self.masscounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj
-                
+
                 area = self.ministry.halocatalog.getArea()
                 self.jmass_function = np.zeros(self.masscounts.shape)
 
@@ -153,10 +152,10 @@ class MassFunction(MassMetric):
                 self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
 
                 self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
-                
+
             self.y = self.mass_function
             self.ye = np.sqrt(self.varmass_function)
-            
+
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
                   ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
@@ -478,11 +477,11 @@ class OccMass(MassMetric):
 
         else:
             self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
-            
+
             if self.njacktot < 2:
 
                 _, self.varoccmass, _ = self.jackknife((self.count*self.occsq - self.occ**2)/(self.count*(self.count-1)))
-                
+
             self.y = self.occmass
             self.ye = np.sqrt(self.varoccmass)
 
@@ -602,18 +601,10 @@ class Richness(MassMetric):
                   colorbins=None, maxrhalo=None, minlum=None,
                   redsplit=None, splitinfo=False, **kwargs):
 
-        MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
-                            catalog_type=catalog_type, tag=tag, **kwargs)
-
         if massbins is None:
-            self.massbins = np.logspace(12, 15, 20)
+            massbins = np.logspace(12, 15, 20)
         else:
-            self.massbins = massbins
-
-        if colorbins is None:
-            self.colorbins = 100
-        else:
-            self.colorbins = colorbins
+            massbins = massbins
 
         if (lightcone):
             if hasattr(zbins, '__iter__'):
@@ -626,6 +617,15 @@ class Richness(MassMetric):
         else:
             self.zbins = [0, 10]
         self.nzbins = len(self.zbins) - 1
+
+        MassMetric.__init__(self, ministry, zbins=self.zbins, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag, **kwargs)
+
+        if colorbins is None:
+            self.colorbins = 100
+        else:
+            self.colorbins = colorbins
+
 
         self.split_info = splitinfo
 
@@ -772,7 +772,7 @@ class Richness(MassMetric):
 
                 self.y           = self.mass_richness
 
-                if self.njaccktot==1:
+                if self.njacktot==1:
                     self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)
                 else:
                     self.ye          = np.sqrt(self.varmass_richness)
@@ -788,7 +788,7 @@ class Richness(MassMetric):
             self.varmass_richness = np.sum((self.jhalo_counts - self.mass_richness) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
             self.galaxy_counts_squared = np.sum( self.jgalaxy_counts_squared, axis=0) / self.njacktot
             self.halo_counts = np.sum(self.jhalo_counts, axis=0) / self.njacktot
-            
+
             self.y           = self.mass_richness
             if self.njack==1:
                 self.ye = np.sqrt(self.galaxy_counts_squared / self.halo_counts - self.y**2)

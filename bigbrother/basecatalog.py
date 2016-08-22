@@ -133,7 +133,7 @@ class BaseCatalog:
         tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
 
         if mappable.jtype == 'healpix':
-            print('Masking {0} using healpix'.format(mappable.name))
+            print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
                 try:
                     conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],'rad'))
@@ -142,7 +142,7 @@ class BaseCatalog:
 
                 tp[:,i] = conversion(mapunit, key)
 
-            pix = hp.ang2pix(self.groupnside, tp[:,1], tp[:,0])
+            pix = hp.ang2pix(self.groupnside, tp[:,1], tp[:,0], nest=self.nest)
             pidx = pix==mappable.grp
 
             mu = {}

@@ -479,7 +479,6 @@ class Ministry:
 
         #Create mappables out of filestruct and fieldmaps
         for i, fg in enumerate(fgroups):
-            print(fg)
             for fc, j in enumerate(fg):
                 for k, ft in enumerate(filetypes):
                     if (fc==0) & (k==0):
@@ -724,13 +723,10 @@ class Ministry:
 
         if 'redshift' in dk:
             idx = mapunit['redshift'].argsort()
-            print(idx)
 
         for k in dk:
-            print(mapunit[k])
             mapunit[k] = mapunit[k][idx]
 
-        print(mapunit)
         return mapunit
 
     def convert(self, mapunit, metrics):
@@ -844,9 +840,9 @@ class Ministry:
                   | (ms[0].aschema == 'halohalo')):
                     mapunit = self.dcListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
+                    print(mapunit)
                     mapunit = self.filter(mapunit)
                     if sbz:
-                        print(sbz)
                         mapunit = self.sortMapunitByZ(mapunit)
 
                 for m in ms:
