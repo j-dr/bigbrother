@@ -157,24 +157,30 @@ class Selector:
         return sfunctions
 
     def cut2DHelper(mapunit, selection, i):
-        #make the colors
-        #use colors to make the ith cut
-        #return array specifying cuts
-        #no selection index if the array is 1D
+        #Make the fields.
+        f1 = field1
+        f2 = field2
         if len(selection['mapkeys']) > 1:
-            if selection['lower'][0]:
-                if selection['lower'][1]:
-                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]])) <= (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]]) & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]]))) <= (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]])
-                else:
-                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]])) <= (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]]) & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]]))) >= (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]])
-            else:
-                if selection['lower'][1]:
-                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]])) >= (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]]) & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]]))) <= (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]])
-                else:
-                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]])) >= (mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][:,selection['selection_ind'][1][0]]]) & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]]))) >= (mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][:,selection['selection_ind'][1][1]]])
+            field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]
+            field2 = mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1]][:,selection['selection_ind'][1][1]]
         else:
-            selection_ind = None
+            #No selection index for a 1D array.
+            field1 = selection['mapkeys'][0][0]-selection['mapkeys'][1][0]
+            field2 = selection['mapkeys'][0][1]-selection['mapkeys'][1][1]
 
+        #Use the fields to make the ith cut.
+        if selection['lower'][0]:
+            if selection['lower'][1]:
+                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2
+            else:
+                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2
+        else:
+            if selection['lower'][1]:
+                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2
+            else:
+                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2
+
+        #Return the array specifying the cuts.
         return sf
 
     def mapArray(self):
