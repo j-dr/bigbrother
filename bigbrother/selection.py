@@ -156,7 +156,7 @@ class Selector:
 
         return sfunctions
 
-    def cut2DHelper(mapunit, selection, i):
+    def cut2DHelper(self, mapunit, selection, i):
         #Make the fields.
         f1 = field1
         f2 = field2
