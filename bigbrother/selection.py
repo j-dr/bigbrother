@@ -43,7 +43,7 @@ class Selector:
                 selections[label].extend(self.binned1dSelection(sel))
             elif self.selection_dict[label]['selection_type'] =='cut1d':
                 selections[label].extend(self.cut1dSelection(sel))
-            elif self.selection_dict[label]['selection_type'] == 'cud2D':
+            elif self.selection_dict[label]['selection_type'] == 'cut2D':
                 selections[labe].extend(self.cut2DSelection(sel))
 
         return selections
@@ -95,7 +95,7 @@ class Selector:
         - Return an array of length of the input data, containing
           True or False in each element depending on whether or not
           the corresponding element of the input array satisfied
-          the selection criterea.
+          the selection criteria.
 
 
         """
@@ -131,91 +131,63 @@ class Selector:
         inputs
         ------
         selection - dictionary specifying selection data.
-        Needs the keys: mapkeys, int1, slope1, int2, slope2, lower1,
-        lower2, bins1, bins2.
+        Needs the keys: selection_type, mapkeys, selection_ind, slopes, intercepts, lower.
+
+        -mapkeys is a list of lists of the keywords for the data types used.
+        -selection_ind gives the specific column of data from the data file.
+        -slopes is a list of the slopes, where each list contains two slopes.
+        -intercepts is a list of the intercepts, where each list contains two intercepts.
+        -lower is a list of booleans, with each boolean telling which side of the line to select.
 
         returns
         -------
-        Two arrays of functions, with size given by the size of the
-        input data (colorx or colory). Each element contains True or False
-        depending on whether or not the corresponding input element fulfills
-        the selection criteria.
+        One arrays of functions with size given by the length of the input data.
+        Each element contains True or False depending on whether or not the
+        corresponding input element fulfills the selection criteria.
         """
         #Create the sfunctions to contain the index-generating functions.
-        sfunctions1 = []
-        sfunctions2 = []
-
-        #Calculate the color arrays from mapkeys (three columns corresponding to magnitude data).
-        #Two mapkeys for a 2D selection.
-        mk1 = selection['mapkeys'][0] - selection['mapkeys'][1]
-        mk2 = selection['mapkeys'][0] - selection['mapkeys'][2]
+        sfunctions = []
 
         #Iterate over the bins and make an array of functions that create indices.
         #Returns two arrays, one for each axis.
-        for i in range (len(selection['bins'])):
-            if selection['lower1']:
-                if selection['lower2']:
-                    if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None:
-                            sf1 = lambda data : selection['bins1'][i] <= data[mk1]
-                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                        else:
-                            si = int1 + (slope1*i)
-                            sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si]
-                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                    else:
-                        si1 = int1 + (slope1*i)
-                        si2 = int2 + (slope2*i)
-                        sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1]
-                        sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
+        for i in range (len(selection['slopes'])):
+            sf = lambda mapunit : cut2DHelper(mapunit, selection, i)
+            sfunctions.append(sf)
+
+        return sfunctions
+
+    def cut2DHelper(mapunit, selection, i):
+        #make the colors
+        #use colors to make the ith cut
+        #return array specifying cuts
+        #no selection index if the array is 1D
+        if len(selection['mapkeys']) > 1:
+            if selection['lower'][0]:
+                if selection['lower'][1]:
+                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]]))
+                            <= (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]])
+                        & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])))
+                            <= (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])
                 else:
-                    if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None:
-                            sf1 = lambda data : selection['bins1'][i] <= data[mk1]
-                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                        else:
-                            si = int1 + (slope1*i)
-                            sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si]
-                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                    else:
-                        si1 = int1 + (slope1*i)
-                        si2 = int2 + (slope2*i)
-                        sf1 = lambda data : selection['bins1'][i] <= data[mk1][:,si1]
-                        sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
+                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]]))
+                            <= (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]])
+                        & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])))
+                            >= (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])
             else:
-                if selection['lower2']:
-                    if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None:
-                            sf1 = lambda data : selection['bins1'][i] >= data[mk1]
-                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                        else:
-                            si = int1 + (slope1*i)
-                            sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si]
-                            sf2 = lambda data : selection['bins2'][i] <= data[mk2]
-                    else:
-                        si1 = int1 + (slope1*i)
-                        si2 = int2 + (slope2*i)
-                        sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1]
-                        sf2 = lambda data : selection['bins2'][i] <= data[mk2][:,si2]
+                if selection['lower'][1]:
+                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]]))
+                            >= (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]])
+                        & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])))
+                            <= (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])
                 else:
-                    if selection['int1'] is None or selection['slope1'] is None:
-                        if selection ['int2'] is None or selection ['slope2'] is None:
-                            sf1 = lambda data : selection['bins1'][i] >= data[mk1]
-                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                        else:
-                            si = int1 + (slope1*i)
-                            sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si]
-                            sf2 = lambda data : selection['bins2'][i] >= data[mk2]
-                    else:
-                        si1 = int1 + (slope1*i)
-                        si2 = int2 + (slope2*i)
-                        sf1 = lambda data : selection['bins1'][i] >= data[mk1][:,si1]
-                        sf2 = lambda data : selection['bins2'][i] >= data[mk2][:,si2]
+                    sf = lambda mapunit : (selection['intercepts'][i][0] + (selection['slopes'][i][0])* (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]]))
+                            >= (mapunit[selection['mapkeys'][0][0]][;,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0][;,selection['selection_ind'][1][0]]])
+                        & selection['intercepts'][i][1] + (selection['slopes'][i][1])* (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])))
+                            >= (mapunit[selection['mapkeys'][0][1]][;,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1][;,selection['selection_ind'][1][1]]])
+        else:
+            selection_ind = None
 
-            sfunctions1.append(sf1)
-            sfunction2.append(sf2)
-
-        return sfunctions1, sfunctions2
+        return sf
 
     def mapArray(self):
         """
