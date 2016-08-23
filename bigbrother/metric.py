@@ -217,6 +217,7 @@ class GMetric(Metric):
             if fracdev==False:
                 f, ax = plt.subplots(len(usecols), nzbins,
                                      sharex=True, sharey=True, figsize=(8,8))
+                ax = ax.reshape((len(usecols), nzbins))
             #if want fractional deviations, need to make twice as
             #many rows of axes. Every other row contains fractional
             #deviations from the row above it.
@@ -284,13 +285,13 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 if fracdev==False:
                     try:
-                        l1 = ax[0][i].errorbar(mxs, self.y[:,b,0],
+                        l1 = ax[i][0].errorbar(mxs, self.y[:,b,0],
                                                 yerr=self.ye[:,b,0],
                                                 **kwargs)
                         if logx:
-                            ax[0][i].set_xscale('log')
+                            ax[i][0].set_xscale('log')
                         if logy:
-                            ax[0][i].set_yscale('log')
+                            ax[i][0].set_yscale('log')
 
                     except Exception as e:
                         print(e)
