@@ -172,11 +172,10 @@ class BCCHaloCatalog(HaloCatalog):
 
     def __init__(self, ministry, filestruct, **kwargs):
 
+        if 'unitmap' not in kwargs.keys():
+            kwargs['unitmap'] = {'halomass':'msunh'}
 
         HaloCatalog.__init__(self, ministry, filestruct, **kwargs)
-
-        if self.unitmap is None:
-            unitmap = {'halomass':'msunh'}
 
         self.metrics = [MassFunction(self.ministry, zbins=self.zbins,
                                       lightcone=True,jtype=self.jtype),
