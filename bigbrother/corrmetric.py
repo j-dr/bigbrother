@@ -267,8 +267,8 @@ class WPrpLightcone(CorrelationFunction):
                                       tag=tag, **kwargs)
 
         self.color_cut = color_cut
+        self.splitcolor = None
         if self.color_cut:
-            self.splitcolor = None
             self.hcbins = 100
             self.ncbins = 2
         else:
@@ -360,7 +360,7 @@ class WPrpLightcone(CorrelationFunction):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-            if self.splitcolor is None:
+            if (self.splitcolor is None) & (self.color_cut):
                 ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
                 self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
 
@@ -392,7 +392,7 @@ class WPrpLightcone(CorrelationFunction):
 
                     #data data
                     print('calculating data data pairs')
-
+                    sys.stdout.flush()
                     if self.nd[self.jcount,k,j,i]<2:
                         continue
 

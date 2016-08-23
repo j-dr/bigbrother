@@ -276,14 +276,14 @@ class MagCounts(MagnitudeMetric):
                     self.magcounts[jc:jc+nj,:,:,:] = g
 
                     jc += nj
-                
+
                 area = self.ministry.galaxycatalog.getArea()
 
                 if not self.cumulative:
                     self.jmagcounts = self.magcounts/area
                 else:
                     self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
-                    
+
                 self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
 
                 self.y = self.magcounts
@@ -295,7 +295,7 @@ class MagCounts(MagnitudeMetric):
                 self.jmagcounts = self.magcounts/area
             else:
                 self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
-                
+
             self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
 
             self.y = self.magcounts
@@ -575,7 +575,7 @@ class ColorColor(Metric):
                     self.cc[jc:jc+nj,:,:,:] = g
 
                     jc += nj
-                
+
                 area = self.ministry.galaxycatalog.getArea()
                 self.jcolor_color = self.cc/area
                 self.jcolor_color, self.color_color, self.varcolor_color = self.jackknife(self.jcolor_color)
@@ -795,7 +795,7 @@ class ColorMagnitude(Metric):
                     self.cc[jc:jc+nj,:,:,:,:] = g
 
                     jc += nj
-            
+
                 area = self.ministry.galaxycatalog.getArea()
                 self.jcolor_mag = self.cc/area
                 self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
@@ -804,8 +804,8 @@ class ColorMagnitude(Metric):
             area = self.ministry.galaxycatalog.getArea()
             self.jcolor_mag = self.cc/area
             self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
-                
-                
+
+
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None,
                   compare=False, **kwargs):
 
@@ -964,9 +964,18 @@ class FQuenched(Metric):
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
 
-                self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+                self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+                self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
+                self.jfquenched = self.jqscounts / self.jtcounts
+                self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+                self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
+
         else:
-            self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+            self.jfquenched = self.jqscounts / self.jtcounts
+            self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+            self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
+
 
     def visualize(self, f=None, ax=None, compare=False, plotname=None,
                   **kwargs):
@@ -1086,10 +1095,21 @@ class FRed(Metric):
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
-                    
-                self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+
+                self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+                self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
+                self.jfquenched = self.jqscounts / self.jtcounts
+                self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+                self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
+
         else:
-            self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+            self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+            self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
+            self.jfquenched = self.jqscounts / self.jtcounts
+            self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+            self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
@@ -1223,10 +1243,21 @@ class FQuenchedLum(Metric):
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
-                
-                self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+
+                self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+                self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
+                self.jfquenched = self.jqscounts / self.jtcounts
+                self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+                self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
+
         else:
-            self.jfquenched, self.fquenched, self.varfquenched = self.jackknife(self.qscounts/self.tcounts)
+            self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+            self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
+            self.jfquenched = self.jqscounts / self.jtcounts
+            self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+            self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, f=None, ax=None, plotname=None,
