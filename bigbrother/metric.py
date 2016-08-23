@@ -263,12 +263,9 @@ class GMetric(Metric):
                                               **kwargs)
                         if logx:
                             ax[2*i][j].set_xscale('log')
-                            ax[2*i+1][j].set_xscale('log')
 
                         if logy:
                             ax[2*i][j].set_yscale('log')
-                            ax[2*i+1][j].set_yscale('log')
-
 
                         if (i==0) & (j==0):
                             if xlim!=None:
@@ -311,7 +308,6 @@ class GMetric(Metric):
                                             **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
-                        ax[2*i+1][0].set_xscale('log')
 
                     if (i==0):
                         if xlim!=None:
@@ -419,7 +415,7 @@ class GMetric(Metric):
                                              fylim=fylim, f=f, ax=ax, fracdev=False,
                                              compare=True, label=labels[i], usez=usez[i],
                                              **kwargs)
-            lines.extend(l)
+            lines.append(l[0])
 
         if labels[0]!=None:
             f.legend(lines, labels, 'best')
