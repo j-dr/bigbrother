@@ -135,8 +135,8 @@ class GMetric(Metric):
                     usez=None,fracdev=False, sharex=True, sharey=True,
                     ref_y=None, ref_x=[None], xlim=None, ylim=None,
                     fylim=None, f=None, ax=None, label=None,
-                    ylabel=None,compare=False, logx=False,
-                    logy=True, rusecols=None, **kwargs):
+                    xlabel=None, ylabel=None,compare=False,
+                    logx=False, logy=True, rusecols=None, **kwargs):
         """
         Plot the calculated metric.
 
