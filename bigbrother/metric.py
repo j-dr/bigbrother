@@ -131,10 +131,12 @@ class GMetric(Metric):
     def reduce(self, rank=None, comm=None):
         pass
 
-    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
-                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
-                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,
-                  logx=False, logy=True, rusecols=None, **kwargs):
+    def visualize(self, plotname=None, usecols=None,
+                    usez=None,fracdev=False, sharex=True, sharey=True,
+                    ref_y=None, ref_x=[None], xlim=None, ylim=None,
+                    fylim=None, f=None, ax=None, label=None,
+                    ylabel=None,compare=False, logx=False,
+                    logy=True, rusecols=None, **kwargs):
         """
         Plot the calculated metric.
 
@@ -229,9 +231,28 @@ class GMetric(Metric):
                     for c in range(nzbins):
                         if (r==0) & (c==0):
                             ax[2*r].append(f.add_subplot(gs[2*r,c]))
+
+                            if sharex & sharey:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0], sharey=ax[0][0]))
+                            elif sharex:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0]))
+                            elif sharey:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharey=ax[0][0]))
+                            else:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c]))
+
                             ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0]))
+
                         else:
-                            ax[2*r].append(f.add_subplot(gs[2*r,c]))
+                            if sharex & sharey:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0], sharey=ax[0][0]))
+                            elif sharex:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0]))
+                            elif sharey:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharey=ax[0][0]))
+                            else:
+                                ax[2*r].append(f.add_subplot(gs[2*r,c]))
+
                             ax[2*r+1].append(f.add_subplot(gs[2*r+1,c],
                               sharex=ax[0][0], sharey=ax[1][0]))
 
