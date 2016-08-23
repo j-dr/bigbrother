@@ -151,7 +151,7 @@ class Selector:
         #Iterate over the bins and make an array of functions that create indices.
         #Returns two arrays, one for each axis.
         for i in range (len(selection['slopes'])):
-            sf = lambda mapunit : self.(cut2DHelper(mapunit, selection, i))
+            sf = lambda mapunit : self.cut2DHelper(mapunit, selection, i)
             sfunctions.append(sf)
 
         return sfunctions
