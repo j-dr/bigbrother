@@ -231,16 +231,6 @@ class GMetric(Metric):
                     for c in range(nzbins):
                         if (r==0) & (c==0):
                             ax[2*r].append(f.add_subplot(gs[2*r,c]))
-
-                            if sharex & sharey:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0], sharey=ax[0][0]))
-                            elif sharex:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0]))
-                            elif sharey:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharey=ax[0][0]))
-                            else:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c]))
-
                             ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0]))
 
                         else:
@@ -256,8 +246,7 @@ class GMetric(Metric):
                             ax[2*r+1].append(f.add_subplot(gs[2*r+1,c],
                               sharex=ax[0][0], sharey=ax[1][0]))
 
-            ax = np.array(ax)
-            ax = np.atleast_2d(ax)
+            ax = np.array(ax).reshape((len(usecols)*2, len(nzbins)))
 
             newaxes = True
         else:
