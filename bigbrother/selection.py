@@ -158,8 +158,8 @@ class Selector:
 
     def cut2DHelper(self, mapunit, selection, i):
         #Make the fields.
-        f1 = field1
-        f2 = field2
+        field1 = None
+        field2 = None
         if len(selection['mapkeys']) > 1:
             field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]
             field2 = mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]-mapunit[selection['mapkeys'][1][1]][:,selection['selection_ind'][1][1]]
