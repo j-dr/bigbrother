@@ -246,7 +246,7 @@ class GMetric(Metric):
                             ax[2*r+1].append(f.add_subplot(gs[2*r+1,c],
                               sharex=ax[0][0], sharey=ax[1][0]))
 
-            ax = np.array(ax).reshape((len(usecols)*2, len(nzbins)))
+            ax = np.array(ax).reshape((len(usecols)*2, nzbins))
 
             newaxes = True
         else:
