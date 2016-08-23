@@ -485,30 +485,32 @@ class WPrpLightcone(CorrelationFunction):
 
                 self.jnd = self.jackknife(self.nd, reduce_jk=False)
                 self.jnr = self.jackknife(self.nr, reduce_jk=False)
-                self.jDD = self.jackknife(self.dd  / ( self.jnd * ( self.jnd - 1) / 2),
-                                          reduce_jk=False)
-                self.jDR = self.jackknife(self.dr / (self.jnd * self.jnr),
-                                          reduce_jk=False)
-                self.jRR = self.jackknife(self.rr / ( self.jnr * ( self.jnr - 1) / 2),
-                                          reduce_jk=False)
+                self.jdd = self.jackknife(self.dd, reduce_jk=False)
+                self.jdr = self.jackknife(self.dr, reduce_jk=False)
+                self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
-                self.jwprp = (self.jDD - 2 * self.jDR + self.jRR) / self.jRR
+                jDD = self.jdd / (self.jnd * (self.jnd - 1) / 2)
+                jDR = self.jdr / (self.jnd * self.jnr)
+                jRR = self.jrr / (self.jnr * (self.jnr - 1) / 2)
 
-                self.wprp = np.sum(self.jwprp, axis=0)/self.njacktot
+                self.jwprp = (jDD - 2 * jDR + jRR) / jRR
+
+                self.wprp = np.sum(self.jwprp, axis=0) / self.njacktot
                 self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
         else:
             self.jwprp = np.zeros(self.dd.shape)
 
             self.jnd = self.jackknife(self.nd, reduce_jk=False)
             self.jnr = self.jackknife(self.nr, reduce_jk=False)
-            self.jDD = self.jackknife(self.dd  / ( self.jnd * ( self.jnd - 1) / 2),
-                                      reduce_jk=False)
-            self.jDR = self.jackknife(self.dr / (self.jnd * self.jnr),
-                                      reduce_jk=False)
-            self.jRR = self.jackknife(self.rr / ( self.jnr * ( self.jnr - 1) / 2),
-                                      reduce_jk=False)
+            self.jdd = self.jackknife(self.dd, reduce_jk=False)
+            self.jdr = self.jackknife(self.dr, reduce_jk=False)
+            self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
-            self.jwprp = (self.jDD - 2 * self.jDR + self.jRR) / self.jRR
+            jDD = self.jdd / (self.jnd * (self.jnd - 1) / 2)
+            jDR = self.jdr / (self.jnd * self.jnr)
+            jRR = self.jrr / (self.jnr * (self.jnr - 1) / 2)
+
+            self.jwprp = (jDD - 2 * jDR + jRR) / jRR
 
             self.wprp = np.sum(self.jwprp, axis=0)/self.njacktot
             self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
@@ -535,7 +537,7 @@ class WPrpLightcone(CorrelationFunction):
         else:
             newaxes = False
 
-        rmean = self.rbins[1:]+self.rbins[:-1]
+        rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
 
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
@@ -710,7 +712,7 @@ class WPrpSnapshot(CorrelationFunction):
         else:
             newaxes = False
 
-        rmeans = self.rbins[1:]-self.rbins[:-1]
+        rmeans = (self.rbins[1:]-self.rbins[:-1]) / 2
 
         for i, l in enumerate(usecols):
             l1 = ax[usez[0]][i].loglog(rmeans, self.wprp[:,i])
