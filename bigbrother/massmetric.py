@@ -672,7 +672,7 @@ class Richness(MassMetric):
             mpl.pyplot.plot(peaks, np.partition(root_vals, -2)[-2:], 'ro')
             mpl.pyplot.plot([midpoint], sum([p_mid[::-1][i]*midpoint**i for i in range(len(p_mid))]), 'ro')
             peakvals = np.partition(root_vals, -2)[-2:]
-            print('Peaks: ' + str(peakvals) + ' at color ' + str(peaks))
+            print('Peaks: ' + str(peakvals) + ' at color ' + str(peaks) + ' with split color ' + str(midpoint))
 
         return midpoint
     
@@ -698,9 +698,8 @@ class Richness(MassMetric):
             color_counts, color_bins = np.histogram(g_r_color, self.colorbins) # place colors into bins
 
             if self.splitcolor is None:
-                split_color = self.splitBimodal(color_bins[:-1], color_counts)
-    	    else:
-                split_color = self.splitcolor
+                self.split_color = self.splitBimodal(color_bins[:-1], color_counts)
+    	    split_color = self.splitcolor
             
             previd = -1
             halo_ids = np.unique(mapunit['haloid'][zcut])
@@ -803,7 +802,7 @@ class Richness(MassMetric):
         if xlabel is None:
             xlabel = r"$M_{halo} \, [M_{\odot}\, h^{-1}]$"
         if ylabel is None:
-            ylabel = r"$<N_{red}> \, [Mpc^{-3}\, h^{3}]$"
+            ylabel = r"$<N_{red}>$"
 
         return MassMetric.visualize(self, plotname=plotname,
                                     usecols=usecols, usez=usez,
