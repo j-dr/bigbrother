@@ -224,29 +224,24 @@ class GMetric(Metric):
                 assert(ref_y!=None)
                 gs = gridspec.GridSpec(len(usecols)*2, nzbins)
                 f = plt.figure()
-                ax = []
+                ax = np.zeros((len(usecols)*2, nzbins), dtype='O')
                 for r in range(len(usecols)):
-                    ax.append([])
-                    ax.append([])
                     for c in range(nzbins):
                         if (r==0) & (c==0):
-                            ax[2*r].append(f.add_subplot(gs[2*r,c]))
-                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0]))
-
+                            ax[2*r][c] = f.add_subplot(gs[2*r,c])
+                            ax[2*r+1][c] = f.add_subplot(gs[2*r+1,c], sharex=ax[0][0])
                         else:
                             if sharex & sharey:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0], sharey=ax[0][0]))
+                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharex=ax[0][0], sharey=ax[0][0])
                             elif sharex:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharex=ax[0][0]))
+                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharex=ax[0][0])
                             elif sharey:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c], sharey=ax[0][0]))
+                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharey=ax[0][0])
                             else:
-                                ax[2*r].append(f.add_subplot(gs[2*r,c]))
+                                ax[2*r][c]= f.add_subplot(gs[2*r,c])
 
-                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c],
-                              sharex=ax[0][0], sharey=ax[1][0]))
-
-            ax = np.array(ax).reshape((len(usecols)*2, nzbins))
+                            ax[2*r+1][c] = f.add_subplot(gs[2*r+1,c],
+                              sharex=ax[0][0], sharey=ax[1][0])
 
             newaxes = True
         else:
