@@ -1178,7 +1178,7 @@ class FQuenchedLum(Metric):
         else:
             self.magbins = magbins
 
-        self.split_color = None
+        self.splitcolor = None
 
         if cbins is None:
             self.cbins = 50
@@ -1187,7 +1187,7 @@ class FQuenchedLum(Metric):
             self.cbins = cbins
             self.ncbins = len(cbins)
 
-        if self.cinds is None:
+        if cinds is None:
             self.cinds = [0, 1]
         else:
             self.cinds = cinds
