@@ -1161,8 +1161,9 @@ class FRed(Metric):
 
 class FQuenchedLum(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None, m=0.0, b=0.8,
-                 catalog_type=['galaxycatalog'], tag=None, **kwargs):
+    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None,
+                 catalog_type=['galaxycatalog'], tag=None,
+                 cbins=None, cinds=None, **kwargs):
         Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag, **kwargs)
         self.zbins = zbins
 
@@ -1177,8 +1178,19 @@ class FQuenchedLum(Metric):
         else:
             self.magbins = magbins
 
-        self.m = m
-        self.b = b
+        self.split_color = None
+
+        if cbins is None:
+            self.cbins = 50
+            self.ncbins = 50
+        else:
+            self.cbins = cbins
+            self.ncbins = len(cbins)
+
+        if self.cinds is None:
+            self.cinds = [0, 1]
+        else:
+            self.cinds = cinds
 
         self.mapkeys = ['luminosity', 'redshift']
         self.aschema = 'galaxyonly'
@@ -1193,30 +1205,37 @@ class FQuenchedLum(Metric):
             self.tcounts = np.zeros((self.njack,
                                       len(self.magbins)-1,self.nzbins))
 
+        clr = mapunit['luminosity'][:,self.cinds[0]] - mapunit['luminosity'][:,self.cinds[1]]
+
         if self.zbins is not None:
+
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
+                if (self.splitcolor is None):
+                    ccounts, self.cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
+                    self.splitcolor = self.splitBimodal(self.cbins[:-1], ccounts)
+
+
                 for j, lum in enumerate(self.magbins[:-1]):
                     lidx, = np.where((self.magbins[j]<mapunit['luminosity'][zlidx:zhidx,0])
                                     & (mapunit['luminosity'][zlidx:zhidx,0]<self.magbins[j+1]))
-                    qidx, = np.where((mapunit['luminosity'][zlidx:zhidx,0][lidx]
-                                     - mapunit['luminosity'][zlidx:zhidx,1][lidx])
-                                    > (self.m * mapunit['luminosity'][zlidx:zhidx,0][lidx]
-                                       + self.b))
+                    qidx, = np.where(clr[zlidx:zhidx][lidx]>self.splitcolor)
 
                     self.qscounts[self.jcount,j,i] = len(qidx)
                     self.tcounts[self.jcount,j,i] = len(lidx)
 
         else:
+            if (self.splitcolor is None):
+                ccounts, self.cbins = np.histogram(clr, self.cbins)
+                self.splitcolor = self.splitBimodal(self.cbins[:-1], ccounts)
+
             for i, lum in enumerate(self.magbins[:-1]):
                 lidx, = np.where((self.magbins[i]<mapunit['luminosity'][:,0])
                                 & (mapunit['luminosity'][:,0]<self.magbins[i+1]))
-                qidx, = np.where((mapunit['luminosity'][:,0][lidx]
-                                 - mapunit['luminosity'][:,1][lidx])
-                                > (self.m * mapunit['luminosity'][:,0][lidx]
-                                   + self.b))
+
+                qidx, = np.where(clr[lidx]>self.splitcolor)
 
                 self.qscounts[self.jcount,i,0] = len(qidx)
                 self.tcounts[self.jcount,i,0] = len(lidx)

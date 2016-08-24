@@ -48,6 +48,24 @@ class Metric(object):
     def compare(self, othermetric, plotname=None):
         pass
 
+    def splitBimodal(self, x, y, largepoly=30):
+        p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
+
+        extrema = np.roots(np.polyder(p))
+        extrema = extrema[np.isreal(extrema)]
+        extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
+
+        root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
+        peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
+
+        mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
+        p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
+
+        midpoint = np.roots(np.polyder(p_mid))[0]
+
+        return midpoint
+
+
     def jackknife(self, arg, reduce_jk=True):
 
         jdata = np.zeros(arg.shape)
