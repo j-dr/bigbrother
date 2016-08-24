@@ -1333,7 +1333,7 @@ class FQuenchedLum(Metric):
             plt.savefig(plotname)
 
         if labels[0] is not None:
-            plt.legend(lines, labels)
+            f.legend(lines, labels, 'best')
 
         return f, ax
 
