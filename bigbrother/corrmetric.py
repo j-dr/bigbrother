@@ -411,6 +411,7 @@ class WPrpLightcone(CorrelationFunction):
 
                     #data randoms
                     print('calculating data random pairs')
+                    sys.stdout.flush()
                     drresults = countpairs_mocks.countpairs_rp_pi_mocks(0, 1, 1,
                                             self.pimax,
                                             self.binfilename,
@@ -425,6 +426,7 @@ class WPrpLightcone(CorrelationFunction):
 
                     #randoms randoms
                     print('calculating random random pairs')
+                    sys.stdout.flush()
                     if (li==0) | (not self.same_rand):
                         rrresults = countpairs_mocks.countpairs_rp_pi_mocks(1, 1, 1,
                                             self.pimax,

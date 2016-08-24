@@ -12,7 +12,7 @@ import bigbrother.massmetric      as msm
 import bigbrother.corrmetric      as crm
 import bigbrother.healpix_utils   as hpm
 
-_eval_keys = ['zbins']
+_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins']
 
 def readCfg(filename):
 
