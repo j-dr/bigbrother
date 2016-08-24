@@ -149,7 +149,6 @@ class Selector:
         sfunctions = []
 
         #Iterate over the bins and make an array of functions that create indices.
-        #Returns two arrays, one for each axis.
         for i in range (len(selection['slopes'])):
             sf = lambda mapunit : self.cut2DHelper(mapunit, selection, i)
             sfunctions.append(sf)
@@ -171,14 +170,14 @@ class Selector:
         #Use the fields to make the ith cut.
         if selection['lower'][0]:
             if selection['lower'][1]:
-                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2
+                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2)
             else:
-                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2
+                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2)
         else:
             if selection['lower'][1]:
-                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2
+                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2)
             else:
-                sf = (selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1 & (selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2
+                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2)
 
         #Return the array specifying the cuts.
         return sf
