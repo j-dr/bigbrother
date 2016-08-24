@@ -271,7 +271,7 @@ class GMetric(Metric):
                 for j in range(nzbins):
                     if fracdev==False:
                         l1 = ax[i][j].errorbar(mxs, self.y[:,b,j],
-                                          yerr=self.ye[:,b,j], **kwargs)
+                                          yerr=self.ye[:,b,j], barsabove=True, **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
                         if logy:
@@ -279,11 +279,12 @@ class GMetric(Metric):
                     else:
                         rb = rusecols[i]
                         l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
-                                          self.ye[:,b,j], **kwargs)
+                                          self.ye[:,b,j], barsabove=True, **kwargs)
                         ax[2*i+1][j].errorbar(mxs[li:hi],
                                               (self.y[li:hi,b,j]-ref_y[:,rb,j])\
                                               /ref_y[:,rb,j],
                                               yerr=self.ye[li:hi,b,j],
+                                              barsabove=True,
                                               **kwargs)
                         if logx:
                             ax[2*i][j].set_xscale('log')
@@ -305,6 +306,7 @@ class GMetric(Metric):
                     try:
                         l1 = ax[i][0].errorbar(mxs, self.y[:,b,0],
                                                 yerr=self.ye[:,b,0],
+                                                barsabove=True,
                                                 **kwargs)
                         if logx:
                             ax[i][0].set_xscale('log')
@@ -315,6 +317,7 @@ class GMetric(Metric):
                         print(e)
                         l1 = ax.errorbar(mxs, self.y[:,b,0],
                                           yerr=self.ye[:,b,0],
+                                          barsabove=True,
                                           **kwargs)
                         if logx:
                             ax.set_xscale('log')
@@ -324,11 +327,14 @@ class GMetric(Metric):
                 else:
                     rb = rusecols[i]
                     l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],
-                                              yerr=self.ye[:,b,0], **kwargs)
+                                              yerr=self.ye[:,b,0],
+                                              barsabove=True,
+                                              **kwargs)
                     ax[2*i+1][0].errorbar(mxs[li:hi],
                                            (self.y[li:hi,b,0]-ref_y[:,rb,0])\
                                             /ref_y[:,rb,0],
                                             yerr=self.ye[li:hi,b,0],
+                                            barsabove=True,
                                             **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
