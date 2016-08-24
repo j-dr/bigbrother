@@ -1291,7 +1291,7 @@ class FQuenchedLum(Metric):
 
         lm = (self.magbins[:-1]+self.magbins[1:])/2
         for i in range(self.nzbins):
-            ax[0][i].plot(lm, self.fquenched[:,i])
+            ax[0][i].errorbar(lm, self.fquenched[:,i], yerr=np.sqrt(self.varfquenched[:,i]))
 
         if newaxes:
             sax = f.add_subplot(111)
