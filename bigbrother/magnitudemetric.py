@@ -1280,7 +1280,7 @@ class FQuenchedLum(Metric):
 
 
     def visualize(self, f=None, ax=None, plotname=None,
-                  compare=False, **kwargs):
+                  compare=False, label=None, **kwargs):
 
         if f is None:
             f, ax = plt.subplots(1,self.nzbins, figsize=(8,8))
@@ -1291,7 +1291,7 @@ class FQuenchedLum(Metric):
 
         lm = (self.magbins[:-1]+self.magbins[1:])/2
         for i in range(self.nzbins):
-            ax[0][i].errorbar(lm, self.fquenched[:,i], yerr=np.sqrt(self.varfquenched[:,i]))
+            l1 = ax[0][i].errorbar(lm, self.fquenched[:,i], yerr=np.sqrt(self.varfquenched[:,i]), label=label, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -1310,20 +1310,30 @@ class FQuenchedLum(Metric):
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
 
-        return f, ax
+        return f, ax, l1[0]
 
-    def compare(self, othermetrics, plotname=None, **kwargs):
+    def compare(self, othermetrics, plotname=None, labels=None,
+                  **kwargs):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
+        if labels is None:
+            labels = [None] * len(tocompare)
+
+        lines = []
+
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax = m.visualize(compare=True,**kwargs)
+                f, ax, l1 = m.visualize(compare=True,label=labels[i], **kwargs)
             else:
-                f, ax = m.visualize(f=f, ax=ax, compare=True, **kwargs)
+                f, ax, l1 = m.visualize(f=f, ax=ax, compare=True, label=labels[i], **kwargs)
+            lines.append(l1)
 
         if plotname is not None:
             plt.savefig(plotname)
+
+        if labels[0] is not None:
+            plt.legend(lines, labels)
 
         return f, ax
 
