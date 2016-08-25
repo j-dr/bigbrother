@@ -170,14 +170,14 @@ class Selector:
         #Use the fields to make the ith cut.
         if selection['lower'][0]:
             if selection['lower'][1]:
-                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2)
+                sf = False
             else:
-                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2)
+                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) >= field1)
         else:
             if selection['lower'][1]:
-                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) <= field2)
+                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) <= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) <= field1)
             else:
-                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field1) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field2) >= field2)
+                sf = False
 
         #Return the array specifying the cuts.
         return sf
