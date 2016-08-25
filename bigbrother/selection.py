@@ -177,7 +177,7 @@ class Selector:
             if selection['lower'][1]:
                 sf = []
                 sf_other = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) >= field1)
-                for i in sf_other:
+                for i in (len(sf_other)):
                     if sf_other[i] == True:
                         sf[i] = False
                     else:
