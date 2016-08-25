@@ -172,11 +172,11 @@ class Selector:
             if selection['lower'][1]:
                 sf = False
             else:
-                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) >= field1)
+                sf = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) <= field2)
         else:
             if selection['lower'][1]:
                 sf = []
-                sf_other = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) >= field1)
+                sf_other = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) <= field2)
                 for i in range(len(sf_other)):
                     if sf_other[i] == True:
                         sf.append(False)
