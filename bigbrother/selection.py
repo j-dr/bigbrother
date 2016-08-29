@@ -172,20 +172,32 @@ class Selector:
             if selection['lower'][1]:
                 sf = False
             else:
-                sf = (((selection['intercepts'][i][0]) + (selection['slopes'][i][0])*field1) >= field2) & (((selection['intercepts'][i][1]) + (selection['slopes'][i][1])*field1) <= field2)
+                if ((selection['slopes'][i][1]) == None):
+                    sf = (((selection['intercepts'][i][0]) + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1]) <= field1)
+                else:
+                    sf = (((selection['intercepts'][i][0]) + (selection['slopes'][i][0])*field1) >= field2) & (((selection['intercepts'][i][1]) + (selection['slopes'][i][1])*field1) <= field2)
         else:
             if selection['lower'][1]:
-                sf = []
-                sf_other = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) <= field2)
-                for i in range(len(sf_other)):
-                    if sf_other[i] == True:
-                        sf.append(False)
-                    else:
-                        sf.append(True)
+                if ((selection['slopes'][i][1]) == None):
+                    sf_other = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1]) <= field1)
+                    sf = self.returnOtherCut(sf_other, i)
+                else:
+                    sf_other = ((selection['intercepts'][i][0] + (selection['slopes'][i][0])*field1) >= field2) & ((selection['intercepts'][i][1] + (selection['slopes'][i][1])*field1) <= field2)
+                    sf = self.returnOtherCut(sf_other, i)
             else:
                 sf = False
 
         #Return the array specifying the cuts.
+        return sf
+
+    #Takes the "inside" 2D cut, and returns the "outside" cut. Helper function for the cut2DHelper.
+    def returnOtherCut(self, sf_other, i):
+        sf = []
+        for i in range(len(sf_other)):
+            if sf_other[i] == True:
+                sf.append(False)
+            else:
+                sf.append(True)
         return sf
 
     def mapArray(self):
