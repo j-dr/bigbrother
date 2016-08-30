@@ -484,12 +484,105 @@ class ColorDist(GMetric):
     def __init__(self, ministry, zbins=None, cbins=None,
                     catalog_type=['galaxycatalog'],
                     usebands=None, appmag=False, amagcut=None,
-                    **kwargs):
+                    pdf=False, **kwargs):
 
         GMetric.__init__(self, ministry,
                             catalog_type=catalog_type,
-        )
+                            **kwargs)
 
+        if zbins is None:
+            self.zbins = np.linspace(self.ministry.minz,
+                                      self.ministry.maxz,
+                                      10)
+        else:
+            self.zbins = zbins
+
+        self.nzbins = len(self.zbins)
+
+        self.pdf = pdf
+
+        if cbins is None:
+            self.cbins = np.linspace(-2, 2, 61)
+        else:
+            self.cbins = cbins
+        self.ncbins = len(self.cbins) - 1
+
+        if appmag:
+            self.mkey = 'appmag'
+        else:
+            self.mkey = 'luminosity'
+            if amagcut is None:
+                self.amagcut = -19
+            else:
+                self.amagcut = amagcut
+
+        if usebands is None:
+            self.usebands = [[0, 1]]
+        else:
+            self.usebands = usebands
+
+        self.ncolors = len(self.usebands)
+
+        self.cd = None
+
+    @jackknifeMap
+    def map(self, mapkey):
+
+        if self.cd is None:
+            self.cd = np.zeros(self.njack, self.ncbins,
+                                self.ncolors, self.nzbins)
+
+        clr = np.zeros((len(mapunit[self.mkey]),
+                        self.ncolors))
+        for c in range(self.ncolors):
+            clr[:,c] = mapunit[self.mkey][:,self.usebands[c][0]] - mapunit[self.mkey][:,self.usebands[c][1]]
+
+        for i, z in enumerate(self.zbins):
+            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+            if self.mkey == 'luminosity':
+                lidx = mapunit[self.mkey][zlidx:zhidx] < self.amagcut
+            else:
+                lidx = slice(0,zhidx-zlidx)
+
+                for ci in range(self.ncolors):
+                    c, e = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
+
+                    self.cd[self.jcount,:,ci,i] += c
+
+    def reduce(self, rank=None, comm=None):
+
+        if rank is not None:
+            gcd = comm.gather(self.cd, root=0)
+
+            gshape = [self.cd.shape[i] for i in range(len(self.cd.shape))]
+            gshape[0] = self.njacktot
+
+            if rank==0:
+                self.cd = np.zeros(gshape)
+                jc = 0
+                for i, g in enumerate(gcd):
+                    nj = g.shape[0]
+                    self.cd[jc:jc+nj,:,:,:] = g
+
+                    jc += nj
+                if self.pdf:
+                    self.tc = np.sum(self.cd, axis=1)
+                    self.jcolor_dist = self.cd / self.tc
+                else:
+                    area = self.getArea()
+                    self.jcolor_dist = self.cd / area
+
+                self.jcolor_dist, self.color_dist, self.varcolor_dist = self.jackknife(self.jcolor_dist)
+        else:
+            if self.pdf:
+                self.tc = np.sum(self.cd, axis=1)
+                self.jcolor_dist = self.cd / self.tc
+            else:
+                area = self.getArea()
+                self.jcolor_dist = self.cd / area
+
+            self.jcolor_dist, self.color_dist, self.varcolor_dist = self.jackknife(self.jcolor_dist)
 
 class ColorColor(Metric):
     """

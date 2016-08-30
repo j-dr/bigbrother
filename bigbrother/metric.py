@@ -150,11 +150,14 @@ class GMetric(Metric):
         pass
 
     def visualize(self, plotname=None, usecols=None,
-                    usez=None,fracdev=False, sharex=True, sharey=True,
-                    ref_y=None, ref_x=[None], xlim=None, ylim=None,
+                    usez=None,fracdev=False, sharex=True,
+                    sharey=True,
+                    ref_y=None, ref_x=[None], ref_ye=None,
+                    xlim=None, ylim=None,
                     fylim=None, f=None, ax=None, label=None,
                     xlabel=None, ylabel=None,compare=False,
-                    logx=False, logy=True, rusecols=None, **kwargs):
+                    logx=False, logy=True, rusecols=None,
+                    **kwargs):
         """
         Plot the calculated metric.
 
@@ -208,7 +211,6 @@ class GMetric(Metric):
 
         if usez is None:
             usez = range(self.nzbins)
-        print(usez)
         nzbins = len(usez)
 
         #If want to plot fractional deviations, and ref_y
@@ -278,12 +280,21 @@ class GMetric(Metric):
                             ax[i][j].set_yscale('log')
                     else:
                         rb = rusecols[i]
+                        #calculate error on fractional
+                        #difference
+                        if (ref_ye is not None) & (self.ye is not None):
+                            vye = self.ye**2
+                            vrye = ref_ye**2
+                            dye = np.sqrt(((1 - self.y[li:hi,b,j]) / ref_y[:,rb,j] - (ref_y[:,rb,j] - self.y[li:hi,b,j] / ref_y[:,rb,j] ** 2)) * ref_ye[:,rb,j] + (ref_y[:,rb,j] - 1) / ref_y[:,rb,j] * self.ye[li:hi,b,j])
+                        else self.ye is not None:
+                            dye = None
+
                         l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
                                           self.ye[:,b,j], barsabove=True, **kwargs)
                         ax[2*i+1][j].errorbar(mxs[li:hi],
                                               (self.y[li:hi,b,j]-ref_y[:,rb,j])\
                                               /ref_y[:,rb,j],
-                                              yerr=self.ye[li:hi,b,j],
+                                              yerr=dye,
                                               barsabove=True,
                                               **kwargs)
                         if logx:
@@ -326,6 +337,15 @@ class GMetric(Metric):
 
                 else:
                     rb = rusecols[i]
+                    #calculate error on fractional
+                    #difference
+                    if (ref_ye is not None) & (self.ye is not None):
+                        vye = self.ye**2
+                        vrye = ref_ye**2
+                        dye = np.sqrt(((1 - self.y[li:hi,b,0]) / ref_y[:,rb,0] - (ref_y[:,rb,0] - self.y[li:hi,b,0] / ref_y[:,rb,0] ** 2)) * ref_ye[:,rb,0] + (ref_y[:,rb,0] - 1) / ref_y[:,rb,0] * self.ye[li:hi,b,0])
+                    else self.ye is not None:
+                        dye = None
+
                     l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],
                                               yerr=self.ye[:,b,0],
                                               barsabove=True,
