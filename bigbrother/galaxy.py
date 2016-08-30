@@ -200,7 +200,7 @@ class BCCCatalog(GalaxyCatalog):
                         MagCounts(self.ministry,
                                     zbins=self.zbins,
                                     tag="BinZ",
-                                    jtype=self.jtype,
+                                    jtype=self.jtype),
                         MagCounts(self.ministry, zbins=None,
                                     tag="AllZ",
                                     jtype=self.jtype),
@@ -397,7 +397,13 @@ class DESGoldCatalog(GalaxyCatalog):
                         ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="BinZ", jtype=self.jtype, appmag=True),
                         ColorColor(self.ministry, zbins=None,
                          usebands=[0,1,2], tag="AllZ", jtype=self.jtype, appmag=True),
-                        DNDz(self.ministry, magbins=[20, 21, 22, 23])]
+                        DNDz(self.ministry, magbins=[20, 21, 22, 23]),
+                        FQuenched(self.ministry,
+                                    zbins=np.linspace(0,2.0,30),
+                                    jtype=self.jtype,
+                                    appmag=True,
+                                    tag='FQAppmag')]
+
 
         if self.fieldmap==None:
             self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']),
