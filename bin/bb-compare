@@ -3,7 +3,8 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
-import pickle
+import dill
+import cPickle as pickle
 import sys
 import os
 

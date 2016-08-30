@@ -8,6 +8,7 @@ import fitsio
 import time
 
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum
+from .lineofsight     import DNDz
 from .massmetric      import Richness
 from .healpix_utils   import Area
 from .corrmetric      import GalaxyRadialProfileBCC
@@ -166,7 +167,7 @@ class GalaxyCatalog(BaseCatalog):
 
 
     def filterAppmag(self, mapunit, bands=None, badval=99.):
-
+        print('Filtering appmag')
         if bands is None:
             if len(mapunit['appmag'].shape)>1:
                 bands = range(mapunit['appmag'].shape[1])
@@ -176,9 +177,9 @@ class GalaxyCatalog(BaseCatalog):
 
         for i, b in enumerate(bands):
             if i==0:
-                idx = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b]))
+                idx = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b])) & (~np.isnan(mapunit['appmag'][:,b]))
             else:
-                idxi = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b]))
+                idxi = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b])) & (~np.isnan(mapunit['appmag'][:,b]))
                 idx = idx&idxi
 
         return idx
@@ -209,9 +210,10 @@ class BCCCatalog(GalaxyCatalog):
                         FQuenched(self.ministry, zbins=np.linspace(0,2.0,30), jtype=self.jtype),
                         FQuenchedLum(self.ministry, zbins=self.zbins, jtype=self.jtype),
                         GalaxyRadialProfileBCC(self.ministry, zbins=self.zbins, jtype=self.jtype),
-                        Richness(self.ministry, zbins=self.zbins, jtype=self.jtype)]
+                        Richness(self.ministry, zbins=self.zbins, jtype=self.jtype),
+                        DNDz(self.ministry, magbins=[20, 21, 22, 23])]
 
-        if self.filters is None:
+        if len(self.filters) == 0:
             self.filters = ['Appmag']
 
         if self.unitmap is None:
@@ -331,11 +333,15 @@ class DESGoldCatalog(GalaxyCatalog):
 
         self.necessaries = ['modest']
         self.parseFileStruct(filestruct)
-        self.metrics = [Area(self.ministry),
-                        MagCounts(self.ministry, tag='AllZ',
-                                    zbins=None),
-                        ColorColor(self.ministry, appmag=True,
-                                    tag='AllZ', zbins=None)]
+        self.metrics = [Area(self.ministry, jtype=self.jtype),
+                        MagCounts(self.ministry, zbins=self.zbins, tag="BinZ",jtype=self.jtype),
+                        MagCounts(self.ministry, zbins=None, tag="AllZ", jtype=self.jtype),
+                        ColorMagnitude(self.ministry, zbins=self.zbins, usebands=[0,1], tag="AllCMBinZ", jtype=self.jtype, appmag=True),
+                        ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="BinZ", jtype=self.jtype, appmag=True),
+                        ColorColor(self.ministry, zbins=None,
+                         usebands=[0,1,2], tag="AllZ", jtype=self.jtype, appmag=True),
+                        DNDz(self.ministry, magbins=[20, 21, 22, 23])]
+
         if self.fieldmap==None:
             self.fieldmap = {'appmag':OrderedDict([('FLUX_AUTO_G',['auto']),
                                                    ('FLUX_AUTO_R',['auto']),
@@ -343,13 +349,14 @@ class DESGoldCatalog(GalaxyCatalog):
                                                    ('FLUX_AUTO_Z',['auto'])]),
                              'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
                              'polar_ang':OrderedDict([('DEC',['basic'])]),
-                             'azim_ang':OrderedDict([('RA',['basic'])])}
+                             'azim_ang':OrderedDict([('RA',['basic'])]),
+                             'redshift':OrderedDict([('BPZ_MC',['photoz'])])}
 
         if self.unitmap is None:
             self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra'}
 
-        if self.filters is None:
-            self.filters = ['Modest', 'Appmag']
+        if len(self.filters) == 0:
+            self.filters = ['Modest', 'Appmag', 'Photoz']
 
     def parseFileStruct(self, filestruct):
 
@@ -357,15 +364,25 @@ class DESGoldCatalog(GalaxyCatalog):
         filetypes = self.filestruct.keys()
         self.filetypes = filetypes
 
+        nfiles = np.array([len(self.filestruct[ft]) for ft in filetypes])
+        midx = np.argmin(nfiles)
+        dn = nfiles[1:]-nfiles[:-1]
+
+        if len(dn)!=0 and not (dn==0).all():
+            print('File types do not all have the same number of files!')
+            print('Number of files per filetype : {0}'.format(zip(filetypes, nfiles)))
+
         if len(filestruct.keys())>1:
             opix =  np.array([int(t.split('_')[-2].split('pix')[-1]) for t
-                              in self.filestruct[filetypes[0]]])
+                              in self.filestruct[filetypes[midx]]])
             oidx = opix.argsort()
 
             for ft in filetypes:
-                assert(len(filestruct[ft])==len(filestruct[filetypes[0]]))
                 pix = np.array([int(t.split('_')[-2].split('pix')[-1]) for t
                     in self.filestruct[ft]])
+                idx = np.in1d(pix, opix)
+                self.filestruct[ft] = self.filestruct[ft][idx]
+                pix = pix[idx]
                 idx = pix.argsort()
                 assert((pix[idx]==opix[oidx]).all())
 
@@ -373,6 +390,7 @@ class DESGoldCatalog(GalaxyCatalog):
                     self.filestruct[ft] = [self.filestruct[ft][idx]]
                 else:
                     self.filestruct[ft] = self.filestruct[ft][idx]
+
 
     def pixelVal(self,mappable):
         """
@@ -397,3 +415,7 @@ class DESGoldCatalog(GalaxyCatalog):
     def filterModest(self, mapunit):
 
         return mapunit['modest']==1
+
+    def filterPhotoz(self, mapunit):
+
+        return mapunit['redshift']>0

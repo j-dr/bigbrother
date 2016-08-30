@@ -115,13 +115,13 @@ class DNDz(Metric):
         #This will eventually need to be replaced with the outputs
         #if selector.mapArray()
         if not hasattr(self, 'dndz'):
-            self.dndz = np.zeros((self.njack, self.nzbins,self.nmagbins))
+            self.zcounts = np.zeros((self.njack, self.nzbins,self.nmagbins))
 
         for idx, aidx in self.selector.generateSelections(mapunit):
             c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
             shp = [1 for i in range(len(aidx)+1)]
-            shp[0] = len(c)
-            self.dndz[self.jcount,:,aidx] += c.reshape(shp)
+            shp[1] = len(c)
+            self.zcounts[self.jcount,:,aidx] += c.reshape(shp)
 
     def reduce(self, rank=None, comm=None):
         """

@@ -26,6 +26,8 @@ class Selector:
         else:
             self.selection_dict = selection_dict
 
+        self.selections = None
+
         self.selections = self.parseSelectionDict()
 
     def parseSelectionDict(self):
@@ -159,6 +161,10 @@ class Selector:
         mapunit -- mapunit
         The data to generate the selection indices for
         """
+
+        if self.selections is None:
+            self.selections = self.parseSelectionDict()
+
         self.sshape = np.array([len(self.selections[k]) for k in self.selections.keys()])
         self.scount = np.array([len(self.selections[k]) for k in self.selections.keys()])
         self.idxarray = np.zeros((len(mapunit[mapunit.keys()[0]]), len(self.sshape)), dtype=bool)
@@ -168,6 +174,8 @@ class Selector:
 
         for sel in product(*iselection):
             yield self.select(mapunit, sel), self.scount
+
+        self.selections = None
 
     def selectionAxes(self):
         """

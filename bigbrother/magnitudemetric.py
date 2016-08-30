@@ -257,6 +257,7 @@ class MagCounts(MagnitudeMetric):
                     self.magcounts[self.jcount,:,j,i] += c
         else:
             for j in range(self.nbands):
+                print(mapunit['appmag'][np.isnan(mapunit['appmag'][:,j]),j])
                 c, e = np.histogram(mapunit['appmag'][:,j], bins=self.magbins)
                 self.magcounts[self.jcount,:,j,0] += c
 
