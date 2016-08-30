@@ -6,13 +6,13 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from metric import Metric
-from .selection import Selector
+from selection import Selector
 
 class DNDz(Metric):
 
     def __init__(self, ministry, zbins=None, magbins=None,
                   catalog_type=['galaxycatalog'], tag=None, appmag=True,
-                  lower_limit=True, cutband=None, normed=True):
+                  lower_limit=True, cutband=None, normed=True, selection_dict):
         """
         Angular Number density of objects as a function of redshift.
 
@@ -39,6 +39,8 @@ class DNDz(Metric):
           The index of the column of a vector of magnitudes to use
         normed - boolean
           Whether the metric integrates to N/deg^2 or not. Usually want True.
+        selection_dict - dictionary
+          Specifies the paraemters of the selection. Details can be found in selection.py
         """
 
         Metric.__init__(self, ministry, tag=tag)
@@ -90,7 +92,7 @@ class DNDz(Metric):
             self.mapkeys = ['redshift']
             self.unitmap = {}
 
-        #Make selection dict here
+        """#Make selection dict here
         if lower_limit:
             selection_dict = {'mag':{'selection_type':'cut1d',
                                     'mapkeys':['appmag'],
@@ -101,9 +103,10 @@ class DNDz(Metric):
             selection_dict = {'mag':{'selection_type':'binned1d',
                                     'mapkeys':['appmag'],
                                     'bins':self.magbins,
-                                    'selection_ind':self.cutband}}
+                                    'selection_ind':self.cutband}}"""
+        sd = selection_dict
 
-        self.selector = Selector(selection_dict)
+        self.selector = Selector(sd)
 
     def map(self, mapunit):
         """
