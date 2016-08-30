@@ -548,8 +548,8 @@ class ColorDist(GMetric):
     def map(self, mapkey):
 
         if self.cd is None:
-            self.cd = np.zeros(self.njack, self.ncbins,
-                                self.ncolors, self.nzbins)
+            self.cd = np.zeros((self.njack, self.ncbins,
+                                self.ncolors, self.nzbins))
 
         clr = np.zeros((len(mapunit[self.mkey]),
                         self.ncolors))
