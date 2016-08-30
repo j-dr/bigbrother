@@ -479,6 +479,17 @@ class LcenMass(Metric):
 
         return f, ax
 
+class ColorDist(GMetric):
+
+    def __init__(self, ministry, zbins=None, cbins=None,
+                    catalog_type=['galaxycatalog'],
+                    usebands=None, appmag=False, amagcut=None,
+                    **kwargs):
+
+        GMetric.__init__(self, ministry,
+                            catalog_type=catalog_type,
+        )
+
 
 class ColorColor(Metric):
     """
@@ -672,8 +683,6 @@ class ColorColor(Metric):
             plt.savefig(plotname)
 
         return f, ax
-
-
 
 class ColorMagnitude(Metric):
     """
