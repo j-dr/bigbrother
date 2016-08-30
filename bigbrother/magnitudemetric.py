@@ -918,7 +918,7 @@ class FQuenched(Metric):
             self.nzbins = len(zbins)-1
             self.zbins = np.array(self.zbins)
 
-        self.splitcolors = np.zeros(self.nzbins)
+        self.splitcolor = np.zeros(self.nzbins)
 
         if magind is None:
             self.magind = [0,1]
