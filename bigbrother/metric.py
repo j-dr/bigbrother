@@ -59,9 +59,14 @@ class Metric(object):
         peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
 
         mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
-        p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
 
-        midpoint = np.roots(np.polyder(p_mid))[0]
+        try:
+            p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
+            midpoint = np.roots(np.polyder(p_mid))[0]
+        except:
+            warnings.warn("Polynomial fit between peaks of distribution poorly conditioned. Falling back on using the minimum! May result in inaccurate split determination.")
+            midx = np.argmin(y[mid])
+            midpoint = x[mid][midx]
 
         return midpoint
 
