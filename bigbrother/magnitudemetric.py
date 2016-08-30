@@ -895,8 +895,11 @@ class ColorMagnitude(Metric):
 
 class FQuenched(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], m=0.0,b=1.2,catalog_type=['galaxycatalog'],
-                 tag=None, **kwargs):
+    def __init__(self, ministry, zbins=[0.0, 0.2],
+                  catalog_type=['galaxycatalog'],
+                  tag=None, appmag=True, magind=None,
+                  hcbins=None, **kwargs):
+
         Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag,**kwargs)
         self.zbins = zbins
 
@@ -906,11 +909,25 @@ class FQuenched(Metric):
             self.nzbins = len(zbins)-1
             self.zbins = np.array(self.zbins)
 
-        self.m = m
-        self.b = b
+        self.splitcolors = np.zeros(self.nzbins)
 
-        self.mapkeys = ['luminosity', 'redshift']
-        self.unitmap = {'luminosity':'mag'}
+        if magind is None:
+            self.magind = [0,1]
+        else:
+            self.magind = magind
+
+        if hcbins is None:
+            self.hcbins = 100
+        else:
+            self.hcbins = hcbins
+
+        if appmag:
+            self.mkey = 'appmag'
+        else:
+            self.mkey = 'luminosity'
+
+        self.mapkeys = [self.mkey, 'redshift']
+        self.unitmap = {self.mkey:'mag'}
         self.aschema = 'galaxyonly'
 
     @jackknifeMap
@@ -920,27 +937,31 @@ class FQuenched(Metric):
             self.qscounts = np.zeros((self.njack, self.nzbins))
             self.tcounts = np.zeros((self.njack,self.nzbins))
 
+        clr = mapunit[self.mkey][:,self.magind[0]] - mapunit[self.mkey][:,self.magind[1]]
+
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                qidx, = np.where((mapunit['luminosity'][zlidx:zhidx,0]
-                                 - mapunit['luminosity'][zlidx:zhidx,1])
-                                > (self.m * mapunit['luminosity'][zlidx:zhidx,0]
-                                   + self.b))
+                ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+
+                self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+
+                qidx, = np.where(clr[zlidx:zhidx]>self.splitcolor[i])
 
                 self.qscounts[self.jcount,i] = len(qidx)
                 self.tcounts[self.jcount,i] = zhidx-zlidx
 
         else:
-            qidx = np.where((mapunit['luminosity'][:,0]
-                             - mapunit['luminosity'][:,1])
-                            > (self.m * mapunit['luminosity'][:,0]
-                               + self.b))
+            ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+
+            self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+
+            qidx, = np.where(clr[zlidx:zhidx]>self.splitcolor[i])
 
             self.qscounts[self.jcount,0] = len(qidx)
-            self.tcounts[self.jcount,0] = len(mapunit['luminosity'])
+            self.tcounts[self.jcount,0] = len(mapunit[self.mkey])
 
 
     def reduce(self, rank=None, comm=None):
