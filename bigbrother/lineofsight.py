@@ -10,9 +10,9 @@ from selection import Selector
 
 class DNDz(Metric):
 
-    def __init__(self, ministry, zbins=None, magbins=None,
+    def __init__(self, ministry, selection_dict, zbins=None, magbins=None,
                   catalog_type=['galaxycatalog'], tag=None, appmag=True,
-                  lower_limit=True, cutband=None, normed=True, selection_dict):
+                  lower_limit=True, cutband=None, normed=True):
         """
         Angular Number density of objects as a function of redshift.
 
