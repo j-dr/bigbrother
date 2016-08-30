@@ -7,7 +7,7 @@ import numpy as np
 import fitsio
 import time
 
-from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum
+from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum, ColorDist
 from .lineofsight     import DNDz
 from .massmetric      import Richness
 from .healpix_utils   import Area
