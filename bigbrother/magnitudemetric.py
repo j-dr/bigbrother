@@ -540,6 +540,8 @@ class ColorDist(GMetric):
 
         self.cd = None
 
+        self.mapkeys = [self.mkey, 'redshift']
+
     @jackknifeMap
     def map(self, mapkey):
 
