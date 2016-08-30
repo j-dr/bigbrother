@@ -556,7 +556,7 @@ class ColorDist(GMetric):
         for c in range(self.ncolors):
             clr[:,c] = mapunit[self.mkey][:,self.usebands[c][0]] - mapunit[self.mkey][:,self.usebands[c][1]]
 
-        for i, z in enumerate(self.zbins):
+        for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             if self.mkey == 'luminosity':
