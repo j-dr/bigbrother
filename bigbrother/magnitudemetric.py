@@ -545,7 +545,7 @@ class ColorDist(GMetric):
         self.unitmap = {self.mkey:'mag'}
 
     @jackknifeMap
-    def map(self, mapkey):
+    def map(self, mapunit):
 
         if self.cd is None:
             self.cd = np.zeros((self.njack, self.ncbins,
