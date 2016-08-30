@@ -113,7 +113,7 @@ class GalaxyCatalog(BaseCatalog):
         return fpix
 
 
-    def getArea(self):
+    def getArea(self, jacknife=False):
 
         arm = np.array([True if m.__class__.__name__=="Area" else False
                   for m in self.ministry.metrics])
@@ -121,12 +121,15 @@ class GalaxyCatalog(BaseCatalog):
         if am:
             idx, = np.where(arm==True)[0]
 
-        if (self.mask is None) & (not am):
-            return self.ministry.area
-        elif am:
-            return self.ministry.metrics[idx].area
+        if not jacknife:
+            if (self.mask is None) & (not am):
+                return self.ministry.area
+            elif am:
+                return self.ministry.metrics[idx].area
+            else:
+                return self.calculateMaskArea()
         else:
-            return self.calculateMaskArea()
+            return self.ministry.metrics[idx].jarea
 
     def readMappable(self, mappable, fieldmap):
 

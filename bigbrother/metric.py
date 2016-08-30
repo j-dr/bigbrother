@@ -286,7 +286,7 @@ class GMetric(Metric):
                             vye = self.ye**2
                             vrye = ref_ye**2
                             dye = np.sqrt(((1 - self.y[li:hi,b,j]) / ref_y[:,rb,j] - (ref_y[:,rb,j] - self.y[li:hi,b,j] / ref_y[:,rb,j] ** 2)) * ref_ye[:,rb,j] + (ref_y[:,rb,j] - 1) / ref_y[:,rb,j] * self.ye[li:hi,b,j])
-                        else self.ye is not None:
+                        else:
                             dye = None
 
                         l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
@@ -343,7 +343,7 @@ class GMetric(Metric):
                         vye = self.ye**2
                         vrye = ref_ye**2
                         dye = np.sqrt(((1 - self.y[li:hi,b,0]) / ref_y[:,rb,0] - (ref_y[:,rb,0] - self.y[li:hi,b,0] / ref_y[:,rb,0] ** 2)) * ref_ye[:,rb,0] + (ref_y[:,rb,0] - 1) / ref_y[:,rb,0] * self.ye[li:hi,b,0])
-                    else self.ye is not None:
+                    else:
                         dye = None
 
                     l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],

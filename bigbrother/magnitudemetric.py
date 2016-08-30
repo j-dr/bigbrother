@@ -157,27 +157,32 @@ class LuminosityFunction(MagnitudeMetric):
 
                     jc += nj
 
-                self.jluminosity_function = self.lumcounts
-                area = self.ministry.galaxycatalog.getArea()
+                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                vol = np.zeros((self.njacktot, self.nzbins))
                 for i in range(self.nzbins):
-                    vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
-                    self.jluminosity_function[:,:,:,i] /= vol
+                    vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
 
-                self.jluminosity_function, self.luminosity_function, self.varluminosity_function  = self.jackknife(self.jluminosity_function)
+                self.jlumcounts  = self.jackknife(self.lumcounts, reduce_jk=False)
+                self.jluminosity_function = self.jlumcounts / vol.reshape(self.njacktot, -1, -1, -1)
+
+                self.luminosity_function = np.sum(self.jluminosity_function, axis=0) / self.njacktot
+                self.varluminosity_function = np.sum((self.jluminosity_function - self.luminosity_function) ** 2) * (self.njacktot - 1) / self.njacktot
                 self.y = self.luminosity_function
                 self.ye = np.sqrt(self.varluminosity_function)
-
-
         else:
-            self.jluminosity_function = self.lumcounts
-            area = self.ministry.galaxycatalog.getArea()
+            area = self.ministry.galaxycatalog.getArea(jackknife=True)
+            vol = np.zeros((self.njacktot, self.nzbins))
             for i in range(self.nzbins):
-                vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
-                self.jluminosity_function[:,:,:,i] /= vol
+                vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
 
-            self.jluminosity_function, self.luminosity_function, self.varluminosity_function  = self.jackknife(self.jluminosity_function)
+            self.jlumcounts  = self.jackknife(self.lumcounts, reduce_jk=False)
+            self.jluminosity_function = self.jlumcounts / vol.reshape(self.njacktot, -1, -1, -1)
+
+            self.luminosity_function = np.sum(self.jluminosity_function, axis=0) / self.njacktot
+            self.varluminosity_function = np.sum((self.jluminosity_function - self.luminosity_function) ** 2) * (self.njacktot - 1) / self.njacktot
             self.y = self.luminosity_function
             self.ye = np.sqrt(self.varluminosity_function)
+
 
     def integrate(self, lmin, lmax, z, band=1):
         """
@@ -239,13 +244,15 @@ class MagCounts(MagnitudeMetric):
         self.cumulative = cumulative
 
         self.aschema = 'galaxyonly'
+        self.mc = None
 
     @jackknifeMap
     def map(self, mapunit):
         self.nbands = mapunit['appmag'].shape[1]
-        if not hasattr(self, 'magcounts'):
-            self.magcounts = np.zeros((self.njack, len(self.magbins)-1,
-                                       self.nbands, self.nzbins))
+        if self.mc is None:
+            self.mc = np.zeros((self.njack,
+                                  len(self.magbins)-1,
+                                  self.nbands, self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
@@ -254,50 +261,58 @@ class MagCounts(MagnitudeMetric):
                 for j in range(self.nbands):
                     c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j],
                                         bins=self.magbins)
-                    self.magcounts[self.jcount,:,j,i] += c
+                    self.mc[self.jcount,:,j,i] += c
         else:
             for j in range(self.nbands):
                 print(mapunit['appmag'][np.isnan(mapunit['appmag'][:,j]),j])
                 c, e = np.histogram(mapunit['appmag'][:,j], bins=self.magbins)
-                self.magcounts[self.jcount,:,j,0] += c
+                self.mc[self.jcount,:,j,0] += c
 
     def reduce(self, rank=None, comm=None):
 
         if rank is not None:
-            gdata = comm.gather(self.magcounts, root=0)
+            gdata = comm.gather(self.mc, root=0)
 
-            gshape = [self.magcounts.shape[i] for i in range(len(self.magcounts.shape))]
+            gshape = [self.mc.shape[i] for i in range(len(self.mc.shape))]
             gshape[0] = self.njacktot
 
             if rank==0:
-                self.magcounts = np.zeros(gshape)
+                self.mc = np.zeros(gshape)
                 jc = 0
                 for g in gdata:
                     nj = g.shape[0]
-                    self.magcounts[jc:jc+nj,:,:,:] = g
+                    self.mc[jc:jc+nj,:,:,:] = g
 
                     jc += nj
 
-                area = self.ministry.galaxycatalog.getArea()
+                area = self.ministry.galaxycatalog.getArea(jackknife=True)
 
                 if not self.cumulative:
-                    self.jmagcounts = self.magcounts/area
+                    self.mc = self.mc
                 else:
-                    self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
+                    self.mc = np.cumsum(self.mc, axis=1)
 
-                self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
+                self.jmagcounts = self.jackknife(self.mc, reduce_jk=False) / area
+
+                self.magcounts = np.sum(self.jmagcounts, axis=0) / self.njacktot
+
+                self.varmagcounts = np.sum((self.jmagcounts - self.magcounts)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
                 self.y = self.magcounts
                 self.ye = np.sqrt(np.sqrt(self.varmagcounts))
         else:
-            area = self.ministry.galaxycatalog.getArea()
+            area = self.ministry.galaxycatalog.getArea(jackknife=True)
 
             if not self.cumulative:
-                self.jmagcounts = self.magcounts/area
+                self.mc = self.mc
             else:
-                self.jmagcounts = np.cumsum(self.magcounts, axis=1)/area
+                self.mc = np.cumsum(self.mc, axis=1)
 
-            self.jmagcounts, self.magcounts, self.varmagcounts = self.jackknife(self.jmagcounts)
+            self.jmagcounts = self.jackknife(self.mc, reduce_jk=False) / area
+
+            self.magcounts = np.sum(self.jmagcounts, axis=0) / self.njacktot
+
+            self.varmagcounts = np.sum((self.jmagcounts - self.magcounts)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
             self.y = self.magcounts
             self.ye = np.sqrt(np.sqrt(self.varmagcounts))
@@ -546,7 +561,7 @@ class ColorDist(GMetric):
                 lidx = slice(0,zhidx-zlidx)
 
                 for ci in range(self.ncolors):
-                    c, e = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
+                    c, self.cbins = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
 
                     self.cd[self.jcount,:,ci,i] += c
 
@@ -568,29 +583,49 @@ class ColorDist(GMetric):
                     jc += nj
                 if self.pdf:
                     self.tc = np.sum(self.cd, axis=1)
-                    self.jcolor_dist = self.cd / self.tc
+                    self.jcd = self.jackknife(self.cd, reduce_jk=False)
+                    self.jtc = self.jackknife(self.tc, reduce_jk=False)
+                    dc = self.cbins[1:] - self.cbins[:-1]
+                    self.jcolor_dist = self.jcd / self.jtc / dc.reshape(-1, self.ncbins, -1, -1)
                 else:
-                    area = self.getArea()
-                    self.jcolor_dist = self.cd / area
+                    area = self.getArea(jackknife=True)
+                    self.jcd = self.jackknife(self.cd, reduce_jk=False)
+                    self.jcolor_dist = self.jcd / area.reshape(self.njacktot, -1, -1, -1)
 
-                self.jcolor_dist, self.color_dist, self.varcolor_dist = self.jackknife(self.jcolor_dist)
+                self.color_dist = np.sum(self.jcolor_dist, axis=0) / self.njacktot
+                self.varcolor_dist = np.sum((self.jcolor_dist - self.color_dist) ** 2) * (self.njacktot - 1) / self.njacktot
+
+                self.y = self.color_dist
+                self.ye = np.sqrt(self.varcolor_dist)
         else:
             if self.pdf:
                 self.tc = np.sum(self.cd, axis=1)
-                self.jcolor_dist = self.cd / self.tc
-            else:
-                area = self.getArea()
-                self.jcolor_dist = self.cd / area
+                self.jcd = self.jackknife(self.cd, reduce_jk=False)
+                self.jtc = self.jackknife(self.tc, reduce_jk=False)
+                dc = self.cbins[1:] - self.cbins[:-1]
+                self.jcolor_dist = self.jcd / self.jtc / dc.reshape(-1, self.ncbins, -1, -1)
 
-            self.jcolor_dist, self.color_dist, self.varcolor_dist = self.jackknife(self.jcolor_dist)
+            else:
+                area = self.getArea(jackknife=True)
+                self.jcd = self.jackknife(self.cd, reduce_jk=False)
+                self.jcolor_dist = self.jcd / area.reshape(self.njacktot, -1, -1, -1)
+
+            self.color_dist = np.sum(self.jcolor_dist, axis=0) / self.njacktot
+            self.varcolor_dist = np.sum((self.jcolor_dist - self.color_dist) ** 2) * (self.njacktot - 1) / self.njacktot
+
+            self.y = self.color_dist
+            self.ye = np.sqrt(self.varcolor_dist)
+
 
 class ColorColor(Metric):
     """
     Color-color diagram.
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
-                 catalog_type=['galaxycatalog'], usebands=None,
-                 amagcut=-19.0, tag=None, appmag=False, **kwargs):
+                 catalog_type=['galaxycatalog'],
+                 usebands=None,
+                 amagcut=-19.0, tag=None, appmag=False,
+                 pdf=False, **kwargs):
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.zbins = zbins
@@ -614,6 +649,8 @@ class ColorColor(Metric):
             self.mapkeys = [self.mkey, 'redshift']
         else:
             self.mapkeys = [self.mkey]
+
+        self.pdf = pdf
 
         self.amagcut = amagcut
         self.usebands = usebands
@@ -681,14 +718,35 @@ class ColorColor(Metric):
 
                     jc += nj
 
-                area = self.ministry.galaxycatalog.getArea()
-                self.jcolor_color = self.cc/area
-                self.jcolor_color, self.color_color, self.varcolor_color = self.jackknife(self.jcolor_color)
-        else:
-            area = self.ministry.galaxycatalog.getArea()
-            self.jcolor_color = self.cc/area
-            self.jcolor_color, self.color_color, self.varcolor_color = self.jackknife(self.jcolor_color)
+                if self.pdf:
+                    self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,-1,-1,self.nbands-2,self.nzbins)
+                    self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                    self.jtc = self.jackknife(self.tc, reduce_jk=False)
+                    dc = self.cbins[1:] - self.cbins[:-1]
+                    dc = np.outer(dc, dc)
+                    self.jcolor_color = self.jcc / self.jtc / dc.reshape(-1,self.ncbins,self.ncbins, -1, -1)
+                else:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                    self.jcolor_color = self.jcc / area
 
+                self.color_color = np.sum(self.jcolor_color, axis=0) / self.njacktot
+                self.varcolor_color = np.sum((self.jcolor_color - self.color_color) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
+        else:
+            if self.pdf:
+                self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,-1,-1,self.nbands-2,self.nzbins)
+                self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                self.jtc = self.jackknife(self.tc, reduce_jk=False)
+                dc = self.cbins[1:] - self.cbins[:-1]
+                dc = np.outer(dc, dc)
+                self.jcolor_color = self.jcc / self.jtc / dc.reshape(-1,self.ncbins,self.ncbins,-1,-1)
+            else:
+                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                self.jcolor_color = self.jcc / area.reshape(self.njacktot,-1,-1,-1,-1)
+
+            self.color_color = np.sum(self.jcolor_color, axis=0) / self.njacktot
+            self.varcolor_color = np.sum((self.jcolor_color - self.color_color) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
@@ -781,10 +839,12 @@ class ColorMagnitude(Metric):
     """
     Color-magnitude diagram.
     """
-    def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None,
-                 cbins=None, central_only=False, logscale=False,
-                 catalog_type=['galaxycatalog'], usebands=None,
-                 tag=None, appmag=False, **kwargs):
+    def __init__(self, ministry, zbins=[0.0, 0.2],
+                  magbins=None, cbins=None,
+                  central_only=False, logscale=False,
+                  catalog_type=['galaxycatalog'],
+                  usebands=None, tag=None, appmag=False,
+                  pdf=False, **kwargs):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
@@ -816,11 +876,11 @@ class ColorMagnitude(Metric):
             self.magbins = magbins
             self.cbins = cbins
 
-
         self.usebands = usebands
         if self.usebands is not None:
             self.nbands = len(self.usebands)
 
+        self.pdf = pdf
 
         self.central_only = central_only
         self.logscale = logscale
@@ -899,14 +959,38 @@ class ColorMagnitude(Metric):
 
                     jc += nj
 
-                area = self.ministry.galaxycatalog.getArea()
-                self.jcolor_mag = self.cc/area
-                self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
+                if self.pdf:
+                    self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,-1,-1,int(self.nbands*(self.nbands-1)/2),self.nzbins)
+                    self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                    self.jtc = self.jackknife(self.tc, reduce_jk=False)
+                    dc = self.cbins[1:] - self.cbins[:-1]
+                    dm = self.magbins[1:] - self.magbins[:-1]
+                    dcdm = np.outer(dc,dm).reshape(-1,self.ncbins, self.nmagbins,-1,-1)
+                    self.jcolor_mag = self.jcc / self.tc / dcdm
+                else:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                    self.jcolor_mag = self.jcc / area
+
+                self.color_mag = np.sum(self.jcolor_mag, axis=0) / self.njacktot
+                self.varcolor_mag = np.sum((self.jcolor_mag - self.color_mag) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
         else:
-            area = self.ministry.galaxycatalog.getArea()
-            self.jcolor_mag = self.cc/area
-            self.jcolor_mag, self.color_mag, self.varcolor_mag = self.jackknife(self.jcolor_mag)
+            if self.pdf:
+                self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,-1,-1,int(self.nbands*(self.nbands-1)/2),self.nzbins)
+                self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                self.jtc = self.jackknife(self.tc, reduce_jk=False)
+                dc = self.cbins[1:] - self.cbins[:-1]
+                dm = self.magbins[1:] - self.magbins[:-1]
+                dcdm = np.outer(dc,dm).reshape(-1,self.ncbins, self.nmagbins,-1,-1)
+                self.jcolor_mag = self.jcc / self.tc / dcdm
+            else:
+                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                self.jcc = self.jackknife(self.cc, reduce_jk=False)
+                self.jcolor_mag = self.jcc / area
+
+            self.color_mag = np.sum(self.jcolor_mag, axis=0) / self.njacktot
+            self.varcolor_mag = np.sum((self.jcolor_mag - self.color_mag) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None,

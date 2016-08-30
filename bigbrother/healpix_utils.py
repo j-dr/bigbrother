@@ -75,23 +75,42 @@ class Area(Metric):
         self.aschema = 'galaxyonly'
         self.catalog_type = ['galaxycatalog']
         self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
-        self.area = 0.0
+        self.jarea = None
 
+    @jackknifeMap
     def map(self, mapunit):
+
+        if self.jarea is None:
+            self.jarea = np.zeros(self.njack)
 
         pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'],
                          nest=True)
         upix = np.unique(pix)
         area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
-        self.area += area
+        self.jarea[self.jcount] += area
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
-            from mpi4py import MPI
+            garea = comm.gather(self.jarea, root=0)
 
-            area = np.array([0.0])
-            comm.Reduce(np.array([self.area]), area, root=0, op=MPI.SUM)
-            self.area = area[0]
+            gshape = [self.jarea.shape[i] for i in range(len(self.jarea.shape))]
+            gshape[0] = self.njacktot
+
+            if rank == 0:
+                self.jarea = np.zeros(gshape)
+                jc = 0
+
+                for g in garea:
+                    nj = g.shape[0]
+                    self.jarea[jc:jc+nj] = g
+
+                    jc += nj
+
+                self.jarea, self.area, self.vararea = self.jackknife(self.jarea)
+
+        else:
+            self.jarea, self.area, self.vararea = self.jackknife(self.jarea)
+
 
     def visualize(self):
         pass
