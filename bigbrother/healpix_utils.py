@@ -3,6 +3,7 @@ from .metric import Metric, GMetric
 import numpy as np
 import healpy as hp
 
+from .metric import jackknifeMap
 
 def sortHpixFileStruct(filestruct):
 
