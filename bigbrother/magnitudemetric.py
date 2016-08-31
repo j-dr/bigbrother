@@ -593,7 +593,7 @@ class ColorDist(GMetric):
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
                     self.jtc = self.jackknife(self.tc, reduce_jk=False)
                     dc = self.cbins[1:] - self.cbins[:-1]
-                    self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1,self.ncbins,1,1)
+                    self.jcolor_dist = self.jcd / self.jtc.reshape(self.njacktot, -1, self.ncolors, self.nzbins) / dc.reshape(1,self.ncbins,1,1)
                 else:
                     area = self.ministry.galaxycatalog.getArea(jackknife=True)
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
@@ -610,7 +610,7 @@ class ColorDist(GMetric):
                 self.jcd = self.jackknife(self.cd, reduce_jk=False)
                 self.jtc = self.jackknife(self.tc, reduce_jk=False)
                 dc = self.cbins[1:] - self.cbins[:-1]
-                self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1, self.ncbins, 1, 1)
+                self.jcolor_dist = self.jcd / self.jtc.reshape(self.njacktot, -1, self.ncolors, self.nzbins) / dc.reshape(1, self.ncbins, 1, 1)
 
             else:
                 area = self.ministry.galaxycatalog.getArea(jackknife=True)
