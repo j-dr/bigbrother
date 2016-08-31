@@ -170,7 +170,6 @@ class GalaxyCatalog(BaseCatalog):
 
 
     def filterAppmag(self, mapunit, bands=None, badval=99.):
-        print('Filtering appmag')
         if bands is None:
             if len(mapunit['appmag'].shape)>1:
                 bands = range(mapunit['appmag'].shape[1])

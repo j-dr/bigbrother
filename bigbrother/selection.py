@@ -2,6 +2,7 @@ from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from itertools import product
+from functools import partial
 import numpy as np
 
 class Selector:
@@ -64,15 +65,14 @@ class Selector:
         #Should only be one mapkey for a 1d selection
         mk = selection['mapkeys'][0]
 
+        if not hasattr(selection['selection_ind'], '__iter__'):
+            si = [selection['selection_ind']] * len(selection['bins'])
+        else:
+            si = selection['selection_ind']
+
         #Iterate over bins, creating functions that make indices
         for i in range(len(selection['bins'])-1):
-            if selection['selection_ind'] is None:
-                sf = lambda data : (selection['bins'][i]<=data[mk]) & (selection['bins'][i+1])<data[mk]
-            else:
-                si = selection['selection_ind']
-                sf = lambda data : (selection['bins'][i]<=data[mk][:,si]) & (selection['bins'][i+1])<data[mk][:,si]
-
-            sfunctions.append(sf)
+            sfunctions.append(partial(self.bin1dhelper, selection['bins'][i], selection['bins'][i+1], mk, si[i]))
 
         return sfunctions
 
@@ -91,25 +91,40 @@ class Selector:
 
         #Should only be one mapkey for a 1d selection
         mk = selection['mapkeys'][0]
+        if not hasattr(selection['selection_ind'], '__iter__'):
+            si = [selection['selection_ind']] * len(selection['bins'])
+        else:
+            si = selection['selection_ind']
+
+        if not hasattr(selection['lower'], '__iter__'):
+            lower = [selection['lower']] * len(selection['bins'])
+        else:
+            lower = selection['lower']
 
         #Iterate over bins, creating functions that make indices
         for i in range(len(selection['bins'])):
-            if selection['lower']:
-                if selection['selection_ind'] is None:
-                    sf = lambda data : selection['bins'][i]<=data[mk]
-                else:
-                    si = selection['selection_ind']
-                    sf = lambda data : selection['bins'][i]<=data[mk][:,si]
-            else:
-                if selection['selection_ind'] is None:
-                    sf = lambda data : selection['bins'][i]>=data[mk]
-                else:
-                    si = selection['selection_ind']
-                    sf = lambda data : selection['bins'][i]>=data[mk][:,si]
-
-            sfunctions.append(sf)
+            sfunctions.append(partial(self.cut1dhelper, selection['bins'][i], mk, si[i], lower[i]))
 
         return sfunctions
+
+    def bin1dhelper(self, lbound, hbound, key, index, data):
+        if index is None:
+            return (lbound <= data[key]) & (data[key] < hbound)
+        else:
+            return (lbound <= data[key][:,index]) & (data[key][:,index] < hbound)
+
+    def cut1dhelper(self, cut, key, index, lower, data):
+        if lower:
+            if index is None:
+                return data[key]<=cut
+            else:
+                return data[key][:,index]<=cut
+        else:
+            if index is None:
+                return data[key]>cut
+            else:
+                return data[key][:,index]>cut
+
 
     def mapArray(self):
         """
@@ -143,11 +158,12 @@ class Selector:
 
         """
         for i, sf in enumerate(sfunctions):
-            if self.scount[i]%self.sshape[i]==0:
-                self.idxarray[:,i] = sf(mapunit)
+            if ((self.scount[i]+1)%self.sshape[i])==0:
                 self.scount[i] = 0
             else:
                 self.scount[i] += 1
+
+            self.idxarray[:,i] = sf(mapunit)
 
         return self.idxarray.all(axis=1)
 
@@ -166,7 +182,7 @@ class Selector:
             self.selections = self.parseSelectionDict()
 
         self.sshape = np.array([len(self.selections[k]) for k in self.selections.keys()])
-        self.scount = np.array([len(self.selections[k]) for k in self.selections.keys()])
+        self.scount = np.array([len(self.selections[k])-1 for k in self.selections.keys()])
         self.idxarray = np.zeros((len(mapunit[mapunit.keys()[0]]), len(self.sshape)), dtype=bool)
 
         iselection = self.selections.values()

@@ -115,6 +115,7 @@ class DNDz(Metric):
             self.zcounts = np.zeros((self.njack, self.nzbins,self.nmagbins))
 
         for idx, aidx in self.selector.generateSelections(mapunit):
+            print(idx)
             c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
             shp = [1 for i in range(len(aidx)+1)]
             shp[1] = len(c)
