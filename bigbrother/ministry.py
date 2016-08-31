@@ -776,9 +776,17 @@ class Ministry:
         areaidx = None
         for mi, mg in enumerate(self.metric_groups):
             ms = mg[1]
-            for m in ms:
+            for mj, m in enumerate(ms):
                 if m.__class__.__name__ == 'Area':
                     areaidx = mi
+                    maidx   = mj
+
+                    nms = []
+                    nms.append(m)
+                    nms.extend(ms[:mj])
+                    nms.extend(ms[mj+1:])
+                    self.metric_groups[mi] = [mg[0],nms]
+                    break
                     
         if areaidx is not None:
             mgs = []

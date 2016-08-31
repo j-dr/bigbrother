@@ -143,26 +143,31 @@ class DNDz(Metric):
 
                     jc += nj
 
-                area = self.ministry.galaxycatalog.getArea()
+                area = self.ministry.galaxycatalog.getArea(jackknife=True)
 
                 if self.normed:
                     dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
-                    self.jdndz = self.zcounts/area/dz
+                    jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                    self.jdndz = jzcounts/area/dz
                 else:
-                    self.jdndz = self.zcounts/area
+                    jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                    self.jdndz = jzcounts/area
 
-                self.jdndz, self.dndz, self.vardndz = self.jackknife(self.jdndz)
+                self.dndz = np.sum(self.jdndz, axis=0) / self.njacktot
+                self.vardndz = np.sum( (self.jdndz - self.dndz) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
+
         else:
-            area = self.ministry.galaxycatalog.getArea()
-
+            area = self.ministry.galaxycatalog.getArea(jackknife=True)
             if self.normed:
                 dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
-                self.jdndz = self.zcounts/area/dz
+                jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                self.jdndz = jzcounts/area/dz
             else:
-                self.jdndz = self.zcounts/area
+                jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                self.jdndz = jzcounts/area
 
-            self.jdndz, self.dndz, self.vardndz = self.jackknife(self.jdndz)
-
+            self.dndz = np.sum(self.jdndz, axis=0) / self.njacktot
+            self.vardndz = np.sum( (self.jdndz - self.dndz) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,

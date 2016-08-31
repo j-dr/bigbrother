@@ -54,15 +54,14 @@ class Metric(object):
         extrema = np.roots(np.polyder(p))
         extrema = extrema[np.isreal(extrema)]
         extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
-
-        root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
-        peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
-
         try:
+            root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
+            peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
+
             mid = np.where((x - peaks[0])* (peaks[1] - x) > 0)
              # want data points between the peaks
         except:
-            warmings.warn("Peak finding failed!")
+            warnings.warn("Peak finding failed!")
             return None
 
         try:

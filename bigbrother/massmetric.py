@@ -132,29 +132,38 @@ class MassFunction(MassMetric):
 
                     jc += nj
 
-                area = self.ministry.halocatalog.getArea()
+                area = self.ministry.halocatalog.getArea(jackknife=True)
                 self.jmass_function = np.zeros(self.masscounts.shape)
+                vol = np.zeros((self.njacktot, self.nzbins))
 
                 for i in range(self.nzbins):
-                    vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
-                    self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
+                    vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
 
-                self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
+                jmasscounts = self.jackknife(self.masscounts, reduce_jk=False)
+
+                self.jmass_function = jmasscounts / vol.reshape(self.njacktot,1,1,self.nzbins)
+                self.mass_function  = np.sum(self.jmass_function, axis=0) / self.njacktot
+                self.varmass_function = np.sum((self.jmass_function - self.mass_function) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
                 self.y = self.mass_function
                 self.ye = np.sqrt(self.varmass_function)
         else:
-            area = self.ministry.halocatalog.getArea()
+            area = self.ministry.halocatalog.getArea(jackknife=True)
             self.jmass_function = np.zeros(self.masscounts.shape)
+            vol = np.zeros((self.njacktot, self.nzbins))
 
             for i in range(self.nzbins):
-                vol = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
-                self.jmass_function[:, :,:,i] = self.masscounts[:,:,:,i] / vol
+                vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
 
-                self.jmass_function, self.mass_function, self.varmass_function = self.jackknife(self.jmass_function)
+            jmasscounts = self.jackknife(self.masscounts, reduce_jk=False)
+
+            self.jmass_function = jmasscounts / vol.reshape(self.njacktot,1,1,self.nzbins)
+            self.mass_function  = np.sum(self.jmass_function, axis=0) / self.njacktot
+            self.varmass_function = np.sum((self.jmass_function - self.mass_function) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
             self.y = self.mass_function
             self.ye = np.sqrt(self.varmass_function)
+
 
 
     def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,

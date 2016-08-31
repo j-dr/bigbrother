@@ -220,6 +220,24 @@ class BaseCatalog:
 
         return mapunit
 
+    def getArea(self, jackknife=False):
+
+        arm = np.array([True if m.__class__.__name__=="Area" else False
+                  for m in self.ministry.metrics])
+        am = any(arm)
+
+        if am:
+            idx, = np.where(arm==True)[0]
+
+        if not jackknife:
+            if not am:
+                return self.ministry.area
+            else:
+                return self.ministry.metrics[idx].area
+        else:
+            return self.ministry.metrics[idx].jarea
+
+
 class PlaceHolder(BaseCatalog):
 
     def __init__(self, ministry, filestruct, **kwargs):
