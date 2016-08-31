@@ -58,7 +58,7 @@ class Metric(object):
             root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
             peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
 
-            mid = np.where((x - peaks[0])* (peaks[1] - x) > 0)
+            mid, = np.where((x - peaks[0])* (peaks[1] - x) > 0)
              # want data points between the peaks
         except:
             warnings.warn("Peak finding failed!")
@@ -69,6 +69,9 @@ class Metric(object):
             midpoint = np.roots(np.polyder(p_mid))[0]
         except:
             warnings.warn("Polynomial fit between peaks of distribution poorly conditioned. Falling back on using the minimum! May result in inaccurate split determination.")
+            if len(mid) == 0:
+                return None
+                
             midx = np.argmin(y[mid])
             midpoint = x[mid][midx]
 

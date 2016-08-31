@@ -41,13 +41,6 @@ class HaloCatalog(BaseCatalog):
 
         return area
 
-    def getArea(self):
-
-        if self.mask is None:
-            return self.ministry.area
-        else:
-            return self.area
-
     def parseFileStruct(self, filestruct):
         """
         Given a filestruct object, namely a list of truth
@@ -230,4 +223,3 @@ class BCCHaloCatalog(HaloCatalog):
         pix = int(f1.split('.')[-2])
 
         return pix
-
