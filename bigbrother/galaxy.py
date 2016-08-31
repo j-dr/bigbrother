@@ -275,10 +275,12 @@ class BCCCatalog(GalaxyCatalog):
                         GalaxyRadialProfileBCC(self.ministry,
                                                 zbins=self.zbins,
                                                 jtype=self.jtype),
-                        Richness(self.ministry, zbins=self.zbins,
+                        Richness(self.ministry,
+                                  zbins=self.zbins,
                                   jtype=self.jtype),
                         DNDz(self.ministry,
-                              magbins=[20, 21, 22, 23])]
+                              magbins=[20, 21, 22, 23],
+                              jtype=self.jtype)]
 
         if len(self.filters) == 0:
             self.filters = ['Appmag']
