@@ -10,8 +10,9 @@ from .selection import Selector
 class DNDz(Metric):
 
     def __init__(self, ministry, zbins=None, magbins=None,
-                  catalog_type=['galaxycatalog'], tag=None, appmag=True,
-                  lower_limit=True, cutband=None, normed=True, **kwargs):
+                  catalog_type=['galaxycatalog'], tag=None,
+                  appmag=True, lower_limit=True, cutband=None,
+                  normed=True, **kwargs):
         """
         Angular Number density of objects as a function of redshift.
 
@@ -39,11 +40,8 @@ class DNDz(Metric):
         normed - boolean
           Whether the metric integrates to N/deg^2 or not. Usually want True.
         """
-        print(magbins)
-
         Metric.__init__(self, ministry, tag=tag, **kwargs)
 
-        print(magbins)
         self.catalog_type = catalog_type
 
         if zbins is None:
@@ -69,7 +67,6 @@ class DNDz(Metric):
         self.lower_limit = lower_limit
 
         if magbins is None:
-            print("no mag bins")
             self.magbins = None
             self.nmagbins = 0
             self.nomags = True
@@ -82,7 +79,6 @@ class DNDz(Metric):
                 self.nmagbins = len(self.magbins) - 1
 
         self.normed = normed
-
         self.aschema = 'galaxyonly'
 
         if self.nmagbins > 0:
@@ -105,6 +101,7 @@ class DNDz(Metric):
                                     'bins':self.magbins,
                                     'selection_ind':self.cutband}}
 
+        self.zcounts = None
         self.selector = Selector(selection_dict)
 
     @jackknifeMap
@@ -114,7 +111,7 @@ class DNDz(Metric):
         """
         #This will eventually need to be replaced with the outputs
         #if selector.mapArray()
-        if not hasattr(self, 'dndz'):
+        if self.zcounts is None:
             self.zcounts = np.zeros((self.njack, self.nzbins,self.nmagbins))
 
         for idx, aidx in self.selector.generateSelections(mapunit):
