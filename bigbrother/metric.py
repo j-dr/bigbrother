@@ -58,7 +58,12 @@ class Metric(object):
         root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
         peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
 
-        mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
+        try:
+            mid = np.where((x - peaks[0])* (peaks[1] - x) > 0)
+             # want data points between the peaks
+        except:
+            warmings.warn("Peak finding failed!")
+            return None
 
         try:
             p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola

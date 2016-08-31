@@ -1137,6 +1137,8 @@ class FQuenched(Metric):
                 ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
 
                 self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+                if self.splitcolor[i] is None:
+                    continue
 
                 qidx, = np.where(clr[zlidx:zhidx]>self.splitcolor[i])
 
@@ -1147,6 +1149,8 @@ class FQuenched(Metric):
             ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
 
             self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+            if self.splitcolor[i] is None:
+                continue
 
             qidx, = np.where(clr[zlidx:zhidx]>self.splitcolor[i])
 
@@ -1428,6 +1432,8 @@ class FQuenchedLum(Metric):
                 if (self.splitcolor is None):
                     ccounts, self.cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
                     self.splitcolor = self.splitBimodal(self.cbins[:-1], ccounts)
+                    if self.splitcolor is None:
+                        continue
 
 
                 for j, lum in enumerate(self.magbins[:-1]):
@@ -1442,6 +1448,8 @@ class FQuenchedLum(Metric):
             if (self.splitcolor is None):
                 ccounts, self.cbins = np.histogram(clr, self.cbins)
                 self.splitcolor = self.splitBimodal(self.cbins[:-1], ccounts)
+                if self.splitcolor is None:
+                    continue
 
             for i, lum in enumerate(self.magbins[:-1]):
                 lidx, = np.where((self.magbins[i]<mapunit['luminosity'][:,0])
