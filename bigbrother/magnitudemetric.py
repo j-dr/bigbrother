@@ -499,7 +499,7 @@ class ColorDist(GMetric):
     def __init__(self, ministry, zbins=None, cbins=None,
                     catalog_type=['galaxycatalog'],
                     usebands=None, appmag=False, amagcut=None,
-                    pdf=False, **kwargs):
+                    pdf=False, cutind=None, **kwargs):
 
         self.pdf = pdf
 
@@ -527,6 +527,11 @@ class ColorDist(GMetric):
                 self.amagcut = -19
             else:
                 self.amagcut = amagcut
+
+            if cutind is None:
+                self.cutind = 0
+            else:
+                self.cutind = cutind
 
         if usebands is None:
             self.usebands = [[0, 1]]
@@ -558,7 +563,7 @@ class ColorDist(GMetric):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             if self.mkey == 'luminosity':
-                lidx = mapunit[self.mkey][zlidx:zhidx] < self.amagcut
+                lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind] < self.amagcut
             else:
                 lidx = slice(0,zhidx-zlidx)
 
