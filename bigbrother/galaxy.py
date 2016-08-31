@@ -113,7 +113,7 @@ class GalaxyCatalog(BaseCatalog):
         return fpix
 
 
-    def getArea(self, jacknife=False):
+    def getArea(self, jackknife=False):
 
         arm = np.array([True if m.__class__.__name__=="Area" else False
                   for m in self.ministry.metrics])
