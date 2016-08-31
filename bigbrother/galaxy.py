@@ -121,7 +121,7 @@ class GalaxyCatalog(BaseCatalog):
         if am:
             idx, = np.where(arm==True)[0]
 
-        if not jacknife:
+        if not jackknife:
             if (self.mask is None) & (not am):
                 return self.ministry.area
             elif am:
