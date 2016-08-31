@@ -593,7 +593,7 @@ class ColorDist(GMetric):
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
                     self.jtc = self.jackknife(self.tc, reduce_jk=False)
                     dc = self.cbins[1:] - self.cbins[:-1]
-                    self.jcolor_dist = self.jcd / self.jtc.reshape(self.njacktot, -1, self.ncolors, self.nzbins) / dc.reshape(1,self.ncbins,1,1)
+                    self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1,self.ncbins,1,1)
                 else:
                     area = self.ministry.galaxycatalog.getArea(jackknife=True)
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
@@ -610,7 +610,7 @@ class ColorDist(GMetric):
                 self.jcd = self.jackknife(self.cd, reduce_jk=False)
                 self.jtc = self.jackknife(self.tc, reduce_jk=False)
                 dc = self.cbins[1:] - self.cbins[:-1]
-                self.jcolor_dist = self.jcd / self.jtc.reshape(self.njacktot, -1, self.ncolors, self.nzbins) / dc.reshape(1, self.ncbins, 1, 1)
+                self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1, self.ncbins, 1, 1)
 
             else:
                 area = self.ministry.galaxycatalog.getArea(jackknife=True)
@@ -1917,3 +1917,14 @@ class TabulatedLuminosityFunction(LuminosityFunction):
 
         self.xmean = self.magmean
         self.y = self.luminosity_function
+
+    def evolveTableQP(self, Q, P, zs, z0=0.1):
+
+        elf = np.zeros((len(self.xmean),len(z)))
+        ex  = np.zeros((len(self.xmean),len(z)))
+
+        for z in zs:
+            elf[:,i] = self.luminosity_function * 10 ** (0.4 * P * (z - z0))
+            ex[:,i] = self.xmean + Q * (z - z0)
+
+            
