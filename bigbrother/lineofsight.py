@@ -141,12 +141,12 @@ class DNDz(Metric):
 
                     jc += nj
 
-                area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot, 1, 1)
+                area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot,1,1)
 
                 if self.normed:
                     dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
                     jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
-                    self.jdndz = jzcounts/area
+                    self.jdndz = jzcounts/area/dz
                 else:
                     jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
                     self.jdndz = jzcounts/area
