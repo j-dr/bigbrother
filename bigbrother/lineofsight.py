@@ -432,7 +432,7 @@ class TabulatedDNDz(DNDz):
         else:
             self.ycol = 2
 
-        DNDz.__init__(self,*args,**kwargs)
+        DNDz.__init__(self)
 
         #don't need to map this guy
         self.nomap = True
