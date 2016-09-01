@@ -261,8 +261,9 @@ class BCCCatalog(GalaxyCatalog):
                         ColorColor(self.ministry,
                                     zbins=None,
                                     usebands=[0,1,2],
-                                    tag="CCAllZ",
-                                    jtype=self.jtype),
+                                    tag="CCAppAllZ",
+                                    jtype=self.jtype,
+                                    appmag=True),
                         FQuenched(self.ministry,
                                     zbins=np.linspace(0,2.0,30),
                                     jtype=self.jtype,
@@ -414,10 +415,10 @@ class DESGoldCatalog(GalaxyCatalog):
                                     tag="CDAppZBin",
                                     pdf=True,
                                     usebands=[[0,1],[0,2],[1,2]]),
-                        ColorMagnitude(self.ministry, zbins=self.zbins, usebands=[0,1], tag="AllCMBinZ", jtype=self.jtype, appmag=True),
-                        ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="BinZ", jtype=self.jtype, appmag=True),
+                        ColorMagnitude(self.ministry, zbins=self.zbins, usebands=[0,1], tag="AllCMAppBinZ", jtype=self.jtype, appmag=True),
+                        ColorColor(self.ministry, zbins=self.zbins, usebands=[0,1,2], tag="CCAppBinZ", jtype=self.jtype, appmag=True),
                         ColorColor(self.ministry, zbins=None,
-                         usebands=[0,1,2], tag="AllZ", jtype=self.jtype, appmag=True),
+                         usebands=[0,1,2], tag="CCAppAllZ", jtype=self.jtype, appmag=True),
                         DNDz(self.ministry, magbins=[20, 21, 22, 23], jtype=self.jtype)]
 
 

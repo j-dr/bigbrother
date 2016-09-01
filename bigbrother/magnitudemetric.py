@@ -589,7 +589,7 @@ class ColorDist(GMetric):
 
                     jc += nj
                 if self.pdf:
-                    self.tc = np.sum(self.cd, axis=1)
+                    self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolorbins, self.nzbins)
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
                     self.jtc = self.jackknife(self.tc, reduce_jk=False)
                     dc = self.cbins[1:] - self.cbins[:-1]
@@ -606,7 +606,7 @@ class ColorDist(GMetric):
                 self.ye = np.sqrt(self.varcolor_dist)
         else:
             if self.pdf:
-                self.tc = np.sum(self.cd, axis=1)
+                self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolorbins, self.nzbins)
                 self.jcd = self.jackknife(self.cd, reduce_jk=False)
                 self.jtc = self.jackknife(self.tc, reduce_jk=False)
                 dc = self.cbins[1:] - self.cbins[:-1]
@@ -630,9 +630,10 @@ class ColorColor(Metric):
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'],
-                 usebands=None,
-                 amagcut=-19.0, tag=None, appmag=False,
+                 usebands=None, amagcut=None, 
+                 tag=None, appmag=False,
                  pdf=False, **kwargs):
+
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.zbins = zbins
@@ -658,11 +659,14 @@ class ColorColor(Metric):
             self.mapkeys = [self.mkey]
 
         self.pdf = pdf
-
         self.amagcut = amagcut
         self.usebands = usebands
         self.aschema = 'galaxyonly'
-        self.unitmap = {self.mkey:'mag'}
+        if (self.amagcut is not None) & (self.mkey != 'luminosity'):
+            self.unitmap = {self.mkey:'mag','luminosity':'mag'}
+            self.mapkeys.append('luminosity')
+        else:
+            self.unitmap = {self.mkey:'mag'}
 
     @jackknifeMap
     def map(self, mapunit):
@@ -688,13 +692,15 @@ class ColorColor(Metric):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                if self.amagcut!=None:
+                if (self.amagcut is not None):
                     for e, j in enumerate(self.usebands):
                         if e==0:
                             lidx = mapunit[self.mkey][zlidx:zhidx,j]<self.amagcut
                         else:
                             lix = mapunit[self.mkey][zlidx:zhidx,j]<self.amagcut
                             lidx = lidx & lix
+                else:
+                    lidx = slice(0,zhidx-zlidx)
 
                 for j in range(self.nclr-1):
                     c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,j+1][lidx],
