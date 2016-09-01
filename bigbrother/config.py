@@ -12,7 +12,7 @@ import bigbrother.massmetric      as msm
 import bigbrother.corrmetric      as crm
 import bigbrother.healpix_utils   as hpm
 
-_eval_keys = ['zbins']
+_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins']
 
 def readCfg(filename):
 
@@ -139,6 +139,10 @@ def parseConfig(cfg):
             for k in mcfg['metrics'][m]:
                 if mcfg['metrics'][m][k] == 'None':
                     mcfg['metrics'][m][k] = None
+
+                if k in _eval_keys:
+                    mcfg['metrics'][m][k] = eval(mcfg['metrics'][m][k])
+
 
             mtr = mtr(mstry, **mcfg['metrics'][m])
             metrics.append(mtr)

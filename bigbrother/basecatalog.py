@@ -7,6 +7,7 @@ import numpy as np
 import healpy as hp
 import fitsio
 import time
+import sys
 
 class BaseCatalog:
     """
@@ -16,35 +17,50 @@ class BaseCatalog:
     _valid_reader_types = ['fits', 'rockstar', 'ascii']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
-                 unitmap=None, nside=None, maskfile=None,
-                 filters=None, goodpix=None, reader=None,
-                 area=None):
+                 unitmap=None,  filters=None, goodpix=None,
+                 reader=None, area=None, jtype=None, nbox=None,
+                 filenside=None, groupnside=None, nest=True,
+                 maskfile=None):
 
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
         self.unitmap  = unitmap
-        self.filters = filters
+        if filters is not None:
+            self.filters = filters
+        else:
+            self.filters = []
         self.parseFileStruct(filestruct)
         self.maskfile = maskfile
         self.mask = None
+
         if area is None:
             self.area = 0.0
         else:
             self.area = area
 
-        if nside is None:
-            self.nside = 8
-        else:
-            self.nside = nside
+        #jackknife information
+        self.jtype = jtype
 
+        #for healpix type jackknifing
+        self.filenside = filenside
+        self.nest = nest
+
+        if groupnside is None:
+            self.groupnside = 4
+        else:
+            self.groupnside = groupnside
+
+        #for subbox type jackknifing
+        self.nbox = nbox
+
+        #for mask type jackknifing
         if goodpix is None:
             self.goodpix = 1
         else:
             self.goodpix = goodpix
 
         self.necessaries = []
-        self.filters = []
 
         if reader in BaseCatalog._valid_reader_types:
             self.reader = reader
@@ -60,94 +76,28 @@ class BaseCatalog:
         we require to filepaths for easy access
         """
 
-    def getFilePixels(self, nside):
+    @abstractmethod
+    def getFilePixels(self,nside):
         """
         Get the healpix cells occupied by galaxies
         in each file. Assumes files have already been
         sorted correctly by parseFileStruct
         """
-        fpix = []
-
-        pmetric = PixMetric(self.ministry, nside)
-        mg = self.ministry.genMetricGroups([pmetric])
-        ms = mg[0][1]
-        fm = mg[0][0]
-
-        for mappable in self.ministry.genMappable(fm):
-            mapunit = self.ministry.readMappable(mappable, fm)
-            mapunit = self.ministry.treeToDict(mapunit)
-            mapunit = self.convert(mapunit, ms)
-            fpix.append(pmetric(mapunit))
-
-        return fpix
-
-    def genMappable(self, metrics):
+        
+    def groupFiles(self):
         """
-        Given a set of metrics, generate a list of mappables
-        which can be fed into map functions
+        Group files together spatially. Healpix grouping implemented,
+        subbox grouping still needs to be done.
         """
-        mappables = []
-        mapkeys = []
-        fieldmap = {}
-        usedfiletypes = []
 
-        if metrics!=None:
-            self.metrics = metrics
+        fpix = self.getFilePixels(self.groupnside)
+        upix = np.unique(np.array([p for sublist in fpix for p in sublist]))
+        fgrps = []
 
-        if hasattr(self, 'necessaries'):
-            mapkeys.extend(self.necessaries)
+        for p in upix:
+            fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
 
-        for m in self.metrics:
-            mapkeys.extend(m.mapkeys)
-
-        mapkeys = np.unique(mapkeys)
-
-        #for each type of data necessary for
-        #the metrics we want to calculate,
-        #determine the file type it's located
-        #in and the field
-        for mapkey in mapkeys:
-            try:
-                fileinfo = self.fieldmap[mapkey]
-            except KeyError as e:
-                print('No key {0}, continuing...'.format(e))
-                continue
-
-            for field in fileinfo.keys():
-                valid = False
-                filetypes = fileinfo[field]
-                for ft in filetypes:
-                    if ft in self.filetypes:
-                        #if already have one field
-                        #make a list of fields
-                        if ft not in fieldmap.keys():
-                            fieldmap[ft] = {}
-                        if mapkey in fieldmap[ft].keys():
-                            if hasattr(fieldmap[ft][mapkey],'__iter__'):
-                                fieldmap[ft][mapkey].append(field)
-                            else:
-                                fieldmap[ft][mapkey] = [fieldmap[ft][mapkey],field]
-                        else:
-                            fieldmap[ft][mapkey] = field
-
-                        valid = True
-                        if ft not in usedfiletypes:
-                            usedfiletypes.append(ft)
-                        break
-
-                if not valid:
-                    raise Exception("Filetypes {0} for mapkey {1} are not available!".format(filetypes, mapkey))
-
-        self.mapkeys = mapkeys
-
-        #Create mappables out of filestruct and fieldmaps
-        for i in range(len(self.filestruct[self.filetypes[0]])):
-            mappable = {}
-            for ft in usedfiletypes:
-                mappable[self.filestruct[ft][i]] = fieldmap[ft]
-            mappables.append(mappable)
-
-        return mappables
+        return upix, fgrps
 
     def readFITSMappable(self, mappable, fieldmap):
         """
@@ -178,27 +128,45 @@ class BaseCatalog:
 
         return mapunit
 
+    def maskMappable(self, mapunit, mappable):
+
+        tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+
+        if mappable.jtype == 'healpix':
+            print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
+            for i, key in enumerate(['azim_ang', 'polar_ang']):
+                try:
+                    conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],'rad'))
+                except:
+                    conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],'rad'))
+
+                tp[:,i] = conversion(mapunit, key)
+
+            pix = hp.ang2pix(self.groupnside, tp[:,1], tp[:,0], nest=self.nest)
+            pidx = pix==mappable.grp
+
+            mu = {}
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][pidx]
+
+            mapunit = mu
+            return mapunit
+
+        elif mappable.jtype is None:
+            return mapunit
+        else:
+            raise NotImplementedError
+
     def readMappable(self, mappable, fieldmap):
         """
         Default reader is FITS reader
         """
 
         if self.reader=='fits':
-            return self.readFITSMappable(mappable, fieldmap)
+            mapunit = self.readFITSMappable(mappable, fieldmap)
 
+        return self.maskMappable(mapunit, mappable)
 
-    @abstractmethod
-    def map(self, mappable):
-        """
-        Do some operations on a mappable unit of the catalog
-        """
-
-    def reduce(self):
-        """
-        Reduce the information produced by the map operations
-        """
-        for m in self.metrics:
-            m.reduce()
 
     def setFieldMap(self, fieldmap):
         self.fieldmap = fieldmap
@@ -213,9 +181,9 @@ class BaseCatalog:
             if self.ctype not in m.catalog_type:
                 continue
             for key in m.unitmap:
+
                 if key in beenconverted: continue
                 if key not in mapunit.keys(): continue
-
                 elif self.unitmap[key]==m.unitmap[key]:
                     continue
 
@@ -252,15 +220,28 @@ class BaseCatalog:
 
         return mapunit
 
+    def getArea(self, jackknife=False):
+
+        arm = np.array([True if m.__class__.__name__=="Area" else False
+                  for m in self.ministry.metrics])
+        am = any(arm)
+
+        if am:
+            idx, = np.where(arm==True)[0]
+
+        if not jackknife:
+            if not am:
+                return self.ministry.area
+            else:
+                return self.ministry.metrics[idx].area
+        else:
+            return self.ministry.metrics[idx].jarea
+
+
 class PlaceHolder(BaseCatalog):
 
-    def __init__(self, ministry, filestruct, fieldmap=None,
-                 nside=None, zbins=None, maskfile=None,
-                 filters=None, unitmap=None, goodpix=None,
-                 reader=None):
+    def __init__(self, ministry, filestruct, **kwargs):
 
         self.ctype = 'placeholder'
-        BaseCatalog.__init__(self, ministry, filestruct,
-                                fieldmap=fieldmap, nside=nside,
-                                maskfile=maskfile, filters=filters,
-                                unitmap=unitmap, reader=reader)
+        BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
+

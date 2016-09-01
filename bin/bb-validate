@@ -4,7 +4,8 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
-import pickle
+import dill
+import cPickle as pickle
 import sys
 import os
 
@@ -21,17 +22,45 @@ if __name__=="__main__":
         pass
 
     mstry = config.parseConfig(cfg)
-    mstry.validate(nmap=cfg['Validate']['nmap'])
 
-    if 'outdir' in cfg['Validate'].keys():
-        with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'], 
-                    cfg['Ministry']['ministry_name']), 'w') as fp:
-            pickle.dump(mstry, fp)
+    if 'nmap' in cfg['Validate']:
+        nmap = cfg['Validate']['nmap']
+    else:
+        nmap = None
+
+    if 'parallel' in cfg['Validate']:
+        parallel = cfg['Validate']['parallel']
+    else:
+        parallel = False
+
+    mstry.validate(nmap=nmap, parallel=parallel)
 
     pnames = {}
 
+    noplot = True
+    if 'parallel' in cfg['Validate'].keys():
+        from mpi4py import MPI
+        
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        
+        if rank==0:
+            noplot = False
+
+            if 'outdir' in cfg['Validate'].keys():
+                with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
+                            cfg['Ministry']['ministry_name']), 'w') as fp:
+                    pickle.dump(mstry, fp)
+
+    else:
+        if 'outdir' in cfg['Validate'].keys():
+            with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
+                        cfg['Ministry']['ministry_name']), 'w') as fp:
+                pickle.dump(mstry, fp)
+        
+        
     for m in mstry.metrics:
-        if m.novis: continue
+        if m.novis or noplot: continue
 
         plt.clf()
         if m.__class__.__name__ in pnames.keys():

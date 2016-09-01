@@ -3,6 +3,7 @@ from .metric import Metric, GMetric
 import numpy as np
 import healpy as hp
 
+from .metric import jackknifeMap
 
 def sortHpixFileStruct(filestruct):
 
@@ -27,7 +28,7 @@ def sortHpixFileStruct(filestruct):
 
 class PixMetric(Metric):
 
-    def __init__(self, ministry, nside, tag=None):
+    def __init__(self, ministry, nside, tag=None, **kwargs):
         """
         Initialize a PixMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -38,7 +39,7 @@ class PixMetric(Metric):
         ministry : Ministry
             The ministry object that this metric is associated with.
         """
-        Metric.__init__(self, ministry, tag=tag)
+        Metric.__init__(self, ministry, tag=tag, **kwargs)
 
         self.nside = nside
 
@@ -53,7 +54,7 @@ class PixMetric(Metric):
 
         return pix
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         pass
 
     def visualize(self):
@@ -65,9 +66,9 @@ class PixMetric(Metric):
 
 class Area(Metric):
 
-    def __init__(self, ministry, nside=256, tag=None):
+    def __init__(self, ministry, nside=256, tag=None, **kwargs):
 
-        Metric.__init__(self, ministry, tag=tag, novis=True)
+        Metric.__init__(self, ministry, tag=tag, novis=True, **kwargs)
 
         self.nside = nside
 
@@ -75,18 +76,42 @@ class Area(Metric):
         self.aschema = 'galaxyonly'
         self.catalog_type = ['galaxycatalog']
         self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
-        self.area = 0.0
+        self.jarea = None
 
+    @jackknifeMap
     def map(self, mapunit):
+
+        if self.jarea is None:
+            self.jarea = np.zeros(self.njack)
 
         pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'],
                          nest=True)
         upix = np.unique(pix)
         area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
-        self.area += area
+        self.jarea[self.jcount] += area
 
-    def reduce(self):
-        pass
+    def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            garea = comm.gather(self.jarea, root=0)
+
+            gshape = [self.jarea.shape[i] for i in range(len(self.jarea.shape))]
+            gshape[0] = self.njacktot
+
+            if rank == 0:
+                self.jarea = np.zeros(gshape)
+                jc = 0
+
+                for g in garea:
+                    nj = g.shape[0]
+                    self.jarea[jc:jc+nj] = g
+
+                    jc += nj
+
+                self.jarea, self.area, self.vararea = self.jackknife(self.jarea)
+
+        else:
+            self.jarea, self.area, self.vararea = self.jackknife(self.jarea)
+
 
     def visualize(self):
         pass
@@ -97,9 +122,9 @@ class Area(Metric):
 
 class HealpixMap(Metric):
 
-    def __init__(self, ministry, nside=64, cuts=None, tag=None):
+    def __init__(self, ministry, nside=64, cuts=None, tag=None, **kwargs):
 
-        Metric.__init__(self, ministry, tag=None)
+        Metric.__init__(self, ministry, tag=None, **kwargs)
 
         self.nside = nside
         self.cuts  = cuts
@@ -134,8 +159,11 @@ class HealpixMap(Metric):
                 c, e = np.histogram(pix[cidx], bins=self.pbins)
                 self.hmap[:,i] += c
 
-    def reduce(self):
-        pass
+    def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            comm.Reduce(self.hmap, hmap, root=0)
+            self.hmap = hmap
+
 
     def visualize(self, plotname=None, compare=False):
         hp.mollview(self.hmap)
