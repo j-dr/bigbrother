@@ -659,33 +659,6 @@ class Richness(MassMetric):
 
         self.nbands = 1
 
-
-    def splitBimodal(self, x, y, largepoly=30):
-        p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
-
-        extrema = np.roots(np.polyder(p))
-        extrema = extrema[np.isreal(extrema)]
-        extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
-
-        root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
-        peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
-
-        mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
-        p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
-
-        midpoint = np.roots(np.polyder(p_mid))[0]
-
-        if (self.split_info): # debug info
-            mpl.pyplot.plot(x,y)
-            mpl.pyplot.plot(x[mid],[sum([p_mid[len(p_mid)-1-i]*(xval**i) for i in range(len(p_mid))]) for xval in x[mid]])
-            mpl.pyplot.plot(x,[sum([p[len(p)-1-i]*(xval**i) for i in range(len(p))]) for xval in x])
-            mpl.pyplot.plot(peaks, np.partition(root_vals, -2)[-2:], 'ro')
-            mpl.pyplot.plot([midpoint], sum([p_mid[::-1][i]*midpoint**i for i in range(len(p_mid))]), 'ro')
-            peakvals = np.partition(root_vals, -2)[-2:]
-            print('Peaks: ' + str(peakvals) + ' at color ' + str(peaks))
-
-        return midpoint
-
     @jackknifeMap
     def map(self, mapunit):
         print('min z: ' + str(min(mapunit['redshift'])))
