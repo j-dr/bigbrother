@@ -143,8 +143,8 @@ class GMetric(Metric):
         if usecols is None:
             usecols = range(self.nbands)
 
-        if (usecols is None) and (ref_y is not None):
-            usecols = ref_y.shape[1]
+        if (rusecols is None) and (ref_y is not None):
+            rusecols = ref_y.shape[1]
 
         if usez is None:
             usez = range(self.nzbins)
