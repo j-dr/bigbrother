@@ -1,25 +1,23 @@
 from __future__ import print_function, division
-#if __name__=='__main__':
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
 import numpy as np
 
-from metric import Metric
-from selection import Selector
+from metric import Metric, jackknifeMap
+from .selection import Selector
 
 class DNDz(Metric):
 
-    def __init__(self, ministry, selection_dict, zbins=None, magbins=None,
-                  catalog_type=['galaxycatalog'], tag=None, appmag=True,
-                  lower_limit=True, cutband=None, normed=True):
+    def __init__(self, ministry, zbins=None, magbins=None,
+                  catalog_type=['galaxycatalog'], tag=None,
+                  appmag=True, lower_limit=True, cutband=None,
+                  normed=True, **kwargs):
         """
         Angular Number density of objects as a function of redshift.
-
         inputs
         --------
         ministry - Ministry
-
         keywords
         ------
         zbins - np.array
@@ -39,11 +37,8 @@ class DNDz(Metric):
           The index of the column of a vector of magnitudes to use
         normed - boolean
           Whether the metric integrates to N/deg^2 or not. Usually want True.
-        selection_dict - dictionary
-          Specifies the paraemters of the selection. Details can be found in selection.py
         """
-
-        Metric.__init__(self, ministry, tag=tag)
+        Metric.__init__(self, ministry, tag=tag, **kwargs)
 
         self.catalog_type = catalog_type
 
@@ -82,7 +77,6 @@ class DNDz(Metric):
                 self.nmagbins = len(self.magbins) - 1
 
         self.normed = normed
-
         self.aschema = 'galaxyonly'
 
         if self.nmagbins > 0:
@@ -92,7 +86,7 @@ class DNDz(Metric):
             self.mapkeys = ['redshift']
             self.unitmap = {}
 
-        """#Make selection dict here
+        #Make selection dict here
         if lower_limit:
             selection_dict = {'mag':{'selection_type':'cut1d',
                                     'mapkeys':['appmag'],
@@ -103,44 +97,79 @@ class DNDz(Metric):
             selection_dict = {'mag':{'selection_type':'binned1d',
                                     'mapkeys':['appmag'],
                                     'bins':self.magbins,
-                                    'selection_ind':self.cutband}}"""
-        sd = selection_dict
+                                    'selection_ind':self.cutband}}
 
-        self.selector = Selector(sd)
+        self.zcounts = None
+        self.selector = Selector(selection_dict)
 
+    @jackknifeMap
     def map(self, mapunit):
         """
         Map function for dn/dz. Extracts relevant information from a mapunit. Usually only called by a Ministry object, not manually.
         """
-
         #This will eventually need to be replaced with the outputs
         #if selector.mapArray()
-        if not hasattr(self, 'dndz'):
-            self.dndz = np.zeros((self.nzbins,self.nmagbins))
+        if self.zcounts is None:
+            self.zcounts = np.zeros((self.njack, self.nzbins,self.nmagbins))
 
         for idx, aidx in self.selector.generateSelections(mapunit):
+            print(idx)
             c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
             shp = [1 for i in range(len(aidx)+1)]
-            shp[0] = len(c)
-            self.dndz[:,aidx] += c.reshape(shp)
+            shp[1] = len(c)
+            self.zcounts[self.jcount,:,aidx] += c.reshape(shp)
 
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         """
         Converts extracted redshift information into a (normalized) dn/dz output and stores it as an attribute of the metric.
         """
-        area = self.ministry.galaxycatalog.getArea()
-        if self.normed:
-            dz = self.zbins[1:]-self.zbins[:-1]
-            self.dndz = self.dndz/area/dz
+        if rank is not None:
+            gzcounts = comm.gather(self.zcounts, root=0)
+
+            gshape = [self.zcounts.shape[i] for i in range(len(self.zcounts.shape))]
+            gshape[0] = self.njacktot
+
+            if rank==0:
+                self.zcounts = np.zeros(gshape)
+                jc = 0
+
+                for g in gzcounts:
+                    nj = g.shape[0]
+                    self.zcounts[jc:jc+nj,:,:] = g
+
+                    jc += nj
+
+                area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot,1,1)
+
+                if self.normed:
+                    dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
+                    jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                    self.jdndz = jzcounts/area/dz
+                else:
+                    jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                    self.jdndz = jzcounts/area
+
+                self.dndz = np.sum(self.jdndz, axis=0) / self.njacktot
+                self.vardndz = np.sum( (self.jdndz - self.dndz) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
+
         else:
-            self.dndz = self.dndz/area
+            area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot,1,1)
+            if self.normed:
+                dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
+                jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                self.jdndz = jzcounts/area/dz
+            else:
+                jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
+                self.jdndz = jzcounts/area
+
+            self.dndz = np.sum(self.jdndz, axis=0) / self.njacktot
+            self.vardndz = np.sum( (self.jdndz - self.dndz) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
     def visualize(self, plotname=None, xlim=None, ylim=None, fylim=None,
                   f=None, ax=None, xlabel=None,ylabel=None,compare=False,
                   usecuts=None, onepanel=False, **kwargs):
         """
         Plot dn/dz for an individual instance.
-
         keywords
         -------
         plotname - string
@@ -218,12 +247,10 @@ class DNDz(Metric):
                   **kwargs):
         """
         Compare this DNDz metric to a list of other metrics
-
         inputs
         --------
         othermetrics - list
           A list of DNDz metrics (can also be TabulatedDNDz) to compare this metric to
-
         keywords
         --------
         plotname - string
@@ -258,7 +285,101 @@ class DNDz(Metric):
                                     f=f, ax=ax, **kwargs)
             lines.extend(l1)
 
-        if labels!=None:
+        if (labels is not None) & (len(labels)==len(lines)):
+            f.legend(lines, labels, 'best')
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+class PeakDNDz(DNDz):
+
+    def __init__(self, ministry, **kwargs):
+
+        if 'zbins' not in kwargs.keys():
+            kwargs['zbins'] = np.linspace(ministry.minz, ministry.maxz, 60)
+
+
+        if 'magbins' not in kwargs.keys():
+            kwargs['magbins'] = np.linspace(19.5, 22, 30)
+
+        DNDz.__init__(self, ministry, **kwargs)
+
+
+    def reduce(self, rank=None, comm=None):
+
+        DNDz.reduce(self, rank=rank, comm=comm)
+
+        if (rank is not None) & (rank==0):
+
+            self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+
+            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
+            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+        else:
+            self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+
+            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
+            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+
+
+
+    def visualize(self, xlabel=None, ylabel=None, compare=False,
+                    ax=None, f=None, plotname=None, **kwargs):
+
+        if f is None:
+            f, ax = plt.subplots(1, figsize=(15,15))
+            ax = np.atleast_1d(ax)
+            newaxes = True
+        else:
+            newaxes = False
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            if ylabel is None:
+                sax.set_ylabel(r'$Peak of \frac{dN}{dZ}\, [deg^{-2}]$')
+            else:
+                sax.set_xlabel(xlabel)
+
+            if xlabel is None:
+                sax.set_xlabel(r'$mag$')
+            else:
+                sax.set_ylabel(xlabel)
+
+            l1 = ax[0].errorbar(self.magbins, self.zpeak, yerr=np.sqrt(self.varzpeak), **kwargs)
+
+        #plt.tight_layout()
+
+        if (plotname is not None) and (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1
+
+
+    def compare(self, othermetrics, labels=None, plotname=None):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax, l1 = m.visualize(compare=True,
+                                         **kwargs)
+            else:
+                f, ax, l1 = m.visualize(compare=True,
+                                          f=f, ax=ax, **kwargs)
+            lines.extend(l1)
+
+        if labels[0]!=None:
             f.legend(lines, labels, 'best')
 
         if plotname is not None:
@@ -267,17 +388,16 @@ class DNDz(Metric):
         return f, ax
 
 
+
 class TabulatedDNDz(DNDz):
 
     def __init__(self, fname, *args, **kwargs):
         """
         Create a DNDz object from a tabulated file
-
         inputs
         ------
         fname - string
           Name of the file containing the tabulated data
-
         keywords
         -------
         ncuts - string
