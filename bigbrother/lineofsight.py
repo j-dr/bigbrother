@@ -12,7 +12,7 @@ class DNDz(Metric):
     def __init__(self, ministry, zbins=None, magbins=None,
                   catalog_type=['galaxycatalog'], tag=None,
                   appmag=True, lower_limit=True, cutband=None,
-                  normed=True, **kwargs):
+                  normed=True, selection_dict=None, **kwargs):
         """
         Angular Number density of objects as a function of redshift.
         inputs
@@ -65,7 +65,7 @@ class DNDz(Metric):
         self.lower_limit = lower_limit
 
         if magbins is None:
-            self.magbins = None
+            self.magbins = [None]
             self.nmagbins = 0
             self.nomags = True
         else:
@@ -87,13 +87,13 @@ class DNDz(Metric):
             self.unitmap = {}
 
         #Make selection dict here
-        if lower_limit:
+        if (selection_dict is None) & lower_limit:
             selection_dict = {'mag':{'selection_type':'cut1d',
                                     'mapkeys':['appmag'],
                                     'bins':self.magbins,
                                     'selection_ind':self.cutband,
                                     'lower':True}}
-        else:
+        elif (selection_dict is None):
             selection_dict = {'mag':{'selection_type':'binned1d',
                                     'mapkeys':['appmag'],
                                     'bins':self.magbins,
@@ -285,7 +285,7 @@ class DNDz(Metric):
                                     f=f, ax=ax, **kwargs)
             lines.extend(l1)
 
-        if (labels is not None) & (len(labels)==len(lines)):
+        if (labels is not None) and (len(labels)==len(lines)):
             f.legend(lines, labels, 'best')
 
         if plotname is not None:
