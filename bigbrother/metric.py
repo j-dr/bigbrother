@@ -246,7 +246,7 @@ class GMetric(Metric):
                         if logx:
                             ax.set_xscale('log')
                 else:
-                    rb = rusecols[i]
+                    rb = usecols[i]
                     l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0],
                                         **kwargs)
                     ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,rb,0])\
