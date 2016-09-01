@@ -7,7 +7,7 @@ mpl.use('Agg')
 import matplotlib.gridspec as gridspec
 import matplotlib.pylab as plt
 import numpy as np
-
+import warnings
 
 class Metric(object):
     """
@@ -16,10 +16,10 @@ class Metric(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, ministry, catalog_type=None, tag=None, nomap=False,
-                   novis=False):
+    def __init__(self, ministry, catalog_type=None, tag=None,
+                  nomap=False, novis=False, jtype=None):
         """
-        Simple init method. At the very least, init methods for subclasses
+        At the very least, init methods for subclasses
         should take a ministry object as an argument.
         """
         self.ministry = ministry
@@ -27,13 +27,17 @@ class Metric(object):
         self.tag = tag
         self.nomap = nomap
         self.novis = novis
+        self.jtype = jtype
+        #njack will be determined at the time that map is called
+        self.njack = None
+        self.jcount = 0
 
     @abstractmethod
     def map(self, mapunit):
         pass
 
     @abstractmethod
-    def reduce(self):
+    def reduce(self, ntasks=None):
         pass
 
     @abstractmethod
@@ -44,6 +48,71 @@ class Metric(object):
     def compare(self, othermetric, plotname=None):
         pass
 
+    def splitBimodal(self, x, y, largepoly=30):
+        p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
+
+        extrema = np.roots(np.polyder(p))
+        extrema = extrema[np.isreal(extrema)]
+        extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
+        try:
+            root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
+            peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
+
+            mid, = np.where((x - peaks[0])* (peaks[1] - x) > 0)
+             # want data points between the peaks
+        except:
+            warnings.warn("Peak finding failed!")
+            return None
+
+        try:
+            p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
+            midpoint = np.roots(np.polyder(p_mid))[0]
+        except:
+            warnings.warn("Polynomial fit between peaks of distribution poorly conditioned. Falling back on using the minimum! May result in inaccurate split determination.")
+            if len(mid) == 0:
+                return None
+
+            midx = np.argmin(y[mid])
+            midpoint = x[mid][midx]
+
+        return midpoint
+
+
+    def jackknife(self, arg, reduce_jk=True):
+
+        jdata = np.zeros(arg.shape)
+
+        for i in range(self.njacktot):
+            #generalized so can be used if only one region
+            if self.njacktot==1:
+                idx = [0]
+            else:
+                idx = [j for j in range(self.njacktot) if i!=j]
+
+            #jackknife indices should always be last
+            jl = len(arg.shape)
+            jidx = [slice(0,arg.shape[j]) if j!=0 else idx for j in range(jl)]
+            jdidx = [slice(0,arg.shape[j]) if j!=0 else i for j in range(jl)]
+            jdata[jdidx] = np.sum(arg[jidx], axis=0)
+
+        if reduce_jk:
+            jest = np.sum(jdata, axis=0) / self.njacktot
+            jvar = np.sum((jdata - jest)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+            return jdata, jest, jvar
+
+        else:
+            return jdata
+
+    def setNJack(self):
+        if self.jtype is None:
+            self.njack = 1
+            self.njacktot = 1
+        else:
+            self.njack = self.ministry.njack
+            self.njacktot = self.ministry.njacktot
+
+
 class GMetric(Metric):
     """
     A generic metric class that deals with measurements made over
@@ -52,12 +121,11 @@ class GMetric(Metric):
     """
 
     def __init__(self, ministry, zbins=None, xbins=None, catalog_type=None,
-                    tag=None):
+                    tag=None, **kwargs):
         """
         Initialize a MagnitudeMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
         expect.
-
         Arguments
         ---------
         ministry : Ministry
@@ -69,7 +137,8 @@ class GMetric(Metric):
             A 1-d array containing the edges of the magnitude bins to
             measure the metric in.
         """
-        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag)
+        Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag,
+                        **kwargs)
 
         if zbins is None:
             self.zbins = zbins
@@ -88,16 +157,20 @@ class GMetric(Metric):
         pass
 
     @abstractmethod
-    def reduce(self):
+    def reduce(self, rank=None, comm=None):
         pass
 
-    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
-                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
-                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,
-                  logx=False, **kwargs):
+    def visualize(self, plotname=None, usecols=None,
+                    usez=None,fracdev=False, sharex=True,
+                    sharey=True,
+                    ref_y=None, ref_x=[None], ref_ye=None,
+                    xlim=None, ylim=None,
+                    fylim=None, f=None, ax=None, label=None,
+                    xlabel=None, ylabel=None,compare=False,
+                    logx=False, logy=True, rusecols=None,
+                    **kwargs):
         """
         Plot the calculated metric.
-
         Arguments
         ---------
         plotname : string, optional
@@ -144,11 +217,10 @@ class GMetric(Metric):
             usecols = range(self.nbands)
 
         if (rusecols is None) and (ref_y is not None):
-            rusecols = ref_y.shape[1]
+            rusecols = range(ref_y.shape[1])
 
         if usez is None:
             usez = range(self.nzbins)
-        print(usez)
         nzbins = len(usez)
 
         #If want to plot fractional deviations, and ref_y
@@ -166,7 +238,6 @@ class GMetric(Metric):
                     iref_y[:,i,j] = spl(mxs[li:hi])
 
             ref_y = iref_y
-
         else:
             li = 0
             hi = len(mxs)
@@ -176,6 +247,7 @@ class GMetric(Metric):
             if fracdev==False:
                 f, ax = plt.subplots(len(usecols), nzbins,
                                      sharex=True, sharey=True, figsize=(8,8))
+                ax = ax.reshape((len(usecols), nzbins))
             #if want fractional deviations, need to make twice as
             #many rows of axes. Every other row contains fractional
             #deviations from the row above it.
@@ -183,21 +255,24 @@ class GMetric(Metric):
                 assert(ref_y!=None)
                 gs = gridspec.GridSpec(len(usecols)*2, nzbins)
                 f = plt.figure()
-                ax = []
+                ax = np.zeros((len(usecols)*2, nzbins), dtype='O')
                 for r in range(len(usecols)):
-                    ax.append([])
-                    ax.append([])
                     for c in range(nzbins):
                         if (r==0) & (c==0):
-                            ax[2*r].append(f.add_subplot(gs[2*r,c]))
-                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c], sharex=ax[0][0]))
+                            ax[2*r][c] = f.add_subplot(gs[2*r,c])
+                            ax[2*r+1][c] = f.add_subplot(gs[2*r+1,c], sharex=ax[0][0])
                         else:
-                            ax[2*r].append(f.add_subplot(gs[2*r,c]))
-                            ax[2*r+1].append(f.add_subplot(gs[2*r+1,c],
-                              sharex=ax[0][0], sharey=ax[1][0]))
+                            if sharex & sharey:
+                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharex=ax[0][0], sharey=ax[0][0])
+                            elif sharex:
+                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharex=ax[0][0])
+                            elif sharey:
+                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharey=ax[0][0])
+                            else:
+                                ax[2*r][c]= f.add_subplot(gs[2*r,c])
 
-            ax = np.array(ax)
-            ax = np.atleast_2d(ax)
+                            ax[2*r+1][c] = f.add_subplot(gs[2*r+1,c],
+                              sharex=ax[0][0], sharey=ax[1][0])
 
             newaxes = True
         else:
@@ -207,20 +282,36 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
                     if fracdev==False:
-                        l1 = ax[i][j].semilogy(mxs, self.y[:,b,j],
-                                          **kwargs)
+                        l1 = ax[i][j].errorbar(mxs, self.y[:,b,j],
+                                          yerr=self.ye[:,b,j], barsabove=True, **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
+                        if logy:
+                            ax[i][j].set_yscale('log')
                     else:
                         rb = rusecols[i]
-                        l1 = ax[2*i][j].semilogy(mxs, self.y[:,b,j],
-                                          **kwargs)
-                        ax[2*i+1][j].plot(mxs[li:hi],
-                                          (self.y[li:hi,b,j]-ref_y[:,rb,j])\
-                                              /ref_y[:,rb,j], **kwargs)
+                        #calculate error on fractional
+                        #difference
+                        if (ref_ye is not None) & (self.ye is not None):
+                            vye = self.ye**2
+                            vrye = ref_ye**2
+                            dye = np.sqrt(((1 - self.y[li:hi,b,j]) / ref_y[:,rb,j] - (ref_y[:,rb,j] - self.y[li:hi,b,j] / ref_y[:,rb,j] ** 2)) * ref_ye[:,rb,j] + (ref_y[:,rb,j] - 1) / ref_y[:,rb,j] * self.ye[li:hi,b,j])
+                        else:
+                            dye = None
+
+                        l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
+                                          self.ye[:,b,j], barsabove=True, **kwargs)
+                        ax[2*i+1][j].errorbar(mxs[li:hi],
+                                              (self.y[li:hi,b,j]-ref_y[:,rb,j])\
+                                              /ref_y[:,rb,j],
+                                              yerr=dye,
+                                              barsabove=True,
+                                              **kwargs)
                         if logx:
                             ax[2*i][j].set_xscale('log')
-                            ax[2*i+1][j].set_xscale('log')
+
+                        if logy:
+                            ax[2*i][j].set_yscale('log')
 
                         if (i==0) & (j==0):
                             if xlim!=None:
@@ -234,26 +325,49 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 if fracdev==False:
                     try:
-                        l1 = ax[0][i].semilogy(mxs, self.y[:,b,0],
-                                            **kwargs)
+                        l1 = ax[i][0].errorbar(mxs, self.y[:,b,0],
+                                                yerr=self.ye[:,b,0],
+                                                barsabove=True,
+                                                **kwargs)
                         if logx:
-                            ax[0][i].set_xscale('log')
+                            ax[i][0].set_xscale('log')
+                        if logy:
+                            ax[i][0].set_yscale('log')
 
                     except Exception as e:
                         print(e)
-                        l1 = ax.semilogy(mxs, self.y[:,b,0],
-                                         **kwargs)
+                        l1 = ax.errorbar(mxs, self.y[:,b,0],
+                                          yerr=self.ye[:,b,0],
+                                          barsabove=True,
+                                          **kwargs)
                         if logx:
                             ax.set_xscale('log')
+                        if logy:
+                            ax.set_yscale('log')
+
                 else:
-                    rb = usecols[i]
-                    l1 = ax[2*i][0].semilogy(mxs, self.y[:,b,0],
-                                        **kwargs)
-                    ax[2*i+1][0].plot(mxs[li:hi], (self.y[li:hi,b,0]-ref_y[:,rb,0])\
-                                      /ref_y[:,rb,0], **kwargs)
+                    rb = rusecols[i]
+                    #calculate error on fractional
+                    #difference
+                    if (ref_ye is not None) & (self.ye is not None):
+                        vye = self.ye**2
+                        vrye = ref_ye**2
+                        dye = np.sqrt(((1 - self.y[li:hi,b,0]) / ref_y[:,rb,0] - (ref_y[:,rb,0] - self.y[li:hi,b,0] / ref_y[:,rb,0] ** 2)) * ref_ye[:,rb,0] + (ref_y[:,rb,0] - 1) / ref_y[:,rb,0] * self.ye[li:hi,b,0])
+                    else:
+                        dye = None
+
+                    l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],
+                                              yerr=self.ye[:,b,0],
+                                              barsabove=True,
+                                              **kwargs)
+                    ax[2*i+1][0].errorbar(mxs[li:hi],
+                                           (self.y[li:hi,b,0]-ref_y[:,rb,0])\
+                                            /ref_y[:,rb,0],
+                                            yerr=self.ye[li:hi,b,0],
+                                            barsabove=True,
+                                            **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
-                        ax[2*i+1][0].set_xscale('log')
 
                     if (i==0):
                         if xlim!=None:
@@ -291,7 +405,6 @@ class GMetric(Metric):
                 **kwargs):
         """
         Compare a list of other metrics of the same type
-
         Arguments
         ---------
         othermetrics -- array-like of MagnitudeMetrics
@@ -361,7 +474,7 @@ class GMetric(Metric):
                                              fylim=fylim, f=f, ax=ax, fracdev=False,
                                              compare=True, label=labels[i], usez=usez[i],
                                              **kwargs)
-            lines.extend(l)
+            lines.append(l[0])
 
         if labels[0]!=None:
             f.legend(lines, labels, 'best')
@@ -372,3 +485,16 @@ class GMetric(Metric):
         #plt.tight_layout()
 
         return f, ax
+
+
+def jackknifeMap(func):
+    def wrapper(self, mapunit):
+        if self.njack is None:
+            self.setNJack()
+
+        func(self, mapunit)
+
+        if self.jtype is not None:
+            self.jcount += 1
+
+    return wrapper
