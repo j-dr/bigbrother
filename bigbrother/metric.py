@@ -71,7 +71,7 @@ class Metric(object):
             warnings.warn("Polynomial fit between peaks of distribution poorly conditioned. Falling back on using the minimum! May result in inaccurate split determination.")
             if len(mid) == 0:
                 return None
-                
+
             midx = np.argmin(y[mid])
             midpoint = x[mid][midx]
 
@@ -285,8 +285,11 @@ class GMetric(Metric):
                 for j in range(nzbins):
                     if fracdev==False:
                         if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
-                        l1 = ax[i][j].errorbar(mxs, self.y[:,b,j],
-                                          yerr=self.ye[:,b,j], barsabove=True, **kwargs)
+                        l1 = ax[i][j].plot(mxs, self.y[:,b,j], **kwargs)
+                        if self.ye is not None:
+                            ax[i][j].fill_between(mxs, self.y[:,b,j]-self.ye[:,b,j],
+                              self.y[:,b,j]+self.ye[:,b,j],
+                              alpha=0.5)
                         if logx:
                             ax[i][j].set_xscale('log')
                         if logy:
@@ -305,14 +308,17 @@ class GMetric(Metric):
                             dye = None
 
                         if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
-                        l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
-                                          self.ye[:,b,j], barsabove=True, **kwargs)
-                        ax[2*i+1][j].errorbar(mxs[li:hi],
-                                              (self.y[li:hi,b,j]-ref_y[:,rb,j])\
-                                              /ref_y[:,rb,j],
-                                              yerr=dye,
-                                              barsabove=True,
-                                              **kwargs)
+                        l1 = ax[2*i][j].plot(mxs, self.y[:,b,j], **kwargs)
+                        ax[2*i+1][j].plot(mxs, fye)
+                        if self.ye is not None:
+                            ax[2*i][j].fill_between(mxs, self.y[:,b,j]-self.ye[:,b,j],
+                              self.y[:,b,j]+self.ye[:,b,j],
+                              alpha=0.5)
+                        if dye is not None:
+                            ax[2*i+1][j].fill_between(mxs, fye-dye,
+                              fye+dye,
+                              alpha=0.5)
+
                         if logx:
                             ax[2*i][j].set_xscale('log')
 
@@ -476,10 +482,10 @@ class GMetric(Metric):
                                              **kwargs)
             else:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, 
-                                             rusecols=usecols[0], ref_y=tocompare[0].y, 
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
+                                             rusecols=usecols[0], ref_y=tocompare[0].y,
                                              ref_ye=tocompare[0].ye, compare=True, xlim=xlim,
-                                             ylim=ylim, fylim=fylim, f=f, ax=ax, label=labels[i], 
+                                             ylim=ylim, fylim=fylim, f=f, ax=ax, label=labels[i],
                                              usez=usez[i], **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
