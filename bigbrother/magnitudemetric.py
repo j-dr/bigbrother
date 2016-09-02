@@ -630,7 +630,7 @@ class ColorColor(Metric):
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'],
-                 usebands=None, amagcut=None, 
+                 usebands=None, amagcut=None,
                  tag=None, appmag=False,
                  pdf=False, **kwargs):
 
@@ -1836,38 +1836,55 @@ class TabulatedLuminosityFunction(LuminosityFunction):
     Handle tabulated Luminosity Functions.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, ministry, fname, nbands=None,
+                  xcol=None, ycol=None, ecol=None,
+                  zbins=None,evolve=False,Q=None,
+                  P=None,z0=None,**kwargs):
 
-        if 'fname' in kwargs:
-            self.fname = kwargs.pop('fname')
-        else:
-            raise(ValueError("Please supply a path to the tabulated luminosity function using the fname kwarg!"))
+        self.fname = fname
 
-        if 'nbands' in kwargs:
-            self.nbands = kwargs.pop('nbands')
+        if nbands is not None:
+            self.nbands = nbands
         else:
             self.nbands = 5
 
-        if 'xcol' in kwargs:
-            self.xcol = int(kwargs.pop('xcol'))
+        if zbins is not None:
+            self.zbins = zbins
+        else:
+            self.zbins = None
+
+        self.evolve = evolve
+        self.Q = Q
+        self.P = P
+
+        if z0 is not None:
+            self.z0 = z0
+        else:
+            self.z0 = 0.1
+
+        if xcol is not None:
+            self.xcol = xcol
         else:
             self.xcol = 0
 
-        if 'ycol' in kwargs:
-            self.ycol = int(kwargs.pop('ycol'))
+        if ycol is not None:
+            self.ycol = ycol
         else:
             self.ycol = 1
 
-        if 'ecol' in kwargs:
-            self.ecol = int(kwargs.pop('ecol'))
+        if ecol is not None:
+            self.ecol = ecol
         else:
             self.ecol = None
 
-        LuminosityFunction.__init__(self,*args,**kwargs)
+        LuminosityFunction.__init__(self,ministry,**kwargs)
 
         #don't need to map this guy
         self.nomap = True
         self.loadLuminosityFunction()
+        if self.evolve:
+            self.evolveTableQP(self.Q, self.P, self.zbins,
+                                z0=self.z0)
 
     def loadLuminosityFunction(self):
         """
@@ -1926,11 +1943,12 @@ class TabulatedLuminosityFunction(LuminosityFunction):
 
     def evolveTableQP(self, Q, P, zs, z0=0.1):
 
-        elf = np.zeros((len(self.xmean),len(z)))
-        ex  = np.zeros((len(self.xmean),len(z)))
+        elf = np.zeros((len(self.xmean),self.nbands,len(z)))
+        ex  = np.zeros((len(self.xmean),self.nbands,len(z)))
 
         for z in zs:
-            elf[:,i] = self.luminosity_function * 10 ** (0.4 * P * (z - z0))
-            ex[:,i] = self.xmean + Q * (z - z0)
+            elf[:,:,i] = self.luminosity_function * 10 ** (0.4 * P * (z - z0))
+            ex[:,:,i] = self.xmean + Q * (z - z0)
 
-            
+        self.luminosity_function = elf
+        self.xmean = ex
