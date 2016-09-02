@@ -16,6 +16,8 @@ class Metric(object):
     """
     __metaclass__ = ABCMeta
 
+    _color_list = ['k', 'b', 'r', 'm', 'g', 'c', 'y']
+
     def __init__(self, ministry, catalog_type=None, tag=None,
                   nomap=False, novis=False, jtype=None):
         """
@@ -228,6 +230,7 @@ class GMetric(Metric):
         #If want to plot fractional deviations, and ref_y
         #uses different bins, interpolate ref_y to
         #magniutdes given at mxs. Don't extrapolate!
+
         if fracdev & ((len(ref_x)!=len(mxs)) | ((ref_x[0]!=mxs[0]) | (ref_x[-1]!=mxs[-1]))):
             rls = ref_y.shape
             li = mxs.searchsorted(ref_x[0])
@@ -289,7 +292,7 @@ class GMetric(Metric):
                         if self.ye is not None:
                             ax[i][j].fill_between(mxs, self.y[:,b,j]-self.ye[:,b,j],
                               self.y[:,b,j]+self.ye[:,b,j],
-                              alpha=0.5)
+                              alpha=0.5, **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
                         if logy:
@@ -305,19 +308,20 @@ class GMetric(Metric):
                             dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[:,rb,j]) ** 2 + ref_ye[:,rb,j] ** 2 / ref_y[:,rb,j]**2 )
 
                         else:
+                            fye = (self.y[li:hi,b,j] - ref_y[:,rb,j]) / ref_y[:,rb,j]
                             dye = None
 
                         if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
                         l1 = ax[2*i][j].plot(mxs, self.y[:,b,j], **kwargs)
-                        ax[2*i+1][j].plot(mxs, fye)
+                        ax[2*i+1][j].plot(mxs, fye, **kwargs)
                         if self.ye is not None:
                             ax[2*i][j].fill_between(mxs, self.y[:,b,j]-self.ye[:,b,j],
                               self.y[:,b,j]+self.ye[:,b,j],
-                              alpha=0.5)
+                              alpha=0.5, **kwargs)
                         if dye is not None:
                             ax[2*i+1][j].fill_between(mxs, fye-dye,
                               fye+dye,
-                              alpha=0.5)
+                              alpha=0.5, **kwargs)
 
                         if logx:
                             ax[2*i][j].set_xscale('log')
@@ -336,28 +340,17 @@ class GMetric(Metric):
         else:
             for i, b in enumerate(usecols):
                 if fracdev==False:
-                    try:
-                        if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
-                        l1 = ax[i][0].errorbar(mxs, self.y[:,b,0],
-                                                yerr=self.ye[:,b,0],
-                                                barsabove=True,
-                                                **kwargs)
-                        if logx:
-                            ax[i][0].set_xscale('log')
-                        if logy:
-                            ax[i][0].set_yscale('log')
-
-                    except Exception as e:
-                        print(e)
-                        if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
-                        l1 = ax.errorbar(mxs, self.y[:,b,0],
-                                          yerr=self.ye[:,b,0],
-                                          barsabove=True,
-                                          **kwargs)
-                        if logx:
-                            ax.set_xscale('log')
-                        if logy:
-                            ax.set_yscale('log')
+                    if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
+                    l1 = ax[i][0].plot(mxs, self.y[:,b,0], **kwargs)
+                    if self.ye is not None:
+                        ax[i][0].fill_between(mxs, self.y[:,b,0] - self.ye[:,b,0],
+                                                self.y[:,b,0] + self.ye[:,b,0],
+                                                alpha=0.5, **kwargs)
+                                            
+                    if logx:
+                        ax[i][0].set_xscale('log')
+                    if logy:
+                        ax[i][0].set_yscale('log')
 
                 else:
                     rb = rusecols[i]
@@ -369,19 +362,22 @@ class GMetric(Metric):
                         fye = (self.y[li:hi,b,0] - ref_y[:,rb,0]) / ref_y[:,rb,0]
                         dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,0] - ref_y[:,rb,0]) ** 2 + ref_ye[:,rb,0] ** 2 / ref_y[:,rb,0]**2 )
                     else:
+                        fye = (self.y[li:hi,b,0] - ref_y[:,rb,0]) / ref_y[:,rb,0]
                         dye = None
 
                     if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
-                    l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],
-                                              yerr=self.ye[:,b,0],
-                                              barsabove=True,
-                                              **kwargs)
-                    ax[2*i+1][0].errorbar(mxs[li:hi],
-                                           (self.y[li:hi,b,0]-ref_y[:,rb,0])\
-                                            /ref_y[:,rb,0],
-                                            yerr=dye,
-                                            barsabove=True,
-                                            **kwargs)
+                    l1 = ax[2*i][0].plot(mxs, self.y[:,b,0], **kwargs)
+                    ax[2*i+1][0].plot(mxs, fye, **kwargs)
+
+                    if self.ye is not None:
+                        ax[2*i][0].fill_between(mxs, self.y[:,b,0]-self.ye[:,b,0],
+                          self.y[:,b,0]+self.ye[:,b,0],
+                          alpha=0.5, **kwargs)
+                    if dye is not None:
+                        ax[2*i+1][0].fill_between(mxs, fye-dye,
+                          fye+dye,
+                          alpha=0.5, **kwargs)
+
                     if logx:
                         ax[2*i][0].set_xscale('log')
                     if logy:
@@ -475,23 +471,23 @@ class GMetric(Metric):
                     f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
                                              ref_y=self.y, xlim=xlim, compare=True,
                                              ylim=ylim, fylim=fylim, label=labels[i],
-                                             usez=usez[i],**kwargs)
+                                             usez=usez[i],color=Metric._color_list[i], **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, compare=True,
                                              fracdev=False, fylim=fylim,label=labels[i],usez=usez[i],
-                                             **kwargs)
+                                             color=Metric._color_list[i], **kwargs)
             else:
                 if fracdev:
                     f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x,
                                              rusecols=usecols[0], ref_y=tocompare[0].y,
                                              ref_ye=tocompare[0].ye, compare=True, xlim=xlim,
                                              ylim=ylim, fylim=fylim, f=f, ax=ax, label=labels[i],
-                                             usez=usez[i], **kwargs)
+                                             usez=usez[i], color=Metric._color_list[i], **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                              fylim=fylim, f=f, ax=ax, fracdev=False,
                                              compare=True, label=labels[i], usez=usez[i],
-                                             **kwargs)
+                                             color=Metric._color_list[i], **kwargs)
             lines.append(l[0])
 
         if labels[0]!=None:
