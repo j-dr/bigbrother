@@ -301,7 +301,6 @@ class GMetric(Metric):
                             fye = (self.y[li:hi,b,j] - ref_y[:,rb,j]) / ref_y[:,rb,j]
                             dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[:,rb,j]) ** 2 + ref_ye[:,rb,j] ** 2 / ref_y[:,rb,j]**2 )
 
-                            print(dye)
                         else:
                             dye = None
 
@@ -363,7 +362,6 @@ class GMetric(Metric):
                         vrye = ref_ye[:,rb,0]**2
                         fye = (self.y[li:hi,b,0] - ref_y[:,rb,0]) / ref_y[:,rb,0]
                         dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,0] - ref_y[:,rb,0]) ** 2 + ref_ye[:,rb,0] ** 2 / ref_y[:,rb,0]**2 )
-                        print(dye)
                     else:
                         dye = None
 
@@ -394,6 +392,8 @@ class GMetric(Metric):
         #if we just created the axes, add labels
         if newaxes:
             sax = f.add_subplot(111)
+            sax.axes.get_xaxis().set_visible(False)
+            sax.axes.get_yaxis().set_visible(False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -458,9 +458,6 @@ class GMetric(Metric):
 
         if labels is None:
             labels = [None]*len(tocompare)
-
-        print("labels: {0}".format(labels))
-        print("usecols: {0}".format(usecols))
 
         lines = []
 
