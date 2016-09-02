@@ -284,6 +284,7 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
                     if fracdev==False:
+                        if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
                         l1 = ax[i][j].errorbar(mxs, self.y[:,b,j],
                                           yerr=self.ye[:,b,j], barsabove=True, **kwargs)
                         if logx:
@@ -295,12 +296,16 @@ class GMetric(Metric):
                         #calculate error on fractional
                         #difference
                         if (ref_ye is not None) & (self.ye is not None):
-                            vye = self.ye**2
-                            vrye = ref_ye**2
-                            dye = np.sqrt(((1 - self.y[li:hi,b,j]) / ref_y[:,rb,j] - (ref_y[:,rb,j] - self.y[li:hi,b,j] / ref_y[:,rb,j] ** 2)) * ref_ye[:,rb,j] + (ref_y[:,rb,j] - 1) / ref_y[:,rb,j] * self.ye[li:hi,b,j])
+                            vye = self.ye[li:hi,b,j]**2
+                            vrye = ref_ye[:,rb,j]**2
+                            fye = (self.y[li:hi,b,j] - ref_y[:,rb,j]) / ref_y[:,rb,j]
+                            dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[:,rb,j]) ** 2 + ref_ye[:,rb,j] ** 2 / ref_y[:,rb,j]**2 )
+
+                            print(dye)
                         else:
                             dye = None
 
+                        if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
                         l1 = ax[2*i][j].errorbar(mxs, self.y[:,b,j],
                                           self.ye[:,b,j], barsabove=True, **kwargs)
                         ax[2*i+1][j].errorbar(mxs[li:hi],
@@ -327,6 +332,7 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 if fracdev==False:
                     try:
+                        if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
                         l1 = ax[i][0].errorbar(mxs, self.y[:,b,0],
                                                 yerr=self.ye[:,b,0],
                                                 barsabove=True,
@@ -338,6 +344,7 @@ class GMetric(Metric):
 
                     except Exception as e:
                         print(e)
+                        if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
                         l1 = ax.errorbar(mxs, self.y[:,b,0],
                                           yerr=self.ye[:,b,0],
                                           barsabove=True,
@@ -352,12 +359,15 @@ class GMetric(Metric):
                     #calculate error on fractional
                     #difference
                     if (ref_ye is not None) & (self.ye is not None):
-                        vye = self.ye**2
-                        vrye = ref_ye**2
-                        dye = np.sqrt(((1 - self.y[li:hi,b,0]) / ref_y[:,rb,0] - (ref_y[:,rb,0] - self.y[li:hi,b,0] / ref_y[:,rb,0] ** 2)) * ref_ye[:,rb,0] + (ref_y[:,rb,0] - 1) / ref_y[:,rb,0] * self.ye[li:hi,b,0])
+                        vye = self.ye[li:hi,b,0]**2
+                        vrye = ref_ye[:,rb,0]**2
+                        fye = (self.y[li:hi,b,0] - ref_y[:,rb,0]) / ref_y[:,rb,0]
+                        dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,0] - ref_y[:,rb,0]) ** 2 + ref_ye[:,rb,0] ** 2 / ref_y[:,rb,0]**2 )
+                        print(dye)
                     else:
                         dye = None
 
+                    if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
                     l1 = ax[2*i][0].errorbar(mxs, self.y[:,b,0],
                                               yerr=self.ye[:,b,0],
                                               barsabove=True,
@@ -365,11 +375,13 @@ class GMetric(Metric):
                     ax[2*i+1][0].errorbar(mxs[li:hi],
                                            (self.y[li:hi,b,0]-ref_y[:,rb,0])\
                                             /ref_y[:,rb,0],
-                                            yerr=self.ye[li:hi,b,0],
+                                            yerr=dye,
                                             barsabove=True,
                                             **kwargs)
                     if logx:
                         ax[2*i][0].set_xscale('log')
+                    if logy:
+                        ax[2*i][0].set_yscale('log')
 
                     if (i==0):
                         if xlim!=None:
@@ -467,11 +479,11 @@ class GMetric(Metric):
                                              **kwargs)
             else:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
-                                             ref_y=tocompare[0].y, compare=True,
-                                             xlim=xlim, ylim=ylim, fylim=fylim,
-                                             f=f, ax=ax, label=labels[i], usez=usez[i],
-                                             **kwargs)
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, 
+                                             rusecols=usecols[0], ref_y=tocompare[0].y, 
+                                             ref_ye=tocompare[0].ye, compare=True, xlim=xlim,
+                                             ylim=ylim, fylim=fylim, f=f, ax=ax, label=labels[i], 
+                                             usez=usez[i], **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                              fylim=fylim, f=f, ax=ax, fracdev=False,

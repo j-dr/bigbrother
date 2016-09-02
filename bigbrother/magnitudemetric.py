@@ -589,7 +589,7 @@ class ColorDist(GMetric):
 
                     jc += nj
                 if self.pdf:
-                    self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolorbins, self.nzbins)
+                    self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolors, self.nzbins)
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
                     self.jtc = self.jackknife(self.tc, reduce_jk=False)
                     dc = self.cbins[1:] - self.cbins[:-1]
@@ -606,7 +606,7 @@ class ColorDist(GMetric):
                 self.ye = np.sqrt(self.varcolor_dist)
         else:
             if self.pdf:
-                self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolorbins, self.nzbins)
+                self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolors, self.nzbins)
                 self.jcd = self.jackknife(self.cd, reduce_jk=False)
                 self.jtc = self.jackknife(self.tc, reduce_jk=False)
                 dc = self.cbins[1:] - self.cbins[:-1]

@@ -683,6 +683,9 @@ class Richness(MassMetric):
 
             previd = -1
             halo_ids = np.unique(mapunit['haloid'][zcut])
+            if len(halo_ids)<2:
+                print('ziter: {0}'.format(ziter))
+                continue
             red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo
 
             # cut of galaxies: within max_rhalo of parent halo, above min_lum magnitude, and red
@@ -693,10 +696,16 @@ class Richness(MassMetric):
                 data_cut[key] = mapunit[key][cut_array]
 
             data_cut.sort(order='haloid')
-
-            idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
-            newhalos = np.where(idx != 0)[0]
-            newhalos = np.hstack([[0], newhalos + 1, [len(data_cut) - 1]])
+            print(len(data_cut))
+            if len(data_cut)==0:
+                continue
+            elif len(data_cut)==1:
+                newhalos = np.zeros(2, dtype=np.int)
+                newhalos[1] = 1
+            else:
+                idx = data_cut['haloid'][1:]-data_cut['haloid'][:-1]
+                newhalos = np.where(idx != 0)[0]
+                newhalos = np.hstack([[0], newhalos + 1, [len(data_cut) - 1]])
 
             uniquehalos = data_cut[newhalos[:-1]]
             red_counts = newhalos[1:]-newhalos[:-1]
