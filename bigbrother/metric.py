@@ -211,12 +211,6 @@ class GMetric(Metric):
            An array of Axes objects. If provided, the metrics
            will be plotted on these axes.
         """
-        if hasattr(self, 'xmean'):
-            mxs = self.xmean
-        else:
-            mxs = np.array([(self.xbins[i]+self.xbins[i+1])/2
-                              for i in range(len(self.xbins)-1)])
-
         if usecols is None:
             usecols = range(self.nbands)
 
@@ -227,25 +221,61 @@ class GMetric(Metric):
             usez = range(self.nzbins)
         nzbins = len(usez)
 
+        #format x-values
+        if len(self.xbins.shape)==1:
+            xbins = np.tile(self.xbins, [self.nzbins, self.nbands, 1]).T
+        elif len(self.xbins.shape)==2:
+            xbins = np.tile(self.xbins.reshape(self.xbins.shape[1],1,self.xbins.shape[0]),
+                            [1, self.nbands, 1]).T
+        else:
+            xbins = self.xbins
+
+        if len(ref_x.shape)==1:
+            ref_x = np.tile(ref_x, [self.nzbins, self.nbands, 1]).T
+        elif len(ref_x.shape)==2:
+            ref_x = np.tile(ref_x.reshape(ref_x.shape[1],1,ref_x.shape[0]),
+                            [1, self.nbands, 1]).T
+
+        mxs = ( xbins[1:,:,:] + xbins[:-1,:,:] ) / 2
+
+
         #If want to plot fractional deviations, and ref_y
         #uses different bins, interpolate ref_y to
         #magniutdes given at mxs. Don't extrapolate!
+        lidx = np.zeros((len(usecols), len(usez)))
+        hidx = np.zeros((len(usecols), len(usez)))
 
-        if fracdev & ((len(ref_x)!=len(mxs)) | ((ref_x[0]!=mxs[0]) | (ref_x[-1]!=mxs[-1]))):
-            rls = ref_y.shape
-            li = mxs.searchsorted(ref_x[0])
-            hi = mxs.searchsorted(ref_x[-1])
-            iref_y = np.zeros((hi-li, rls[1], rls[2]))
+        rxs = ref_x.shape
+        xs  = mxs.shape
+        rls = ref_y.shape
+        iref_y = np.zeros(rxs)
+        if ref_ye is not None:
+            iref_ye = np.zeros(rxs)
 
-            for i in range(rls[1]):
-                for j in range(rls[2]):
-                    spl = InterpolatedUnivariateSpline(ref_x, ref_y[:,i,j])
-                    iref_y[:,i,j] = spl(mxs[li:hi])
+        for i, c in enumerate(usecols):
+            for j in usez:
+                xi  = mxs[:,usecols[i],j]
+                rxi = ref_x[:,rusecols[i],j]
 
-            ref_y = iref_y
-        else:
-            li = 0
-            hi = len(mxs)
+                if fracdev & ((rxs[0]!=xs[0]) | ((rxi[0]!=xi[0])  | (rxi[-1]!=xi[-1]))):
+                    lidx[i,j] = xi.searchsorted(rxi[0])
+                    hidx[i,j] = xi.searchsorted(rxi[-1])
+                    sply = InterpolatedUnivariateSpline(ref_x[:,rusecols[i],j], ref_y[:,rusecols[i],j])
+                    iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = sply(mxs[lidx[i,j]:hidx[i,j],c,j])
+
+                    if ref_ye is not None:
+                        splye = InterpolatedUnivariateSpline(ref_x[:,rusecols[i],j], ref_ye[:,rusecols[i],j])
+                        iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = splye(mxs[lidx[i,j]:hidx[i,j],c,j])
+                else:
+                    lidx[i,j] = 0
+                    hidx[i,j] = len(mxs)
+                    iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_y[:,rusecols[i],j]
+                    if ref_ye is not None:
+                        iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_ye[:,rusecols[i],j]
+
+        ref_y = iref_y
+        if ref_ye is not None:
+            ref_ye = iref_ye
 
         #if no figure provided, set up figure and axes
         if f is None:
@@ -286,11 +316,14 @@ class GMetric(Metric):
         if nzbins>1:
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
+                    li = lidx[i,j]
+                    hi = hidx[i,j]
+
                     if fracdev==False:
                         if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
-                        l1 = ax[i][j].plot(mxs, self.y[:,b,j], **kwargs)
+                        l1 = ax[i][j].plot(mxs[:,b,j], self.y[:,b,j], **kwargs)
                         if self.ye is not None:
-                            ax[i][j].fill_between(mxs, self.y[:,b,j]-self.ye[:,b,j],
+                            ax[i][j].fill_between(mxs[:,b,j], self.y[:,b,j]-self.ye[:,b,j],
                               self.y[:,b,j]+self.ye[:,b,j],
                               alpha=0.5, **kwargs)
                         if logx:
@@ -303,23 +336,23 @@ class GMetric(Metric):
                         #difference
                         if (ref_ye is not None) & (self.ye is not None):
                             vye = self.ye[li:hi,b,j]**2
-                            vrye = ref_ye[:,rb,j]**2
-                            fye = (self.y[li:hi,b,j] - ref_y[:,rb,j]) / ref_y[:,rb,j]
-                            dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[:,rb,j]) ** 2 + ref_ye[:,rb,j] ** 2 / ref_y[:,rb,j]**2 )
+                            vrye = ref_ye[li:hi,rb,j]**2
+                            fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
+                            dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) ** 2 + ref_ye[li:hi,rb,j] ** 2 / ref_y[li:hi,rb,j]**2 )
 
                         else:
-                            fye = (self.y[li:hi,b,j] - ref_y[:,rb,j]) / ref_y[:,rb,j]
+                            fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
                             dye = None
 
                         if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
-                        l1 = ax[2*i][j].plot(mxs, self.y[:,b,j], **kwargs)
-                        ax[2*i+1][j].plot(mxs, fye, **kwargs)
+                        l1 = ax[2*i][j].plot(mxs[:,b,j], self.y[:,b,j], **kwargs)
+                        ax[2*i+1][j].plot(mxs[li:hi,b,j], fye, **kwargs)
                         if self.ye is not None:
-                            ax[2*i][j].fill_between(mxs, self.y[:,b,j]-self.ye[:,b,j],
+                            ax[2*i][j].fill_between(mxs[:,b,j], self.y[:,b,j]-self.ye[:,b,j],
                               self.y[:,b,j]+self.ye[:,b,j],
                               alpha=0.5, **kwargs)
                         if dye is not None:
-                            ax[2*i+1][j].fill_between(mxs, fye-dye,
+                            ax[2*i+1][j].fill_between(mxs[li:hi,b,j], fye-dye,
                               fye+dye,
                               alpha=0.5, **kwargs)
 
@@ -339,11 +372,14 @@ class GMetric(Metric):
 
         else:
             for i, b in enumerate(usecols):
+                li = lidx[i,0]
+                hi = hidx[i,0]
+
                 if fracdev==False:
                     if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
-                    l1 = ax[i][0].plot(mxs, self.y[:,b,0], **kwargs)
+                    l1 = ax[i][0].plot(mxs[:,b,0], self.y[:,b,0], **kwargs)
                     if self.ye is not None:
-                        ax[i][0].fill_between(mxs, self.y[:,b,0] - self.ye[:,b,0],
+                        ax[i][0].fill_between(mxs[:,b,0], self.y[:,b,0] - self.ye[:,b,0],
                                                 self.y[:,b,0] + self.ye[:,b,0],
                                                 alpha=0.5, **kwargs)
                                             
@@ -358,23 +394,23 @@ class GMetric(Metric):
                     #difference
                     if (ref_ye is not None) & (self.ye is not None):
                         vye = self.ye[li:hi,b,0]**2
-                        vrye = ref_ye[:,rb,0]**2
-                        fye = (self.y[li:hi,b,0] - ref_y[:,rb,0]) / ref_y[:,rb,0]
-                        dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,0] - ref_y[:,rb,0]) ** 2 + ref_ye[:,rb,0] ** 2 / ref_y[:,rb,0]**2 )
+                        vrye = ref_ye[li:hi,rb,0]**2
+                        fye = (self.y[li:hi,b,0] - ref_y[li:hi,rb,0]) / ref_y[li:hi,rb,0]
+                        dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,0] - ref_y[li:hi,rb,0]) ** 2 + ref_ye[li:hi,rb,0] ** 2 / ref_y[li:hi,rb,0]**2 )
                     else:
-                        fye = (self.y[li:hi,b,0] - ref_y[:,rb,0]) / ref_y[:,rb,0]
+                        fye = (self.y[li:hi,b,0] - ref_y[li:hi,rb,0]) / ref_y[li:hi,rb,0]
                         dye = None
 
                     if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
-                    l1 = ax[2*i][0].plot(mxs, self.y[:,b,0], **kwargs)
-                    ax[2*i+1][0].plot(mxs, fye, **kwargs)
+                    l1 = ax[2*i][0].plot(mxs[:,b,0], self.y[:,b,0], **kwargs)
+                    ax[2*i+1][0].plot(mxs[li:hi,b,0], fye, **kwargs)
 
                     if self.ye is not None:
-                        ax[2*i][0].fill_between(mxs, self.y[:,b,0]-self.ye[:,b,0],
+                        ax[2*i][0].fill_between(mxs[:,b,0], self.y[:,b,0]-self.ye[:,b,0],
                           self.y[:,b,0]+self.ye[:,b,0],
                           alpha=0.5, **kwargs)
                     if dye is not None:
-                        ax[2*i+1][0].fill_between(mxs, fye-dye,
+                        ax[2*i+1][0].fill_between(mxs[li:hi,b,0], fye-dye,
                           fye+dye,
                           alpha=0.5, **kwargs)
 
@@ -455,8 +491,13 @@ class GMetric(Metric):
             if hasattr(self, 'xmean'):
                 ref_x = self.xmean
             else:
-                ref_x =  np.array([(self.xbins[i]+self.xbins[i+1])/2
-                                    for i in range(len(self.xbins)-1)])
+                ref_x = (self.xbins[:-1,...] + self.xbins[1:,...]) / 2
+            
+            if len(ref_x.shape)==1:
+                ref_x = np.tile(ref_x, [self.nzbins, self.nbands, 1]).T
+            elif len(ref_x.shape)==2:
+                ref_x = np.tile(ref_x.reshape(ref_x.shape[1],1,ref_x.shape[0]),
+                                [1, self.nbands, 1]).T
 
         if labels is None:
             labels = [None]*len(tocompare)
