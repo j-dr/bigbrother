@@ -157,7 +157,6 @@ class Selector:
         #Make the fields.
         field1 = None
         field2 = None
-        print len(selection['mapkeys'])
         if len(selection['mapkeys']) > 1:
             field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]
             if ((selection['selection_ind'][1][1]) == None):
