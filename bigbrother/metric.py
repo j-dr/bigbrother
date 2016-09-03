@@ -222,60 +222,77 @@ class GMetric(Metric):
         nzbins = len(usez)
 
         #format x-values
-        if len(self.xbins.shape)==1:
-            xbins = np.tile(self.xbins, [self.nzbins, self.nbands, 1]).T
-        elif len(self.xbins.shape)==2:
-            xbins = np.tile(self.xbins.reshape(self.xbins.shape[1],1,self.xbins.shape[0]),
-                            [1, self.nbands, 1]).T
+        if hasattr(self, 'xmean'):
+            
+            if len(self.xmean.shape)==1:
+                mxs = np.tile(self.xmean, [self.nzbins, self.nbands, 1]).T
+            elif len(self.xmean.shape)==2:
+                mxs = np.tile(self.xmean.reshape(self.xmean.shape[1],1,self.xmean.shape[0]),
+                                [1, self.nbands, 1]).T
+            else:
+                mxs = self.xmean
         else:
-            xbins = self.xbins
+            if len(self.xbins.shape)==1:
+                xbins = np.tile(self.xbins, [self.nzbins, self.nbands, 1]).T
+            elif len(self.xbins.shape)==2:
+                xbins = np.tile(self.xbins.reshape(self.xbins.shape[1],1,self.xbins.shape[0]),
+                                [1, self.nbands, 1]).T
+            else:
+                xbins = self.xbins
 
-        if len(ref_x.shape)==1:
-            ref_x = np.tile(ref_x, [self.nzbins, self.nbands, 1]).T
-        elif len(ref_x.shape)==2:
-            ref_x = np.tile(ref_x.reshape(ref_x.shape[1],1,ref_x.shape[0]),
-                            [1, self.nbands, 1]).T
+            mxs = ( xbins[1:,:,:] + xbins[:-1,:,:] ) / 2
 
-        mxs = ( xbins[1:,:,:] + xbins[:-1,:,:] ) / 2
+        if fracdev:
+
+            if len(ref_x.shape)==1:
+                ref_x = np.tile(ref_x, [self.nzbins, self.nbands, 1]).T
+            elif len(ref_x.shape)==2:
+                ref_x = np.tile(ref_x.reshape(ref_x.shape[1],1,ref_x.shape[0]),
+                                [1, self.nbands, 1]).T
+
 
 
         #If want to plot fractional deviations, and ref_y
         #uses different bins, interpolate ref_y to
         #magniutdes given at mxs. Don't extrapolate!
-        lidx = np.zeros((len(usecols), len(usez)))
-        hidx = np.zeros((len(usecols), len(usez)))
 
-        rxs = ref_x.shape
-        xs  = mxs.shape
-        rls = ref_y.shape
-        iref_y = np.zeros(rxs)
-        if ref_ye is not None:
-            iref_ye = np.zeros(rxs)
+        if fracdev:
+            lidx = np.zeros((len(usecols), len(usez)), dtype=np.int)
+            hidx = np.zeros((len(usecols), len(usez)), dtype=np.int)
 
-        for i, c in enumerate(usecols):
-            for j in usez:
-                xi  = mxs[:,usecols[i],j]
-                rxi = ref_x[:,rusecols[i],j]
+            rxs = ref_x.shape
+            xs  = mxs.shape
+            rls = ref_y.shape
+            iref_y = np.zeros(rxs)
+            if ref_ye is not None:
+                iref_ye = np.zeros(rxs)
 
-                if fracdev & ((rxs[0]!=xs[0]) | ((rxi[0]!=xi[0])  | (rxi[-1]!=xi[-1]))):
-                    lidx[i,j] = xi.searchsorted(rxi[0])
-                    hidx[i,j] = xi.searchsorted(rxi[-1])
-                    sply = InterpolatedUnivariateSpline(ref_x[:,rusecols[i],j], ref_y[:,rusecols[i],j])
-                    iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = sply(mxs[lidx[i,j]:hidx[i,j],c,j])
+            for i, c in enumerate(usecols):
+                for j in usez:
+                    xi  = mxs[:,usecols[i],j]
+                    rxi = ref_x[:,rusecols[i],j]
 
-                    if ref_ye is not None:
-                        splye = InterpolatedUnivariateSpline(ref_x[:,rusecols[i],j], ref_ye[:,rusecols[i],j])
-                        iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = splye(mxs[lidx[i,j]:hidx[i,j],c,j])
-                else:
-                    lidx[i,j] = 0
-                    hidx[i,j] = len(mxs)
-                    iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_y[:,rusecols[i],j]
-                    if ref_ye is not None:
-                        iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_ye[:,rusecols[i],j]
+                    if fracdev & ((rxs[0]!=xs[0]) | ((rxi[0]!=xi[0])  | (rxi[-1]!=xi[-1]))):
+                        lidx[i,j] = xi.searchsorted(rxi[0])
+                        hidx[i,j] = xi.searchsorted(rxi[-1])
+                        nanidx = np.isnan(ref_y[:,rusecols[i],j]) | np.isnan(ref_x[:,rusecols[i],j])
+                        sply = InterpolatedUnivariateSpline(ref_x[~nanidx,rusecols[i],j], ref_y[~nanidx,rusecols[i],j])
+                        iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = sply(mxs[lidx[i,j]:hidx[i,j],c,j])
 
-        ref_y = iref_y
-        if ref_ye is not None:
-            ref_ye = iref_ye
+                        if ref_ye is not None:
+                            nanidx = np.isnan(ref_ye[:,rusecols[i],j]) | np.isnan(ref_x[:,rusecols[i],j])
+                            splye = InterpolatedUnivariateSpline(ref_x[~nanidx,rusecols[i],j], ref_ye[~nanidx,rusecols[i],j])
+                            iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = splye(mxs[lidx[i,j]:hidx[i,j],c,j])
+                    else:
+                        lidx[i,j] = 0
+                        hidx[i,j] = len(mxs)
+                        iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_y[:,rusecols[i],j]
+                        if ref_ye is not None:
+                            iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_ye[:,rusecols[i],j]
+
+            ref_y = iref_y
+            if ref_ye is not None:
+                ref_ye = iref_ye
 
         #if no figure provided, set up figure and axes
         if f is None:
@@ -287,7 +304,7 @@ class GMetric(Metric):
             #many rows of axes. Every other row contains fractional
             #deviations from the row above it.
             else:
-                assert(ref_y!=None)
+                assert(ref_y is not None)
                 gs = gridspec.GridSpec(len(usecols)*2, nzbins)
                 f = plt.figure()
                 ax = np.zeros((len(usecols)*2, nzbins), dtype='O')
@@ -316,11 +333,10 @@ class GMetric(Metric):
         if nzbins>1:
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
-                    li = lidx[i,j]
-                    hi = hidx[i,j]
-
                     if fracdev==False:
                         if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
+                        print(mxs.shape)
+                        print(self.y.shape)
                         l1 = ax[i][j].plot(mxs[:,b,j], self.y[:,b,j], **kwargs)
                         if self.ye is not None:
                             ax[i][j].fill_between(mxs[:,b,j], self.y[:,b,j]-self.ye[:,b,j],
@@ -331,6 +347,9 @@ class GMetric(Metric):
                         if logy:
                             ax[i][j].set_yscale('log')
                     else:
+                        li = lidx[i,j]
+                        hi = hidx[i,j]
+
                         rb = rusecols[i]
                         #calculate error on fractional
                         #difference
@@ -339,7 +358,9 @@ class GMetric(Metric):
                             vrye = ref_ye[li:hi,rb,j]**2
                             fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
                             dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) ** 2 + ref_ye[li:hi,rb,j] ** 2 / ref_y[li:hi,rb,j]**2 )
-
+                            print('dye: {0}'.format(dye))
+                            print('lidx: {0}'.format(lidx))
+                            print('hidx: {0}'.format(hidx))
                         else:
                             fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
                             dye = None
@@ -363,18 +384,15 @@ class GMetric(Metric):
                             ax[2*i][j].set_yscale('log')
 
                         if (i==0) & (j==0):
-                            if xlim!=None:
+                            if xlim is not None:
                                 ax[0][0].set_xlim(xlim)
-                            if ylim!=None:
+                            if ylim is not None:
                                 ax[0][0].set_ylim(ylim)
-                            if fylim!=None:
+                            if fylim is not None:
                                 ax[1][0].set_ylim(fylim)
 
         else:
             for i, b in enumerate(usecols):
-                li = lidx[i,0]
-                hi = hidx[i,0]
-
                 if fracdev==False:
                     if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
                     l1 = ax[i][0].plot(mxs[:,b,0], self.y[:,b,0], **kwargs)
@@ -389,6 +407,9 @@ class GMetric(Metric):
                         ax[i][0].set_yscale('log')
 
                 else:
+                    li = lidx[i,0]
+                    hi = hidx[i,0]
+
                     rb = rusecols[i]
                     #calculate error on fractional
                     #difference
@@ -420,11 +441,11 @@ class GMetric(Metric):
                         ax[2*i][0].set_yscale('log')
 
                     if (i==0):
-                        if xlim!=None:
+                        if xlim is not None:
                             ax[0][0].set_xlim(xlim)
-                        if ylim!=None:
+                        if ylim is not None:
                             ax[0][0].set_ylim(ylim)
-                        if fylim!=None:
+                        if fylim is not None:
                             ax[1][0].set_ylim(fylim)
 
         #if we just created the axes, add labels
@@ -471,7 +492,7 @@ class GMetric(Metric):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
-        if usecols!=None:
+        if usecols is not None:
             if not hasattr(usecols[0], '__iter__'):
                 usecols = [usecols]*len(tocompare)
             else:
@@ -479,7 +500,7 @@ class GMetric(Metric):
         else:
             usecols = [None]*len(tocompare)
 
-        if usez!=None:
+        if usez is not None:
             if not hasattr(usez[0], '__iter__'):
                 usez = [usez]*len(tocompare)
             else:
@@ -505,7 +526,7 @@ class GMetric(Metric):
         lines = []
 
         for i, m in enumerate(tocompare):
-            if usecols[i]!=None:
+            if usecols[i] is not None:
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
                 if fracdev:
@@ -531,10 +552,10 @@ class GMetric(Metric):
                                              color=Metric._color_list[i], **kwargs)
             lines.append(l[0])
 
-        if labels[0]!=None:
+        if labels[0] is not None:
             f.legend(lines, labels, 'best')
 
-        if plotname!=None:
+        if plotname is not None:
             plt.savefig(plotname)
 
         #plt.tight_layout()

@@ -1839,7 +1839,10 @@ class TabulatedLuminosityFunction(LuminosityFunction):
     def __init__(self, ministry, fname, nbands=None,
                   xcol=None, ycol=None, ecol=None,
                   zbins=None,evolve=False,Q=None,
-                  P=None,z0=None,**kwargs):
+                  P=None,z0=None,skip_header=None,
+                  **kwargs):
+
+        LuminosityFunction.__init__(self,ministry,**kwargs)
 
         self.fname = fname
 
@@ -1850,8 +1853,15 @@ class TabulatedLuminosityFunction(LuminosityFunction):
 
         if zbins is not None:
             self.zbins = zbins
+            self.nzbins = len(zbins)
         else:
             self.zbins = None
+            self.nzbins = 1
+
+        if skip_header is None:
+            self.skip_header = 0
+        else:
+            self.skip_header = skip_header
 
         self.evolve = evolve
         self.Q = Q
@@ -1877,7 +1887,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
         else:
             self.ecol = None
 
-        LuminosityFunction.__init__(self,ministry,**kwargs)
+
 
         #don't need to map this guy
         self.nomap = True
@@ -1894,61 +1904,58 @@ class TabulatedLuminosityFunction(LuminosityFunction):
         first column is luminosities, second column is.
         """
 
-        if len(self.fname)==1:
-            tab = np.genfromtxt(self.fname[0])
+        tab = np.genfromtxt(self.fname[0], skip_header=self.skip_header)
+        if not self.evolve:
             self.luminosity_function = np.zeros((tab.shape[0], self.nbands, self.nzbins))
-            if len(tab.shape)==2:
-                self.magmean = tab[:,self.xcol]
-                if self.nzbins==1:
-                    for i in range(self.nzbins):
-                        for j in range(self.nbands):
-                            self.luminosity_function[:,j,i] = tab[:,self.ycol]
-                else:
-                    assert((tab.shape[1]-1)==self.nzbins)
-                    for i in range(self.nzbins):
-                        for j in range(self.nbands):
-                            self.luminosity_function[:,j,i] = tab[:,i+self.ycol]
 
-            elif len(tab.shape)==3:
-                self.magmean = tab[:,0,0]
-                self.luminosity_function[:,:,:] = tab[:,1:,:]
         else:
-            if len(self.fname.shape)==1:
-                assert(self.fname.shape[0]==self.nzbins)
-                for i in range(len(self.fname)):
-                    lf = np.genfromtxt(self.fname[i])
-                    if i==0:
-                        self.magmean = lf[:,0]
-                        self.luminosity_function = np.zeros((len(self.magmean), self.nbands, self.nzbins))
-                    else:
-                        assert((lf[:,0]==self.magmean).all())
+            self.luminosity_function = np.zeros((tab.shape[0], self.nbands, 1))
 
+        if self.ecol is not None:
+            self.ye = np.zeros(self.luminosity_function.shape)
+            imult = 1
+        else:
+            self.ye = None
+            imult = 2
+
+        self.magmean = tab[:,self.xcol]
+
+        if self.nzbins==1:
+            for i in range(self.nzbins):
+                for j in range(self.nbands):
+                    self.luminosity_function[:,j,i] = tab[:,self.ycol]
+                    if self.ecol is not None:
+                        self.ye[:,j,i] = tab[:,self.ecol]
+        else:
+            if not self.evolve:
+                assert((tab.shape[1]-1)==self.nzbins)
+                for i in range(self.nzbins):
                     for j in range(self.nbands):
-                        self.luminosity_function[:,j,i] = lf[:,1]
-
-            elif len(self.fname.shape)==2:
-                for i in range(self.fname.shape[0]):
-                    for j in range(self.fname.shape[1]):
-                        lf = np.genfromtxt(self.fname[i,j])
-                        if (i==0) & (j==0):
-                            self.magmean = lf[:,0]
-                            self.luminosity_function = np.zeros((len(self.magmean), self.nbands, self.nzbins))
-                        else:
-                            assert(self.magmean==lf[:,0])
-
-                        self.luminosity_function[:,j,i] = lf[:,1]
+                        self.luminosity_function[:,j,i] = tab[:,i*imult+self.ycol]
+                        if self.ecol is not None:
+                            self.ye[:,j,i] = tab[:,i*imult+self.ecol]
+            else:
+                for j in range(self.nbands):
+                    self.luminosity_function[:,j,0] = tab[:,self.ycol]
+                    if self.ecol is not None:
+                        self.ye[:,j,0] = tab[:,self.ecol]
 
         self.xmean = self.magmean
         self.y = self.luminosity_function
 
     def evolveTableQP(self, Q, P, zs, z0=0.1):
 
-        elf = np.zeros((len(self.xmean),self.nbands,len(z)))
-        ex  = np.zeros((len(self.xmean),self.nbands,len(z)))
-
-        for z in zs:
-            elf[:,:,i] = self.luminosity_function * 10 ** (0.4 * P * (z - z0))
-            ex[:,:,i] = self.xmean + Q * (z - z0)
+        elf = np.zeros((len(self.xmean),self.nbands,len(zs)))
+        elfe = np.zeros((len(self.xmean),self.nbands,len(zs)))
+        ex  = np.zeros((len(self.xmean),self.nbands,len(zs)))
+        
+        for i, z in enumerate(zs):
+            elf[:,:,i] = self.luminosity_function[:,:,0] * 10 ** (0.4 * P * (z - z0))
+            elfe[:,:,i] = self.ye[:,:,0]
+            ex[:,:,i] = self.xmean.reshape(-1,1) - Q * (z - z0)
 
         self.luminosity_function = elf
+        self.y = self.luminosity_function
+        self.ye = elfe
+        print(self.ye.shape)
         self.xmean = ex
