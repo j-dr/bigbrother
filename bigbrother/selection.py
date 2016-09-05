@@ -163,17 +163,17 @@ class Selector:
             field2 = mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]-mapunit[selection['mapkeys'][1][1]][:,selection['selection_ind'][1][1]]
         else:
             if selection['selection_ind'][0] == None:
-                field1 = mapunit[selection]['mapkeys'][0]
+                field1 = mapunit[selection['mapkeys'][0]]
                 if selection['selection_ind'][1] == None:
-                    field2 = mapunit[selection]['mapkeys'][1]
+                    field2 = mapunit[selection['mapkeys'][1]]
                 else:
-                    field2 = mapunit[selection]['mapkeys'][1][:,selection['selection_ind'][1]]
+                    field2 = mapunit[selection['mapkeys'][1]][:,selection['selection_ind'][1]]
             else:
-                field1 = mapunit[selection]['mapkeys'][0][:,selection['selection_ind'][0]]
+                field1 = mapunit[selection['mapkeys'][0]][:,selection['selection_ind'][0]]
                 if selection['selection_ind'][1] == None:
-                    field2 = mapunit[selection]['mapkeys'][1]
+                    field2 = mapunit[selection['mapkeys'][1]]
                 else:
-                    field2 = mapunit[selection]['mapkeys'][0][:,selection['selection_ind'][0]]
+                    field2 = mapunit[selection['mapkeys'][0]][:,selection['selection_ind'][0]]
 
         #Use the fields to make the ith cut.
         if selection['lower'][0]:
