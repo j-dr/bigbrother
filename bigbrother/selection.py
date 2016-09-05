@@ -155,18 +155,32 @@ class Selector:
 
     def cut2DHelper(self, mapunit, selection, i):
         #Make the fields.
+
+        #Mapkeys in selection dictionary, as well as selection_ind, will always
+        #be lists of two lists. Each list is of length 1 or 2.
+        #If length is 1: Use corresponding element in selection_ind to pick out
+        #the correct column. If None, then use the whole field.
+        #If length is 2: Subtract the two fields specified using the corresponding
+        #elements of selection_ind.
+
         field1 = None
         field2 = None
-        if len(selection['mapkeys']) > 1:
-            field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]
-            if ((selection['selection_ind'][1][1]) == None):
-                field2 = mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]
-            else:
-                field2 = mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]-mapunit[selection['mapkeys'][1][1]][:,selection['selection_ind'][1][1]]
+        if len(selection['mapkeys'][0]) > 1:
+            field1 = mapunit[selection]['mapkeys'][0][0][:,selection['selection_ind'][0][0]] - mapunit[selection]['mapkeys'][0][1][:,selection['selection_ind'][0][1]]
+            field2 = mapunit[selection]['mapkeys'][1][0][:,selection['selection_ind'][1][0]] - mapunit[selection]['mapkeys'][1][1][:,selection['selection_ind'][1][1]]
         else:
-            #No selection index for a 1D array. In this case, compare a field to one of the input parameters.
-            field1 = mapunit[selection['mapkeys'][0][0]]-mapunit[selection['mapkeys'][0][1]]
-            field2 = mapunit[selection['mapkeys'][0][1]]
+            if selection['selection_ind'][0] == None:
+                field1 = mapunit[selection]['mapkeys'][0]
+                if selection['selection_ind'][1] == None:
+                    field2 = mapunit[selection]['mapkeys'][1]
+                else:
+                    field2 = mapunit[selection]['mapkeys'][1][:,selection['selection_ind'][1]]
+            else:
+                field1 = mapunit[selection]['mapkeys'][0][:,selection['selection_ind'][0]]
+                if selection['selection_ind'][1] == None:
+                    field2 = mapunit[selection]['mapkeys'][1]
+                else:
+                    field2 = mapunit[selection]['mapkeys'][0][:,selection['selection_ind'][0]]
 
         #Use the fields to make the ith cut.
         if selection['lower'][0]:
