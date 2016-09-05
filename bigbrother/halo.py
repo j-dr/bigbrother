@@ -111,17 +111,8 @@ class HaloCatalog(BaseCatalog):
                                      1000)
             self.dgrid = self.ministry.cosmo.comoving_distance(self.zgrid)
 
-        print(mapunit[mapkey])
-        print(mapunit[mapkey].shape)
         r = np.sqrt(np.sum(mapunit[mapkey]**2, axis=1)) / self.ministry.h**3
-        
-        print(r)
-        print(self.zgrid)
-        print(self.dgrid)
-
         z = np.interp(r, self.dgrid.value, self.zgrid).reshape(-1)
-
-        print(z)
         
         return z
         

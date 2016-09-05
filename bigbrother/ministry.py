@@ -852,7 +852,6 @@ class Ministry:
                   | (ms[0].aschema == 'halohalo')):
                     mapunit = self.dcListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
-                    print(mapunit)
                     mapunit = self.filter(mapunit)
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
