@@ -417,7 +417,10 @@ class WPrpLightcone(CorrelationFunction):
                                             mapunit['polar_ang'][zlidx:zhidx][cidx],
                                             mapunit['redshift'][zlidx:zhidx][cidx]*self.c)
 
-                    self.dd[self.jcount,:,k,j,i] = np.array([ddresults[l][4] for l in range(self.nrbins)])
+                    ddresults = np.array(ddresults).reshape(-1,self.pimax,5)
+                    ddresults = np.sum(ddresults, axis=1)
+
+                    self.dd[self.jcount,:,k,j,i] = ddresults[:,4]
 
                     #data randoms
                     print('calculating data random pairs')
@@ -432,7 +435,10 @@ class WPrpLightcone(CorrelationFunction):
                                             rands['polar_ang'],
                                             rands['redshift']*self.c)
 
-                    self.dr[self.jcount,:,k,j,i] = np.array([drresults[k][4] for l in range(self.nrbins)])
+                    drresults = np.array(drresults).reshape(-1,self.pimax,5)
+                    drresults = np.sum(drresults, axis=1)
+
+                    self.dr[self.jcount,:,k,j,i] = drresults[:,4]
 
                     #randoms randoms
                     print('calculating random random pairs')
@@ -448,7 +454,10 @@ class WPrpLightcone(CorrelationFunction):
                                             rands['polar_ang'],
                                             rands['redshift']*self.c)
 
-                    self.rr[self.jcount,:,k,j,i] = np.array([rrresults[l][4] for l in range(self.nrbins)])
+                    rrresults = np.array(rrresults).reshape(-1,self.pimax,5)
+                    rrresults = np.sum(rrresults, axis=1)
+
+                    self.rr[self.jcount,:,k,j,i] = rrresults[:,4]
 
     def reduce(self, rank=None, comm=None):
 
