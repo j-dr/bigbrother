@@ -235,7 +235,10 @@ class BaseCatalog:
             else:
                 return self.ministry.metrics[idx].area
         else:
-            return self.ministry.metrics[idx].jarea
+            if not am:
+                return self.ministry.area
+            else:
+                return self.ministry.metrics[idx].jarea
 
 
 class PlaceHolder(BaseCatalog):

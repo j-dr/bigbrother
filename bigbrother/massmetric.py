@@ -63,12 +63,14 @@ class MassFunction(MassMetric):
 
         if lightcone:
             self.mapkeys   = ['halomass', 'redshift']
+            self.unitmap = {'halomass':'msunh', 'redshift':'z'}
             self.lightcone = True
         else:
             self.mapkeys   = ['halomass']
+            self.unitmap = {'halomass':'msunh'}
             self.lightcone = False
 
-        self.unitmap = {'halomass':'msunh'}
+
 
     @jackknifeMap
     def map(self, mapunit):

@@ -72,10 +72,21 @@ class Area(Metric):
 
         self.nside = nside
 
-        self.mapkeys = ['polar_ang', 'azim_ang', 'appmag']
-        self.aschema = 'galaxyonly'
-        self.catalog_type = ['galaxycatalog']
-        self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
+        if self.catalog_type is None:
+            self.catalog_type = ['galaxycatalog']
+            
+        if self.catalog_type == ['galaxycatalog']:
+            self.aschema = 'galaxyonly'
+        elif self.catalog_type == ['halocatalog']:
+            self.aschema = 'haloonly'
+
+        if self.aschema =='galaxyonly':
+            self.mapkeys = ['polar_ang', 'azim_ang', 'appmag']
+            self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad', 'appmag':'mag'}
+        else:
+            self.mapkeys = ['polar_ang', 'azim_ang']
+            self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
+
         self.jarea = None
 
     @jackknifeMap

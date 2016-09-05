@@ -830,19 +830,23 @@ class Ministry:
 
                 mapunit = self.readMappable(mappable, fm)
 
-                if (sbz & (ms[0].aschema != 'galaxygalaxy')
-                  & (ms[0].aschema != 'halohalo')):
-                    self.sortMappableByZ(mapunit, fm, [])
+#                if (sbz & (ms[0].aschema != 'galaxygalaxy')
+#                  & (ms[0].aschema != 'halohalo')):
+#                    self.sortMappableByZ(mapunit, fm, [])
 
                 if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
                     mapunit = self.scListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
 
                 elif 'only' in ms[0].aschema:
                     mapunit = self.scListToDict(mapunit)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
 
                 if sbz & ((ms[0].aschema == 'galaxygalaxy')
                   | (ms[0].aschema == 'halohalo')):

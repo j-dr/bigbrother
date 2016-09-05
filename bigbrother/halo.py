@@ -2,7 +2,10 @@ from __future__ import print_function, division
 from collections import OrderedDict
 from .massmetric import SimpleHOD, MassFunction, OccMass
 from .basecatalog     import BaseCatalog
+from astropy.cosmology import z_at_value
+
 from helpers import SimulationAnalysis
+import astropy.units as u
 import numpy as np
 import healpy as hp
 
@@ -101,7 +104,27 @@ class HaloCatalog(BaseCatalog):
 
         return fpix
 
+    def mpch2z(self, mapunit, mapkey):
+        if not hasattr(self, 'zgrid'):
+            self.zgrid = np.linspace(self.ministry.minz,
+                                     self.ministry.maxz,
+                                     1000)
+            self.dgrid = self.ministry.cosmo.comoving_distance(self.zgrid)
 
+        print(mapunit[mapkey])
+        print(mapunit[mapkey].shape)
+        r = np.sqrt(np.sum(mapunit[mapkey]**2, axis=1)) / self.ministry.h**3
+        
+        print(r)
+        print(self.zgrid)
+        print(self.dgrid)
+
+        z = np.interp(r, self.dgrid.value, self.zgrid).reshape(-1)
+
+        print(z)
+        
+        return z
+        
     def unitConversion(self, mapunit):
 
         midx = mapunit['halomass']!=0.0
@@ -132,8 +155,6 @@ class HaloCatalog(BaseCatalog):
         Takes in a mappable object, and a
         """
 
-        #Fill in reader code here
-
 	mapunit = {}
 	ft      = mappable.dtype
 	fname   = mappable.name
@@ -146,6 +167,8 @@ class HaloCatalog(BaseCatalog):
 	        else:
 	            fields.extend([val])
 
+        print(fields)
+        print(fieldmap)
 	data = SimulationAnalysis.readHlist(fname, fields)
 
 	for mapkey in fieldmap[ft].keys():
@@ -154,8 +177,11 @@ class HaloCatalog(BaseCatalog):
                 dt = mapunit[mapkey].dtype[0]
                 ne = len(mapunit[mapkey])
                 nf = len(fieldmap[ft][mapkey])
+                print(ne)
+                print(nf)
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
-
+            
+            print(mapunit[mapkey].shape)
 	return mapunit
 
 class BCCHaloCatalog(HaloCatalog):

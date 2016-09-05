@@ -221,6 +221,8 @@ class GMetric(Metric):
             usez = range(self.nzbins)
         nzbins = len(usez)
 
+        l1 = None
+
         #format x-values
         if hasattr(self, 'xmean'):
             
