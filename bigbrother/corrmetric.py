@@ -254,9 +254,9 @@ class WPrpLightcone(CorrelationFunction):
                   nrbins=None, pimax=None, subjack=False,
                   catalog_type=None, tag=None, lcutind=None,
                   same_rand=False, inv_lum=True, cosmology_flag=None,
-                  color_cut=False, **kwargs):
+                  color_cut=False, centrals_only=False,**kwargs):
         """
-        Angular correlation function, w(theta), for use with non-periodic
+        Projected correlation function, wp(rp), for use with non-periodic
         data. All angles should be specified in degrees.
         """
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
@@ -273,6 +273,8 @@ class WPrpLightcone(CorrelationFunction):
             self.ncbins = 2
         else:
             self.ncbins = 1
+
+        self.centrals_only = centrals_only
 
         self.logbins = logbins
         self.c = 299792.458
@@ -308,8 +310,12 @@ class WPrpLightcone(CorrelationFunction):
         self.writeCorrfuncBinFile(self.rbins)
         #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
+
         self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+
+        if self.centrals_only:
+            self.mapkeys.append('central')
 
         self.nd = None
         self.nr = None
@@ -366,7 +372,11 @@ class WPrpLightcone(CorrelationFunction):
 
             for li, j in enumerate(self.luminds):
                 print('Finding luminosity indices')
-                lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+
+                if self.centrals_only:
+                    lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1]) & (mapunit['central'][zlidx:zhidx]==1)
+                else:
+                    lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1]) 
 
                 if (li==0) | (not self.same_rand):
                     print('Generating Randoms')
