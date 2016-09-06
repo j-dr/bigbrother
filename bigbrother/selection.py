@@ -170,6 +170,7 @@ class Selector:
                     field2 = mapunit[selection['mapkeys'][1]][:,selection['selection_ind'][1]]
             else:
                 field1 = mapunit[selection['mapkeys'][0]][:,selection['selection_ind'][0]]
+                field1 = mapunit[selection['mapkeys'][0]][:,selection['selection_ind'][0]]
                 if selection['selection_ind'][1] == None:
                     field2 = mapunit[selection['mapkeys'][1]]
                 else:
