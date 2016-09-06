@@ -158,18 +158,17 @@ class Selector:
 
         field1 = None
         field2 = None
-        if len(selection['mapkeys'][0]) > 1:
+        if (len(selection['mapkeys'][0])) > 1:
             field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]
             field2 = mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]-mapunit[selection['mapkeys'][1][1]][:,selection['selection_ind'][1][1]]
         else:
-            if selection['selection_ind'][0] == None:
+            if (selection['selection_ind'][0]) == None:
                 field1 = mapunit[selection['mapkeys'][0]]
                 if selection['selection_ind'][1] == None:
                     field2 = mapunit[selection['mapkeys'][1]]
                 else:
                     field2 = mapunit[selection['mapkeys'][1]][:,selection['selection_ind'][1]]
             else:
-                field1 = mapunit[selection['mapkeys'][0]][:,selection['selection_ind'][0]]
                 field1 = mapunit[selection['mapkeys'][0]][:,selection['selection_ind'][0]]
                 if selection['selection_ind'][1] == None:
                     field2 = mapunit[selection['mapkeys'][1]]
