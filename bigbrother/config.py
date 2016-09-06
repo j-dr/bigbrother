@@ -141,6 +141,8 @@ def parseConfig(cfg):
                     mcfg['metrics'][m][k] = None
 
                 if k in _eval_keys:
+                    print(k)
+                    print(m)
                     mcfg['metrics'][m][k] = eval(mcfg['metrics'][m][k])
 
 

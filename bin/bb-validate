@@ -50,13 +50,13 @@ if __name__=="__main__":
             if 'outdir' in cfg['Validate'].keys():
                 with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
                             cfg['Ministry']['ministry_name']), 'w') as fp:
-                    pickle.dump(mstry, fp)
+                    dill.dump(mstry, fp)
 
     else:
         if 'outdir' in cfg['Validate'].keys():
             with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
                         cfg['Ministry']['ministry_name']), 'w') as fp:
-                pickle.dump(mstry, fp)
+                dill.dump(mstry, fp)
         
         
     for m in mstry.metrics:

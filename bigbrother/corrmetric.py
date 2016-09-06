@@ -353,9 +353,9 @@ class WPrpLightcone(CorrelationFunction):
 
 
         if self.dd is None:
-            self.dd = np.zeros((self.njack,self.nrbins, self.ncbins, self.nlumbins, self.nzbins))
-            self.dr = np.zeros((self.njack,self.nrbins, self.ncbins, self.nlumbins, self.nzbins))
-            self.rr = np.zeros((self.njack,self.nrbins, self.ncbins, self.nlumbins, self.nzbins))
+            self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nlumbins, self.nzbins))
+            self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nlumbins, self.nzbins))
+            self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nlumbins, self.nzbins))
             self.nd = np.zeros((self.njack, self.ncbins, self.nlumbins, self.nzbins))
             self.nr = np.zeros((self.njack, self.ncbins, self.nlumbins, self.nzbins))
 
@@ -406,21 +406,26 @@ class WPrpLightcone(CorrelationFunction):
                     if self.nd[self.jcount,k,j,i]<2:
                         continue
 
+                    print(mapunit['azim_ang'][zlidx:zhidx][cidx].astype(np.float32))
+
                     ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1,
                                             self.cosmology_flag, 1,
                                             self.pimax,
                                             self.binfilename,
-                                            mapunit['azim_ang'][zlidx:zhidx][cidx],
-                                            mapunit['polar_ang'][zlidx:zhidx][cidx],
-                                            mapunit['redshift'][zlidx:zhidx][cidx]*self.c,
-                                            mapunit['azim_ang'][zlidx:zhidx][cidx],
-                                            mapunit['polar_ang'][zlidx:zhidx][cidx],
-                                            mapunit['redshift'][zlidx:zhidx][cidx]*self.c)
-
+                                            mapunit['azim_ang'][zlidx:zhidx][cidx].astype(np.float32),
+                                            mapunit['polar_ang'][zlidx:zhidx][cidx].astype(np.float32),
+                                            mapunit['redshift'][zlidx:zhidx][cidx].astype(np.float32)*self.c,
+                                            mapunit['azim_ang'][zlidx:zhidx][cidx].astype(np.float32),
+                                            mapunit['polar_ang'][zlidx:zhidx][cidx].astype(np.float32),
+                                            mapunit['redshift'][zlidx:zhidx][cidx].astype(np.float32)*self.c)
+                    print('ddresults[0]: {0}'.format(ddresults[0]))
+                    print('ddresults[1]: {0}'.format(ddresults[1]))
+                    ddresults = np.array(ddresults[0])
+                    print(ddresults)
+                    print(ddresults.shape)
                     ddresults = np.array(ddresults).reshape(-1,self.pimax,5)
-                    ddresults = np.sum(ddresults, axis=1)
 
-                    self.dd[self.jcount,:,k,j,i] = ddresults[:,4]
+                    self.dd[self.jcount,:,:,k,j,i] = ddresults[:,:,4]
 
                     #data randoms
                     print('calculating data random pairs')
@@ -428,17 +433,15 @@ class WPrpLightcone(CorrelationFunction):
                     drresults = countpairs_mocks.countpairs_rp_pi_mocks(0, 1, 1,
                                             self.pimax,
                                             self.binfilename,
-                                            mapunit['azim_ang'][zlidx:zhidx][cidx],
-                                            mapunit['polar_ang'][zlidx:zhidx][cidx],
-                                            mapunit['redshift'][zlidx:zhidx][cidx]*self.c,
-                                            rands['azim_ang'],
-                                            rands['polar_ang'],
-                                            rands['redshift']*self.c)
+                                            mapunit['azim_ang'][zlidx:zhidx][cidx].astype(np.float32),
+                                            mapunit['polar_ang'][zlidx:zhidx][cidx].astype(np.float32),
+                                            mapunit['redshift'][zlidx:zhidx][cidx].astype(np.float32)*self.c,
+                                            rands['azim_ang'].astype(np.float32),
+                                            rands['polar_ang'].astype(np.float32),
+                                            rands['redshift'].astype(np.float32)*self.c)
 
-                    drresults = np.array(drresults).reshape(-1,self.pimax,5)
-                    drresults = np.sum(drresults, axis=1)
-
-                    self.dr[self.jcount,:,k,j,i] = drresults[:,4]
+                    drresults = np.array(drresults[0]).reshape(-1,self.pimax,5)
+                    self.dr[self.jcount,:,:,k,j,i] = drresults[:,:,4]
 
                     #randoms randoms
                     print('calculating random random pairs')
@@ -447,17 +450,16 @@ class WPrpLightcone(CorrelationFunction):
                         rrresults = countpairs_mocks.countpairs_rp_pi_mocks(1, 1, 1,
                                             self.pimax,
                                             self.binfilename,
-                                            rands['azim_ang'],
-                                            rands['polar_ang'],
-                                            rands['redshift']*self.c,
-                                            rands['azim_ang'],
-                                            rands['polar_ang'],
-                                            rands['redshift']*self.c)
+                                            rands['azim_ang'].astype(np.float32),
+                                            rands['polar_ang'].astype(np.float32),
+                                            rands['redshift'].astype(np.float32)*self.c,
+                                            rands['azim_ang'].astype(np.float32),
+                                            rands['polar_ang'].astype(np.float32),
+                                            rands['redshift'].astype(np.float32)*self.c)
 
-                    rrresults = np.array(rrresults).reshape(-1,self.pimax,5)
-                    rrresults = np.sum(rrresults, axis=1)
+                        rrresults = np.array(rrresults[0]).reshape(-1,self.pimax,5)
 
-                    self.rr[self.jcount,:,k,j,i] = rrresults[:,4]
+                    self.rr[self.jcount,:,:,k,j,i] = rrresults[:,:,4]
 
     def reduce(self, rank=None, comm=None):
 
@@ -468,14 +470,16 @@ class WPrpLightcone(CorrelationFunction):
             gdr = comm.gather(self.dr, root=0)
             grr = comm.gather(self.rr, root=0)
 
-            ndshape = [self.nd.shape[i] for i in range(len(self.nr.shape))]
-            nrshape = [self.nr.shape[i] for i in range(len(self.nd.shape))]
+            ndshape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
+            nrshape = [self.nr.shape[i] for i in range(len(self.nr.shape))]
             ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
             drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
             rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
 
             ndshape.insert(1,1)
+            ndshape.insert(1,1)            
             nrshape.insert(1,1)
+            nrshape.insert(1,1)            
 
             ndshape[0] = self.njacktot
             nrshape[0] = self.njacktot
@@ -494,11 +498,11 @@ class WPrpLightcone(CorrelationFunction):
                 for i, g in enumerate(gnd):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.nd[jc:jc+nj,0,:,:,:] = g
-                    self.nr[jc:jc+nj,0,:,:,:] = gnr[i]
-                    self.dd[jc:jc+nj,:,:,:,:] = gdd[i]
-                    self.dr[jc:jc+nj,:,:,:,:] = gdr[i]
-                    self.rr[jc:jc+nj,:,:,:,:] = grr[i]
+                    self.nd[jc:jc+nj,0,0,:,:,:] = g
+                    self.nr[jc:jc+nj,0,0,:,:,:] = gnr[i]
+                    self.dd[jc:jc+nj,:,:,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:,:,:] = gdr[i]
+                    self.rr[jc:jc+nj,:,:,:,:,:] = grr[i]
 
                     jc += nj
 
@@ -514,9 +518,13 @@ class WPrpLightcone(CorrelationFunction):
                 jDR = self.jdr / (self.jnd * self.jnr)
                 jRR = self.jrr / (self.jnr * (self.jnr - 1) / 2)
 
-                self.jwprp = (jDD - 2 * jDR + jRR) / jRR
-
-                self.wprp = np.sum(self.jwprp, axis=0) / self.njacktot
+                self.jwprppi = (jDD - 2 * jDR + jRR) / jRR
+                self.jwprp = 2 * np.sum(self.jwprppi, axis=2)
+                
+                self.wprppi = np.sum(self.jwprppi, axis=0) / self.njacktot
+                self.wprp = np.sum(self.jwprp, axis=0) / self.njacktot                
+                
+                self.varwprppi = np.sum((self.jwprppi - self.wprppi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
                 self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
         else:
             self.jwprp = np.zeros(self.dd.shape)
@@ -531,11 +539,14 @@ class WPrpLightcone(CorrelationFunction):
             jDR = self.jdr / (self.jnd * self.jnr)
             jRR = self.jrr / (self.jnr * (self.jnr - 1) / 2)
 
-            self.jwprp = (jDD - 2 * jDR + jRR) / jRR
-
-            self.wprp = np.sum(self.jwprp, axis=0)/self.njacktot
+            self.jwprppi = (jDD - 2 * jDR + jRR) / jRR
+            self.jwprp = 2 * np.sum(self.jwprppi, axis=2)
+                
+            self.wprppi = np.sum(self.jwprppi, axis=0) / self.njacktot
+            self.wprppi = np.sum(self.jwprp, axis=0) / self.njacktot                
+                
+            self.varwprppi = np.sum((self.jwprppi - self.wprppi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
             self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
-
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
                     usez=None, compare=False, usecolors=None, **kwargs):
