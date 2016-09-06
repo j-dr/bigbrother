@@ -157,24 +157,24 @@ class Selector:
         #Make the fields.
 
         fields = []
-for i in range(2):
-	if len(selection['mapkeys'][i])==1:
-		if selection['selection_ind'][i][0] is None:
-			field.append(mapunit[selection['mapkeys'][i][0]])
-		else:
-			field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]])
-	else:
-		#four possibilities depending on if selection_inds are None or not
-        if selection['selection_ind'][i][0] is None:
-            if selection['selection_ind'][i][1] is None:
-                field.append(mapunit[selection['mapkeys'][i][0]] - mapunit[selection['mapkeys'][i][1]])
-            else:
-                field.append(mapunit[selection['mapkeys'][i][0]] - mapunit[selection['mapkeys'][i][1]][:,selection['selection_ind'][i][1]])
-        else:
-            if selection['selection_ind'][i][1] is None:
-                field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]] - mapunit[selection['mapkeys'][i][1]])
-            else:
-                field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]] - mapunit[selection['mapkeys'][i][1]][:,selection['selection_ind'][i][1]])
+        for i in range(2):
+        	if len(selection['mapkeys'][i])==1:
+        		if selection['selection_ind'][i][0] is None:
+        			field.append(mapunit[selection['mapkeys'][i][0]])
+        		else:
+        			field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]])
+        	else:
+        		#four possibilities depending on if selection_inds are None or not
+                if selection['selection_ind'][i][0] is None:
+                    if selection['selection_ind'][i][1] is None:
+                        field.append(mapunit[selection['mapkeys'][i][0]] - mapunit[selection['mapkeys'][i][1]])
+                    else:
+                        field.append(mapunit[selection['mapkeys'][i][0]] - mapunit[selection['mapkeys'][i][1]][:,selection['selection_ind'][i][1]])
+                else:
+                    if selection['selection_ind'][i][1] is None:
+                        field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]] - mapunit[selection['mapkeys'][i][1]])
+                    else:
+                        field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]] - mapunit[selection['mapkeys'][i][1]][:,selection['selection_ind'][i][1]])
 
         field1 = field[0]
         field2 = field[1]
