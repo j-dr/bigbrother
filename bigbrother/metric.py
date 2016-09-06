@@ -301,7 +301,7 @@ class GMetric(Metric):
             if fracdev==False:
                 f, ax = plt.subplots(len(usecols), nzbins,
                                      sharex=True, sharey=True, figsize=(8,8))
-                ax = ax.reshape((len(usecols), nzbins))
+                ax = np.array(ax).reshape((len(usecols), nzbins))
             #if want fractional deviations, need to make twice as
             #many rows of axes. Every other row contains fractional
             #deviations from the row above it.

@@ -574,7 +574,9 @@ class WPrpLightcone(CorrelationFunction):
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
                 for k, c in enumerate(usecolors):
-                    l1 = ax[j][i].errorbar(rmean, self.wprp[:,k,i,j], yerr=np.sqrt(self.varwprp[:,k,i,j]))
+                    ye = np.sqrt(self.varwprp[:,k,i,j])
+                    l1 = ax[j][i].plot(rmean, self.wprp[:,k,i,j], **kwargs)
+                    ax[j][i].fill_between(rmean, self.wprp[:,k,i,j]-ye, self.wprp[:,k,i,j]+ye, alpha=0.5, **kwargs)
 
                 ax[j][i].set_xscale('log')
                 ax[j][i].set_yscale('log')
@@ -631,11 +633,11 @@ class WPrpLightcone(CorrelationFunction):
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
                 f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
-                                          compare=True,
+                                          compare=True, color=Metric._color_list[i],
                                           **kwargs)
             else:
                 f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
-                                          compare=True,
+                                          compare=True, color=Metric._color_list[i],
                                           f=f, ax=ax, **kwargs)
             lines.append(l1)
 
@@ -758,8 +760,8 @@ class WPrpSnapshot(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$w_{p}(r_{p})$')
-            sax.set_ylabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+            sax.set_ylabel(r'$w_{p}(r_{p})$')
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$')
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
