@@ -156,48 +156,27 @@ class Selector:
     def cut2DHelper(self, mapunit, selection, i):
         #Make the fields.
 
-        fields = []
-        for i in range(2):
-        	if len(selection['mapkeys'][i])==1:
-        		if selection['selection_ind'][i][0] is None:
-        			field.append(mapunit[selection['mapkeys'][i][0]])
-        		else:
-        			field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]])
-        	else:
-        		#four possibilities depending on if selection_inds are None or not
-                if selection['selection_ind'][i][0] is None:
-                    if selection['selection_ind'][i][1] is None:
-                        field.append(mapunit[selection['mapkeys'][i][0]] - mapunit[selection['mapkeys'][i][1]])
-                    else:
-                        field.append(mapunit[selection['mapkeys'][i][0]] - mapunit[selection['mapkeys'][i][1]][:,selection['selection_ind'][i][1]])
+        field = []
+        for j in range(2):
+            if len(selection['mapkeys'][j])==1:
+                if selection['selection_ind'][j][0] is None:
+                    field.append(mapunit[selection['mapkeys'][j][0]])
                 else:
-                    if selection['selection_ind'][i][1] is None:
-                        field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]] - mapunit[selection['mapkeys'][i][1]])
+                    field.append(mapunit[selection['mapkeys'][j][0]][:,selection['selection_ind'][j][0]])
+            else:
+                if selection['selection_ind'][j][0] is None:
+                    if selection['selection_ind'][j][1] is None:
+                        field.append(mapunit[selection['mapkeys'][j][0]] - mapunit[selection['mapkeys'][j][1]])
                     else:
-                        field.append(mapunit[selection['mapkeys'][i][0]][:,selection['selection_ind'][i][0]] - mapunit[selection['mapkeys'][i][1]][:,selection['selection_ind'][i][1]])
+                        field.append(mapunit[selection['mapkeys'][j][0]] - mapunit[selection['mapkeys'][j][1]][:,selection['selection_ind'][j][1]])
+                else:
+                    if selection['selection_ind'][j][1] is None:
+                        field.append(mapunit[selection['mapkeys'][j][0]][:,selection['selection_ind'][j][0]] - mapunit[selection['mapkeys'][j][1]])
+                    else:
+                        field.append(mapunit[selection['mapkeys'][j][0]][:,selection['selection_ind'][j][0]] - mapunit[selection['mapkeys'][j][1]][:,selection['selection_ind'][j][1]])
 
         field1 = field[0]
         field2 = field[1]
-        if (len(selection['mapkeys'][0])) > 1:
-            if (selection['selection_ind'][1][1]) == None:
-                field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]
-                field2 = mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]
-            else:
-                field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]-mapunit[selection['mapkeys'][0][1]][:,selection['selection_ind'][0][1]]
-                field2 = mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]-mapunit[selection['mapkeys'][1][1]][:,selection['selection_ind'][1][1]]
-        else:
-            if (selection['selection_ind'][0]) == None:
-                field1 = mapunit[selection['mapkeys'][0][0]]
-                if selection['selection_ind'][1] == None:
-                    field2 = mapunit[selection['mapkeys'][1][0]]
-                else:
-                    field2 = mapunit[selection['mapkeys'][1][0]][:,selection['selection_ind'][1][0]]
-            else:
-                field1 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]
-                if selection['selection_ind'][1] == None:
-                    field2 = mapunit[selection['mapkeys'][1][0]]
-                else:
-                    field2 = mapunit[selection['mapkeys'][0][0]][:,selection['selection_ind'][0][0]]
 
         #Use the fields to make the ith cut.
         if selection['lower'][0]:
