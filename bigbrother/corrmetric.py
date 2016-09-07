@@ -58,10 +58,12 @@ class CorrelationFunction(Metric):
         elif (mbins is None) & (self.catalog_type == ['halocatalog']):
             self.mbins = np.array([10**7, 10**17])
         else:
+            print(mbins)
             self.mbins = mbins
 
         self.nmbins = len(self.mbins)-1
-
+        print('nmbins: {0}'.format(self.nmbins))
+        
         if same_rand & inv_m:
             self.minds = np.arange(self.nmbins)[::-1]
         else:
@@ -398,7 +400,8 @@ class WPrpLightcone(CorrelationFunction):
 
             for li, j in enumerate(self.minds):
                 print('Finding luminosity indices')
-
+                print('self.mbins: {0}'.format(self.mbins))
+                print('j: {0}'.format(j))
                 if self.centrals_only:
                     lidx = (self.mbins[j] <= mapunit[self.mkey][zlidx:zhidx,self.mcutind]) & (mapunit[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1]) & (mapunit['central'][zlidx:zhidx]==1)
                 else:
@@ -406,6 +409,11 @@ class WPrpLightcone(CorrelationFunction):
 
                 if (li==0) | (not self.same_rand):
                     print('Generating Randoms')
+                    print('azang: {0}'.format(mapunit['azim_ang'][zlidx:zhidx]))
+                    print('plang: {0}'.format(mapunit['polar_ang'][zlidx:zhidx]))
+                    print('cz: {0}'.format(cz[zlidx:zhidx]))
+                    print('lidx: {0}'.format(lidx))
+
                     rands = self.generateAngularRandoms(mapunit['azim_ang'][zlidx:zhidx][lidx], mapunit['polar_ang'][zlidx:zhidx][lidx], z=cz[zlidx:zhidx][lidx], nside=128)
 
                 for k in range(self.ncbins):
