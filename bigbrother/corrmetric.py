@@ -75,11 +75,6 @@ class CorrelationFunction(Metric):
         else:
             self.nrbins = nrbins
 
-        if mcutind is None:
-            self.mcutind = 0
-        else:
-            self.mcutind = mcutind
-
         self.subjack = subjack
 
         if 'galaxycatalog' in self.catalog_type:
@@ -88,6 +83,11 @@ class CorrelationFunction(Metric):
         else:
             self.mkey = 'halomass'
             self.aschema = 'halohalo'
+
+        if (mcutind is None) & (self.mkey == 'luminosity'):
+            self.mcutind = 0
+        else:
+            self.mcutind = mcutind
 
         if self.subjack:
             raise NotImplementedError
@@ -399,10 +399,12 @@ class WPrpLightcone(CorrelationFunction):
             for li, j in enumerate(self.luminds):
                 print('Finding luminosity indices')
 
-                if self.centrals_only:
-                    lidx = (self.mbins[j] <= mapunit[self.mkey][zlidx:zhidx,self.mcutind]) & (mapunit[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1]) & (mapunit['central'][zlidx:zhidx]==1)
-                else:
+                if self.mcutind is not None:
                     lidx = (self.mbins[j] <= mapunit[self.mkey][zlidx:zhidx,self.mcutind]) & (mapunit[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
+                else:
+                    lidx = (self.mbins[j] <= mapunit[self.mkey][zlidx:zhidx]) & (mapunit[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+                if self.centrals_only:
+                    lidx = lidx & (mapunit['central'][zlidx:zhidx]==1)
 
                 if (li==0) | (not self.same_rand):
                     print('Generating Randoms')
