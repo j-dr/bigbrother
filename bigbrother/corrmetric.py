@@ -322,7 +322,9 @@ class WPrpLightcone(CorrelationFunction):
         elif self.catalog_type == ['halocatalog']:
             self.unitmap = {'halomass':'msunh', 'polar_ang':'dec', 'azim_ang':'ra'}
 
-        if rsd is True:
+        self.rsd = rsd
+
+        if self.rsd:
             self.mapkeys.append('velocity')
             self.unitmap['velocity'] = 'kms'
 
