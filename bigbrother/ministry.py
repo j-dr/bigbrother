@@ -497,8 +497,46 @@ class Ministry:
 
 
     def haloHaloMappable(self, fieldmap):
+        filetypes = fieldmap.keys()
+        mappables = []
 
-        raise NotImplementedError
+        #need to put filetypes with redshifts in
+        #them first
+        zft = []
+        nzft = []
+        for ft in filetypes:
+            if 'redshift' in fieldmap[ft]:
+                zft.append(ft)
+            else:
+                nzft.append(ft)
+
+        filetypes = zft
+        filetypes.extend(nzft)
+
+        g, fgroups = self.halocatalog.groupFiles()
+        jt = self.halocatalog.jtype
+        nb = self.halocatalog.nbox
+        gn = self.halocatalog.groupnside
+
+        fs = self.halocatalog.filestruct
+
+        #Create mappables out of filestruct and fieldmaps
+        for i, fg in enumerate(fgroups):
+            for fc, j in enumerate(fg):
+                for k, ft in enumerate(filetypes):
+                    if (fc==0) & (k==0):
+                        root = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last = root
+                    else:
+                        node = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last.children.append(node)
+                        last = node
+
+            mappables.append(root)
+
+        return mappables
 
     def haloGalaxyMappable(self, fieldmap, nside=8):
 
@@ -787,7 +825,7 @@ class Ministry:
                     nms.extend(ms[mj+1:])
                     self.metric_groups[mi] = [mg[0],nms]
                     break
-                    
+
         if areaidx is not None:
             mgs = []
             mgs.append(self.metric_groups[areaidx])
