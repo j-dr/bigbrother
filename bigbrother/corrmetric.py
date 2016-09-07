@@ -25,10 +25,10 @@ from .metric import Metric, GMetric, jackknifeMap
 
 class CorrelationFunction(Metric):
 
-    def __init__(self, ministry, zbins=None, lumbins=None,
+    def __init__(self, ministry, zbins=None, mbins=None,
                    nrbins=None, subjack=False, lightcone=True,
-                   catalog_type=None, lcutind=None,
-                   tag=None, same_rand=False, inv_lum=True,
+                   catalog_type=None, mcutind=None,
+                   tag=None, same_rand=False, inv_m=True,
                    **kwargs):
         """
         Generic correlation function.
@@ -53,36 +53,40 @@ class CorrelationFunction(Metric):
             self.nzbins = 1
             self.zbins = None
 
-        if lumbins is None:
-            self.lumbins = np.array([-22, -21, -20, -19])
+        if (mbins is None) & (self.catalog_type == ['galaxycatalog']):
+            self.mbins = np.array([-30, 0])
+        elif (mbins is None) & (self.catalog_type == ['halocatalog']):
+            self.mbins = np.array([10**7, 10**17])
         else:
-            self.lumbins = lumbins
+            self.mbins = mbins
 
-        self.nlumbins = len(self.lumbins)-1
+        self.nmbins = len(self.mbins)-1
 
-        if same_rand & inv_lum:
-            self.luminds = np.arange(self.nlumbins)[::-1]
+        if same_rand & inv_m:
+            self.minds = np.arange(self.nmbins)[::-1]
         else:
-            self.luminds = np.arange(self.nlumbins)
+            self.minds = np.arange(self.nmbins)
 
         self.same_rand = same_rand
-        self.inv_lum = inv_lum
+        self.inv_m = inv_m
 
         if nrbins is None:
             self.nrbins = 15
         else:
             self.nrbins = nrbins
 
-        if lcutind is None:
-            self.lcutind = 0
+        if mcutind is None:
+            self.mcutind = 0
         else:
-            self.lcutind = lcutind
+            self.mcutind = mcutind
 
         self.subjack = subjack
 
         if 'galaxycatalog' in self.catalog_type:
             self.aschema = 'galaxygalaxy'
+            self.mkey = 'luminosity'
         else:
+            self.mkey = 'halomass'
             self.aschema = 'halohalo'
 
         if self.subjack:
@@ -164,16 +168,16 @@ class CorrelationFunction(Metric):
 
 class AngularCorrelationFunction(CorrelationFunction):
 
-    def __init__(self, ministry, zbins=None, lumbins=None, mintheta=None,
+    def __init__(self, ministry, zbins=None, mbins=None, mintheta=None,
                  maxtheta=None, nabins=None, subjack=False,
-                 catalog_type=None, tag=None, lcutind=None, **kwargs):
+                 catalog_type=None, tag=None, mcutind=None, **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
         """
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
-                                      lumbins=lumbins, nrbins=nabins,
-                                      subjack=subjack, lcutind=lcutind,
+                                      mbins=mbins, nrbins=nabins,
+                                      subjack=subjack, mcutind=mcutind,
                                       catalog_type=catalog_type, tag=tag,
                                       **kwargs)
 
@@ -187,7 +191,7 @@ class AngularCorrelationFunction(CorrelationFunction):
         else:
             self.maxtheta = maxtheta
 
-        self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
+        self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
 
     @jackknifeMap
@@ -198,8 +202,8 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.jsamples += 1
 
         if not hasattr(self, 'wthetaj'):
-            self.wthetaj = np.zeros((self.njack, self.nabins, self.nlumbins, self.nzbins))
-            self.varwthetaj = np.zeros((self.njack, self.nabins, self.nlumbins, self.nzbins))
+            self.wthetaj = np.zeros((self.njack, self.nabins, self.nmbins, self.nzbins))
+            self.varwthetaj = np.zeros((self.njack, self.nabins, self.nmbins, self.nzbins))
 
         #putting this outside loop maybe faster, inside loop
         #lower memory usage
@@ -211,10 +215,10 @@ class AngularCorrelationFunction(CorrelationFunction):
             zrlidx = rand['redshift'].searchsorted(self.zbins[i])
             zrhidx = rand['redshift'].searchsorted(self.zbins[i+1])
 
-            for j in range(self.nlumbins):
+            for j in range(self.nmbins):
                 #luminosity should be at least 2d
-                lidx = np.where((self.lumbins[i] < mapunit['luminosity'][zlidx:zhidx,0]) &
-                                (mapunit['luminosity'][zlidx:zhidx,0] <= self.lumbins[i+1]))
+                lidx = np.where((self.mbins[i] < mapunit[self.mkey][zlidx:zhidx,0]) &
+                                (mapunit[self.mkey][zlidx:zhidx,0] <= self.mbins[i+1]))
                 cat  = {key:mapunit[key][zlidx:zhidx][lidx] for key in mapunit.keys()}
 
 
@@ -249,21 +253,21 @@ class AngularCorrelationFunction(CorrelationFunction):
 
 class WPrpLightcone(CorrelationFunction):
 
-    def __init__(self, ministry, zbins=None, lumbins=None,
+    def __init__(self, ministry, zbins=None, mbins=None,
                   rbins=None, minr=None, maxr=None, logbins=True,
                   nrbins=None, pimax=None, subjack=False,
-                  catalog_type=None, tag=None, lcutind=None,
-                  same_rand=False, inv_lum=True, cosmology_flag=None,
+                  catalog_type=None, tag=None, mcutind=None,
+                  same_rand=False, inv_m=True, cosmology_flag=None,
                   color_cut=False, centrals_only=False,**kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
-        data. All angles should be specified in degrees.
+        data.
         """
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
-                                      lightcone=True, lumbins=lumbins,
+                                      lightcone=True, mbins=mbins,
                                       nrbins=nrbins, subjack=subjack,
-                                      lcutind=lcutind, same_rand=same_rand,
-                                      inv_lum=inv_lum,catalog_type=catalog_type,
+                                      mcutind=mcutind, same_rand=same_rand,
+                                      inv_m=inv_m,catalog_type=catalog_type,
                                       tag=tag, rsd=False, **kwargs)
 
         self.color_cut = color_cut
@@ -310,9 +314,12 @@ class WPrpLightcone(CorrelationFunction):
         self.writeCorrfuncBinFile(self.rbins)
         #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
+        self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
 
-        self.mapkeys = ['luminosity', 'redshift', 'polar_ang', 'azim_ang']
-        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+        if self.catalog_type == ['galaxycatalog']:
+            self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+        elif self.catalog_type == ['halocatalog']:
+            self.unitmap = {'halomass':'msunh', 'polar_ang':'dec', 'azim_ang':'ra'}
 
         if rsd is True:
             self.mapkeys.append('velocity')
@@ -370,11 +377,11 @@ class WPrpLightcone(CorrelationFunction):
             cz = mapunit['redshift'] * self.c
 
         if self.dd is None:
-            self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nlumbins, self.nzbins))
-            self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nlumbins, self.nzbins))
-            self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nlumbins, self.nzbins))
-            self.nd = np.zeros((self.njack, self.ncbins, self.nlumbins, self.nzbins))
-            self.nr = np.zeros((self.njack, self.ncbins, self.nlumbins, self.nzbins))
+            self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins, self.nzbins))
+            self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins, self.nzbins))
+            self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins, self.nzbins))
+            self.nd = np.zeros((self.njack, self.ncbins, self.nmbins, self.nzbins))
+            self.nr = np.zeros((self.njack, self.ncbins, self.nmbins, self.nzbins))
 
         #calculate DD
         for i in range(self.nzbins):
@@ -391,9 +398,9 @@ class WPrpLightcone(CorrelationFunction):
                 print('Finding luminosity indices')
 
                 if self.centrals_only:
-                    lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1]) & (mapunit['central'][zlidx:zhidx]==1)
+                    lidx = (self.mbins[j] <= mapunit[self.mkey][zlidx:zhidx,self.mcutind]) & (mapunit[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1]) & (mapunit['central'][zlidx:zhidx]==1)
                 else:
-                    lidx = (self.lumbins[j] <= mapunit['luminosity'][zlidx:zhidx,self.lcutind]) & (mapunit['luminosity'][zlidx:zhidx,self.lcutind] < self.lumbins[j+1])
+                    lidx = (self.mbins[j] <= mapunit[self.mkey][zlidx:zhidx,self.mcutind]) & (mapunit[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
 
                 if (li==0) | (not self.same_rand):
                     print('Generating Randoms')
@@ -560,7 +567,7 @@ class WPrpLightcone(CorrelationFunction):
                     usez=None, compare=False, usecolors=None, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nlumbins)
+            usecols = range(self.nmbins)
 
         if usez is None:
             usez = range(self.nzbins)
@@ -659,10 +666,10 @@ class WPrpLightcone(CorrelationFunction):
 
 class WPrpSnapshot(CorrelationFunction):
 
-    def __init__(self, ministry, lumbins=None, rbins=None,
+    def __init__(self, ministry, mbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, catalog_type=None, tag=None,
-                  lcutind=None, same_rand=False, inv_lum=True,
+                  mcutind=None, same_rand=False, inv_m=True,
                   **kwargs):
 
         """
@@ -670,9 +677,9 @@ class WPrpSnapshot(CorrelationFunction):
         data. All angles should be specified in degrees.
         """
         CorrelationFunction.__init__(self, ministry, lightcone=False,
-                                      lumbins=lumbins, nrbins=nrbins,
-                                      lcutind=lcutind,
-                                      same_rand=same_rand, inv_lum=inv_lum,
+                                      mbins=mbins, nrbins=nrbins,
+                                      mcutind=mcutind,
+                                      same_rand=same_rand, inv_m=inv_m,
                                       catalog_type=catalog_type, tag=tag,
                                       **kwargs)
 
@@ -703,8 +710,14 @@ class WPrpSnapshot(CorrelationFunction):
         self.writeCorrfuncBinFile(self.rbins)
         #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
-        self.mapkeys = ['px', 'py', 'pz', 'luminosity']
-        self.unitmap = {'luminosity':'mag', 'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+        self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+        if self.mkey == 'luminosity':
+            self.unitmap[self.mkey] = 'mag'
+        else:
+            self.unitmap[self.mkey] = 'msunh'
+
+
 
     def map(self, mapunit):
 
@@ -712,14 +725,14 @@ class WPrpSnapshot(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if not hasattr(self, 'wthetaj'):
-            self.wprp = np.zeros((self.nrbins, self.nlumbins))
+            self.wprp = np.zeros((self.nrbins, self.nmbins))
 
         for li, j in enumerate(self.luminds):
             print('Finding luminosity indices')
-            lidx = (self.lumbins[j] <= mapunit['luminosity'][:,self.lcutind]) & (mapunit['luminosity'][:,self.lcutind] < self.lumbins[j+1])
+            lidx = (self.mbins[j] <= mapunit['luminosity'][:,self.mcutind]) & (mapunit['luminosity'][:,self.mcutind] < self.mbins[j+1])
 
             if not lidx.any():
-                print("No galaxies in magnitude bin [{0},{1})".format(self.lumbins[j], self.lumbins[j+1]))
+                print("No galaxies in magnitude bin [{0},{1})".format(self.mbins[j], self.mbins[j+1]))
                 continue
 
             wprp = countpairs.countpairs_wp(self.ministry.boxsize,
@@ -740,7 +753,7 @@ class WPrpSnapshot(CorrelationFunction):
                     usez=None, compare=False, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nlumbins)
+            usecols = range(self.nmbins)
 
         if usez is None:
             usez = [0]
