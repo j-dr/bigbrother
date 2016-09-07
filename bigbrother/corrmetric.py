@@ -396,7 +396,7 @@ class WPrpLightcone(CorrelationFunction):
                 ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
                 self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
 
-            for li, j in enumerate(self.luminds):
+            for li, j in enumerate(self.minds):
                 print('Finding luminosity indices')
 
                 if self.mcutind is not None:
@@ -731,7 +731,7 @@ class WPrpSnapshot(CorrelationFunction):
         if not hasattr(self, 'wthetaj'):
             self.wprp = np.zeros((self.nrbins, self.nmbins))
 
-        for li, j in enumerate(self.luminds):
+        for li, j in enumerate(self.minds):
             print('Finding luminosity indices')
             lidx = (self.mbins[j] <= mapunit['luminosity'][:,self.mcutind]) & (mapunit['luminosity'][:,self.mcutind] < self.mbins[j+1])
 
