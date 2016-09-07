@@ -357,8 +357,7 @@ class WPrpLightcone(CorrelationFunction):
 
         rvec = hp.ang2vec(-(mapunit['polar_ang'] + 90) * np.pi / 180.,
                             mapunit['azim_ang'] * np.pi / 180 )
-        vel  = np.zeros((len(rvec), 3))
-        vr   = np.sum(rvec * vel, axis=1)
+        vr   = np.sum(rvec * mapunit['velocity'], axis=1)
 
         return vr + mapunit['redshift']*self.c
 
