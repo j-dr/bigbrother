@@ -258,7 +258,8 @@ class WPrpLightcone(CorrelationFunction):
                   nrbins=None, pimax=None, subjack=False,
                   catalog_type=None, tag=None, mcutind=None,
                   same_rand=False, inv_m=True, cosmology_flag=None,
-                  color_cut=False, centrals_only=False,**kwargs):
+                  color_cut=False, centrals_only=False, rsd=False,
+                  **kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
         data.
@@ -268,7 +269,7 @@ class WPrpLightcone(CorrelationFunction):
                                       nrbins=nrbins, subjack=subjack,
                                       mcutind=mcutind, same_rand=same_rand,
                                       inv_m=inv_m,catalog_type=catalog_type,
-                                      tag=tag, rsd=False, **kwargs)
+                                      tag=tag, **kwargs)
 
         self.color_cut = color_cut
         self.splitcolor = None
