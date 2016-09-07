@@ -367,7 +367,7 @@ class WPrpLightcone(CorrelationFunction):
         if self.rsd:
             cz = self.addRSD(mapunit)
         else:
-            cz = mapunit['Z'] * self.c
+            cz = mapunit['redshift'] * self.c
 
         if self.dd is None:
             self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nlumbins, self.nzbins))
