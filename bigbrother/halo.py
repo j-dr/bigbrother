@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 from collections import OrderedDict
 from .massmetric import SimpleHOD, MassFunction, OccMass
+from .healpix_utils import PixMetric
 from .basecatalog     import BaseCatalog
 from astropy.cosmology import z_at_value
 
