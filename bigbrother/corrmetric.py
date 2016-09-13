@@ -401,7 +401,7 @@ class WPrpLightcone(CorrelationFunction):
             mu[self.mkey] = mapunit[self.mkey]
 
             if self.rsd:
-                mu['velocity'] = np.zeros(len(mapunit['velocity']), dtype=np.float32)
+                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
                 mu['velocity'][:] = mapunit['velocity'][:]
         else:
             mu = mapunit
