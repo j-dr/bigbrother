@@ -51,8 +51,8 @@ class PixMetric(Metric):
     def map(self, mapunit):
 
         pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'])
-
-        return pix
+        
+        return np.unique(pix)
 
     def reduce(self, rank=None, comm=None):
         pass

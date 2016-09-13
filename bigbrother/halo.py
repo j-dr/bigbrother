@@ -97,7 +97,7 @@ class HaloCatalog(BaseCatalog):
             ms = mg[0][1]
             fm = mg[0][0]
 
-            mappables = self.ministry.genMappables(mg)
+            mappables = self.ministry.genMappables(mg[0])
 
             if self.ministry.parallel:
                 from mpi4py import MPI
@@ -110,7 +110,7 @@ class HaloCatalog(BaseCatalog):
 
             for i, mappable in enumerate(mappables):
 
-                mapunit = self.readMappable(mappable, fm)
+                mapunit = self.ministry.readMappable(mappable, fm)
 
                 if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
                     mapunit = self.ministry.scListToDict(mapunit)
@@ -128,16 +128,15 @@ class HaloCatalog(BaseCatalog):
                     mapunit = self.ministry.convert(mapunit, ms)
                     mapunit = self.ministry.filter(mapunit)
 
-                fpix.append(pmetric(mapunit))
+                fpix.append(pmetric.map(mapunit))
 
                 del mapunit
 
             if self.ministry.parallel:
                 gfpix = comm.allgather(fpix)
                 fpix = []
-
-                for g in gfpix:
-                    fpix.extend(g)
+                for fp in gfpix:
+                    fpix.extend(fp)
 
         return fpix
 

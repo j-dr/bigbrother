@@ -337,6 +337,8 @@ class WPrpLightcone(CorrelationFunction):
         if self.centrals_only:
             self.mapkeys.append('central')
 
+        self.rand_ind = 0
+
         self.nd = None
         self.nr = None
         self.dd = None
@@ -387,7 +389,7 @@ class WPrpLightcone(CorrelationFunction):
             self.nr = np.zeros((self.njack, self.ncbins, self.nmbins, self.nzbins))
 
 
-        if (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64):
+        if (mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64):
             mu = {}
             mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float32)
             mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float32)
@@ -397,6 +399,10 @@ class WPrpLightcone(CorrelationFunction):
             mu['polar_ang'][:] = mapunit['polar_ang'][:]
             mu['redshift'][:] = mapunit['redshift'][:]
             mu[self.mkey] = mapunit[self.mkey]
+
+            if self.rsd:
+                mu['velocity'] = np.zeros(len(mapunit['velocity']), dtype=np.float32)
+                mu['velocity'][:] = mapunit['velocity'][:]
         else:
             mu = mapunit
 
@@ -429,12 +435,13 @@ class WPrpLightcone(CorrelationFunction):
                 if self.centrals_only:
                     lidx = lidx & (mu['central'][zlidx:zhidx]==1)
 
-                if (li==0) | (not self.same_rand):
+                if (li==self.rand_ind) | (not self.same_rand):
                     print('Generating Randoms')
                     print('mu: {0}'.format(mu))
                     print('cz: {0}'.format(cz))
-                    if len(cz)==0:
-                        return
+                    if len(cz[zlidx:zhidx][lidx])==0:
+                        self.rand_ind+=1
+                        continue
                     print('lidx: {0}'.format(lidx))
                     print('azang: {0}'.format((np.isnan(mu['azim_ang'][zlidx:zhidx][lidx]).any())))
                     print('azang: {0}'.format((np.isinf(mu['azim_ang'][zlidx:zhidx][lidx]).any())))
