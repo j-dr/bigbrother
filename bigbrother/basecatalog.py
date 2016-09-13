@@ -97,6 +97,9 @@ class BaseCatalog:
         for p in upix:
             fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
 
+        print('upix: {0}'.format(upix))
+        print('fgrps: {0}'.format(fgrps))
+
         return upix, fgrps
 
     def readFITSMappable(self, mappable, fieldmap):
