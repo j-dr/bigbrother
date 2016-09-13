@@ -291,7 +291,7 @@ class BCCCatalog(GalaxyCatalog):
 
         if self.unitmap is None:
             self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
-                            'azim_ang':'ra', 'polar_ang':'dec'}
+                            'azim_ang':'ra', 'polar_ang':'dec', 'redshift':'z'}
 
         if self.fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['gtruth'])]),
@@ -404,7 +404,7 @@ class DESGoldCatalog(GalaxyCatalog):
 
         GalaxyCatalog.__init__(self, ministry, filestruct, goodpix=1, **kwargs)
 
-        self.necessaries = ['modest']
+        self.necessaries = ['modest', 'badregion']
         self.parseFileStruct(filestruct)
         self.metrics = [Area(self.ministry, jtype=self.jtype),
                         MagCounts(self.ministry, zbins=self.zbins, tag="BinZ",jtype=self.jtype),
@@ -429,15 +429,16 @@ class DESGoldCatalog(GalaxyCatalog):
                                                    ('FLUX_AUTO_I',['auto']),
                                                    ('FLUX_AUTO_Z',['auto'])]),
                              'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
+                             'badregion':OrderedDict([('BADFLAG',['basic'])]),
                              'polar_ang':OrderedDict([('DEC',['basic'])]),
                              'azim_ang':OrderedDict([('RA',['basic'])]),
                              'redshift':OrderedDict([('BPZ_MC',['photoz'])])}
 
         if self.unitmap is None:
-            self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra'}
+            self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
         if len(self.filters) == 0:
-            self.filters = ['Modest', 'Appmag', 'Photoz']
+            self.filters = ['Modest', 'Appmag', 'Photoz', 'Badregion']
 
     def parseFileStruct(self, filestruct):
 
@@ -494,9 +495,18 @@ class DESGoldCatalog(GalaxyCatalog):
         return mapunit
 
     def filterModest(self, mapunit):
+        print('Filtering modest')
 
         return mapunit['modest']==1
 
     def filterPhotoz(self, mapunit):
+        print('Filtering photoz')
 
         return mapunit['redshift']>0
+
+    def filterBadregion(self, mapunit):
+        print('Filtering badregion')
+        
+        print('No badregions: {0}'.format((mapunit['badregion']==0).all()))
+
+        return mapunit['badregion']==0

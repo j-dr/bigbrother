@@ -219,7 +219,7 @@ class BCCHaloCatalog(HaloCatalog):
     def __init__(self, ministry, filestruct, **kwargs):
 
         if 'unitmap' not in kwargs.keys():
-            kwargs['unitmap'] = {'halomass':'msunh'}
+            kwargs['unitmap'] = {'halomass':'msunh', 'redshift':'z'}
 
         HaloCatalog.__init__(self, ministry, filestruct, **kwargs)
 
