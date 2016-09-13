@@ -97,11 +97,47 @@ class HaloCatalog(BaseCatalog):
             ms = mg[0][1]
             fm = mg[0][0]
 
-            for mappable in self.ministry.genMappable(fm):
-                mapunit = self.ministry.readMappable(mappable, fm)
-                mapunit = self.ministry.treeToDict(mapunit)
-                mapunit = self.convert(mapunit, ms)
+            mappables = self.ministry.genMappables(mg)
+
+            if self.ministry.parallel:
+                from mpi4py import MPI
+                
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                size = comm.Get_size()
+
+                mappables = mappables[rank::size]
+
+            for i, mappable in enumerate(mappables):
+
+                mapunit = self.readMappable(mappable, fm)
+
+                if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                elif 'only' in ms[0].aschema:
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                if ((ms[0].aschema == 'galaxygalaxy')
+                  | (ms[0].aschema == 'halohalo')):
+                    mapunit = self.ministry.dcListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
                 fpix.append(pmetric(mapunit))
+
+                del mapunit
+
+            if self.ministry.parallel:
+                gfpix = comm.allgather(fpix)
+                fpix = []
+
+                for g in gfpix:
+                    fpix.extend(g)
 
         return fpix
 
