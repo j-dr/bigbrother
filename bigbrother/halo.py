@@ -151,6 +151,7 @@ class HaloCatalog(BaseCatalog):
         z = np.interp(r, self.dgrid.value, self.zgrid).reshape(-1)
         
         return z
+
         
     def unitConversion(self, mapunit):
 
@@ -194,8 +195,8 @@ class HaloCatalog(BaseCatalog):
 	        else:
 	            fields.extend([val])
 
-        print(fields)
-        print(fieldmap)
+        fields = list(np.unique(fields))
+
 	data = SimulationAnalysis.readHlist(fname, fields)
 
 	for mapkey in fieldmap[ft].keys():
