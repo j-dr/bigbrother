@@ -111,10 +111,10 @@ class CorrelationFunction(Metric):
        """
 
        if z is not None:
-           rdtype = np.dtype([('azim_ang', np.float32), ('polar_ang', np.float32),
-                              ('redshift', np.float32)])
+           rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64),
+                              ('redshift', np.float64)])
        else:
-           rdtype = np.dtype([('azim_ang', np.float32), ('polar_ang', np.float32)])
+           rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64)])
 
        rsize = len(aza)*rand_factor
 
@@ -264,7 +264,8 @@ class WPrpLightcone(CorrelationFunction):
                   nrbins=None, pimax=None, subjack=False,
                   catalog_type=None, tag=None, mcutind=None,
                   same_rand=False, inv_m=True, cosmology_flag=None,
-                  color_cut=False, centrals_only=False, rsd=False,
+                  color_cut=False, precompute_color=False,
+                  centrals_only=False, rsd=False,
                   **kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
@@ -284,6 +285,8 @@ class WPrpLightcone(CorrelationFunction):
             self.ncbins = 2
         else:
             self.ncbins = 1
+
+        self.pccolor = precompute_color
 
         self.centrals_only = centrals_only
 
@@ -337,6 +340,9 @@ class WPrpLightcone(CorrelationFunction):
         if self.centrals_only:
             self.mapkeys.append('central')
 
+        if self.pccolor:
+            self.mapkeys.append('color')
+
         self.rand_ind = 0
 
         self.nd = None
@@ -378,8 +384,10 @@ class WPrpLightcone(CorrelationFunction):
         if not hascorrfunc:
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
-        if self.ncbins > 1:
+        if (self.ncbins > 1) & (~self.pccolor):
             clr = mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1]
+        elif self.pccolor:
+            clr = mapunit['color']
 
         if self.dd is None:
             self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins, self.nzbins))
@@ -391,9 +399,9 @@ class WPrpLightcone(CorrelationFunction):
 
         if (mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64):
             mu = {}
-            mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float32)
-            mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float32)
-            mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float32)
+            mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
+            mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
+            mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
 
             mu['azim_ang'][:] = mapunit['azim_ang'][:]
             mu['polar_ang'][:] = mapunit['polar_ang'][:]
@@ -401,7 +409,7 @@ class WPrpLightcone(CorrelationFunction):
             mu[self.mkey] = mapunit[self.mkey]
 
             if self.rsd:
-                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
+                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
                 mu['velocity'][:] = mapunit['velocity'][:]
         else:
             mu = mapunit

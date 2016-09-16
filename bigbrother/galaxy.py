@@ -10,7 +10,7 @@ import time
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum, ColorDist
 from .lineofsight     import DNDz
 from .massmetric      import Richness
-from .healpix_utils   import Area
+from .healpix_utils   import Area, PixMetric
 from .corrmetric      import GalaxyRadialProfileBCC
 from .basecatalog     import BaseCatalog
 
