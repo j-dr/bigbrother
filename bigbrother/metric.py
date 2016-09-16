@@ -211,6 +211,9 @@ class GMetric(Metric):
            An array of Axes objects. If provided, the metrics
            will be plotted on these axes.
         """
+        print('xlabel: {0}'.format(xlabel))
+        print('ylabel: {0}'.format(ylabel))
+
         if usecols is None:
             usecols = range(self.nbands)
 
@@ -453,8 +456,10 @@ class GMetric(Metric):
         #if we just created the axes, add labels
         if newaxes:
             sax = f.add_subplot(111)
-            sax.axes.get_xaxis().set_visible(False)
-            sax.axes.get_yaxis().set_visible(False)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -465,8 +470,8 @@ class GMetric(Metric):
             sax.spines['left'].set_alpha(0.0)
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'%s' % xlabel, fontsize=18)
-            sax.set_ylabel(r'%s' % ylabel, fontsize=20)
+            sax.set_xlabel(r'%s' % xlabel, labelpad=20)
+            sax.set_ylabel(r'%s' % ylabel, labelpad=20)
             #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
@@ -532,10 +537,12 @@ class GMetric(Metric):
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
                 if fracdev:
-                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, ref_x=ref_x, rusecols=usecols[0],
+                    f, ax, l = m.visualize(usecols=usecols[i], fracdev=True, 
+                                             ref_x=ref_x, rusecols=usecols[0],
                                              ref_y=self.y, xlim=xlim, compare=True,
                                              ylim=ylim, fylim=fylim, label=labels[i],
-                                             usez=usez[i],color=Metric._color_list[i], **kwargs)
+                                             usez=usez[i],color=Metric._color_list[i],
+                                             **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, compare=True,
                                              fracdev=False, fylim=fylim,label=labels[i],usez=usez[i],

@@ -187,8 +187,14 @@ class BaseCatalog:
 
                 if key in beenconverted: continue
                 if key not in mapunit.keys(): continue
-                elif self.unitmap[key]==m.unitmap[key]:
-                    continue
+
+                try:
+                    if self.unitmap[key]==m.unitmap[key]:
+                        continue
+                except KeyError as e:
+                    print(e)
+                    print("Catalog unitmap: {0}".format(self.unitmap))
+                    print("Metric unitmap: {0}".format(m.unitmap))                    
 
                 try:
                     conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))

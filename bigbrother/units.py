@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 import numpy as np
+import healpy as hp
 
 def ra2rad(mapunit, mapkey):
     phi = np.deg2rad(mapunit[mapkey])
@@ -28,3 +29,24 @@ def fabermag2mag(mapunit, mapkey, Q=0.866):
     redshift as a necessary map key
     """
     return mapunit[mapkey] - Q * (np.log10(mapunit['redshift']) + 1)
+
+def mpchra2ra(mapunit, mapkey):
+    theta, phi = hp.vec2ang(mapunit[mapkey])
+
+    return phi * 180. / np.pi
+
+def mpchra2rad(mapunit, mapkey):
+    
+    theta, phi = hp.vec2ang(mapunit[mapkey])
+
+    return phi 
+
+def mpchdec2dec(mapunit, mapkey):
+    theta, phi = hp.vec2ang(mapunit[mapkey])
+
+    return -theta  * 180. / np.pi + 90.
+
+def mpchdec2rad(mapunit, mapkey):
+    theta, phi = hp.vec2ang(mapunit[mapkey])
+
+    return theta

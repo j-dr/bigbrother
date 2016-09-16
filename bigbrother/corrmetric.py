@@ -198,7 +198,7 @@ class AngularCorrelationFunction(CorrelationFunction):
             self.maxtheta = maxtheta
 
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
-        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
     @jackknifeMap
     def map(self, mapunit):
@@ -324,9 +324,9 @@ class WPrpLightcone(CorrelationFunction):
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
 
         if self.catalog_type == ['galaxycatalog']:
-            self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+            self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
         elif self.catalog_type == ['halocatalog']:
-            self.unitmap = {'halomass':'msunh', 'polar_ang':'dec', 'azim_ang':'ra'}
+            self.unitmap = {'halomass':'msunh', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
         self.rsd = rsd
 
@@ -401,7 +401,7 @@ class WPrpLightcone(CorrelationFunction):
             mu[self.mkey] = mapunit[self.mkey]
 
             if self.rsd:
-                mu['velocity'] = np.zeros(len(mapunit['velocity']), dtype=np.float32)
+                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
                 mu['velocity'][:] = mapunit['velocity'][:]
         else:
             mu = mapunit
@@ -964,7 +964,7 @@ class GalaxyRadialProfileBCC(Metric):
         self.aschema = 'galaxyonly'
 
         self.mapkeys = ['luminosity', 'redshift', 'rhalo']
-        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra'}
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
     @jackknifeMap
     def map(self, mapunit):
