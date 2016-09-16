@@ -638,9 +638,9 @@ class WPrpLightcone(CorrelationFunction):
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
                 for k, c in enumerate(usecolors):
-                    ye = np.sqrt(self.varwprp[:,k,i,j])
-                    l1 = ax[j][i].plot(rmean, self.wprp[:,k,i,j], **kwargs)
-                    ax[j][i].fill_between(rmean, self.wprp[:,k,i,j]-ye, self.wprp[:,k,i,j]+ye, alpha=0.5, **kwargs)
+                    ye = np.sqrt(self.varwprp[:,c,l,z])
+                    l1 = ax[j][i].plot(rmean, self.wprp[:,c,l,z], **kwargs)
+                    ax[j][i].fill_between(rmean, self.wprp[:,c,l,z]-ye, self.wprp[:,c,l,z]+ye, alpha=0.5, **kwargs)
 
                 ax[j][i].set_xscale('log')
                 ax[j][i].set_yscale('log')
@@ -661,7 +661,7 @@ class WPrpLightcone(CorrelationFunction):
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
 
-        return f, ax, l1
+        return f, ax, l1[0]
 
 
     def compare(self, othermetrics, plotname=None, usecols=None,
