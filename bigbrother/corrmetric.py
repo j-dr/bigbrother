@@ -97,46 +97,63 @@ class CorrelationFunction(Metric):
 
         self.jsamples = 0
 
-    def generateAngularRandoms(self, aza, pla, z=None, rand_factor=20, nside=8, nest=True):
-       """
-       Generate a set of randoms from a catalog by pixelating the input
-       catalog and uniformly distributing random points within the pixels
-       occupied by galaxies.
+    def generateAngularRandoms(self, aza, pla, z=None, urand_factor=20,
+                               rand_factor=10, nside=8, nest=True):
+        """
+        Generate a set of randoms from a catalog by pixelating the input
+        catalog and uniformly distributing random points within the pixels
+        occupied by galaxies.
 
-       Also option to assign redshifts with the same distribution as the input
-       catalog to allow for generation of randoms once for all z bins.
-       """
+        Also option to assign redshifts with the same distribution as the input
+        catalog to allow for generation of randoms once for all z bins.
+        """
 
-       if z is not None:
-           rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64),
-                              ('redshift', np.float64)])
-       else:
-           rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64)])
+        if z is not None:
+            rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64),
+                               ('redshift', np.float64)])
+        else:
+            rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64)])
 
-       rsize = len(aza)*rand_factor
+        rsize = len(aza)*urand_factor
+        rlen = 0
+        ncycles = 0
 
-       #randomly generate angles within region bounded by catalog angles
-       grand = np.zeros(rsize, dtype=rdtype)
-       grand['azim_ang'] = np.random.uniform(low=np.min(aza),
-                                             high=np.max(aza),
-                                             size=rsize)
-       grand['polar_ang'] = np.random.uniform(low=np.min(pla),
-                                              high=np.max(pla),
-                                              size=rsize)
-       if z is not None:
-           grand['redshift'] = np.random.choice(z, size=rsize)
-           zidx = grand['redshift'].argsort()
-           grand = grand[zidx]
+        while rlen < len(aza)*rand_factor:
 
-       #only keep points which fall within the healpix cells overlapping the catalog
-       cpix = hp.ang2pix(nside, (pla+90)*np.pi/180., aza*np.pi/180., nest=nest)
-       ucpix = np.unique(cpix)
-       rpix = hp.ang2pix(nside, (grand['polar_ang']+90)*np.pi/180, grand['azim_ang']*np.pi/180., nest=nest)
-       inarea = np.in1d(rpix, ucpix)
+            #randomly generate angles within region bounded by catalog angles
+            grand = np.zeros(rsize, dtype=rdtype)
+            grand['azim_ang'] = np.random.uniform(low=np.min(aza),
+                                                  high=np.max(aza),
+                                                  size=rsize)
+            grand['polar_ang'] = np.random.uniform(low=np.min(pla),
+                                                   high=np.max(pla),
+                                                   size=rsize)
+            if z is not None:
+                grand['redshift'] = np.random.choice(z, size=rsize)
+                zidx = grand['redshift'].argsort()
+                grand = grand[zidx]
 
-       grand = grand[inarea]
+            #only keep points which fall within the healpix cells overlapping the catalog
+            cpix = hp.ang2pix(nside, (pla+90)*np.pi/180., aza*np.pi/180., nest=nest)
+            ucpix = np.unique(cpix)
+            rpix = hp.ang2pix(nside, (grand['polar_ang']+90)*np.pi/180, grand['azim_ang']*np.pi/180., nest=nest)
+            inarea = np.in1d(rpix, ucpix)
 
-       return grand
+            if ncycles == 0:
+                gr = grand[inarea]
+                rlen = len(gr)
+ 
+            else:
+                gr = np.hstack([gr, grand[inarea]])
+                rlen = len(gr)
+
+            ncycles +=1
+
+        ridx = np.arange(rlen)
+        ridx = np.random.choice(ridx, size=len(aza)*rand_factor)
+        gr = gr[ridx]
+
+        return gr
 
     def genbins(self, minb, maxb, nb):
 
