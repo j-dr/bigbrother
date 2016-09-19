@@ -774,8 +774,6 @@ class Ministry:
 
         tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
 
-        print(mapunit)
-
         if mappable.jtype == 'healpix':
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
@@ -791,8 +789,6 @@ class Ministry:
                         nest = self.halocatalog.nest
                         
                 conversion = getattr(units, '{0}2{1}'.format(um[key],'rad'))
-
-                print('mapunit keys: {0}'.format(mapunit.keys()))
 
                 tp[:,i] = conversion(mapunit, key)
 

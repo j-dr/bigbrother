@@ -80,7 +80,6 @@ class GalaxyCatalog(BaseCatalog):
                     fpix.append([p])
                 else:
                     if not self.nest:
-                        print('not nest')
                         while p > 12*self.filenside**2:
                             p = p - 1000
                         p = hp.ring2nest(self.filenside, p)

@@ -10,6 +10,7 @@ from .halo     import HaloCatalog
 import bigbrother.magnitudemetric as mam
 import bigbrother.massmetric      as msm
 import bigbrother.corrmetric      as crm
+import bigbrother.lineofsight     as lsm
 import bigbrother.healpix_utils   as hpm
 
 _eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins']
@@ -133,6 +134,8 @@ def parseConfig(cfg):
                 mtr = getattr(msm, m)
             elif hasattr(crm, m):
                 mtr = getattr(crm, m)
+            elif hasattr(lsm, m):
+                mtr = getattr(lsm, m)
             elif hasattr(hpm, m):
                 mtr = getattr(hpm, m)
 

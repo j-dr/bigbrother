@@ -106,10 +106,10 @@ class Area(Metric):
         if rank is not None:
             garea = comm.gather(self.jarea, root=0)
 
-            gshape = [self.jarea.shape[i] for i in range(len(self.jarea.shape))]
-            gshape[0] = self.njacktot
-
             if rank == 0:
+                gshape = [self.jarea.shape[i] for i in range(len(self.jarea.shape))]
+                gshape[0] = self.njacktot
+
                 self.jarea = np.zeros(gshape)
                 jc = 0
 
