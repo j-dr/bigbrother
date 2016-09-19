@@ -5,10 +5,12 @@ from astropy.cosmology import FlatLambdaCDM
 from .basecatalog import PlaceHolder
 from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
 from .halo import HaloCatalog, BCCHaloCatalog
+
 from copy import copy, deepcopy
 import numpy as np
 import healpy as hp
 import fitsio
+import units
 import time
 
 
@@ -768,6 +770,48 @@ class Ministry:
 
         return mapunit
 
+    def maskMappable(self, mapunit, mappable):
+
+        tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+
+        print(mapunit)
+
+        if mappable.jtype == 'healpix':
+            print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
+            for i, key in enumerate(['azim_ang', 'polar_ang']):
+
+                if hasattr(self, 'galaxycatalog'):
+                    if 'azim_ang' in self.galaxycatalog.unitmap.keys():
+                        um = self.galaxycatalog.unitmap
+                        nest = self.galaxycatalog.nest
+                        
+                elif hasattr(self, 'halocatalog'):
+                    if 'azim_ang' in self.halocatalog.unitmap.keys():
+                        um = self.halocatalog.unitmap
+                        nest = self.halocatalog.nest
+                        
+                conversion = getattr(units, '{0}2{1}'.format(um[key],'rad'))
+
+                print('mapunit keys: {0}'.format(mapunit.keys()))
+
+                tp[:,i] = conversion(mapunit, key)
+
+            pix = hp.ang2pix(mappable.gnside, tp[:,1], tp[:,0], nest=nest)
+            pidx = pix==mappable.grp
+
+            mu = {}
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][pidx]
+
+            mapunit = mu
+            
+            return mapunit
+
+        elif mappable.jtype is None:
+            return mapunit
+        else:
+            raise NotImplementedError
+    
     def convert(self, mapunit, metrics):
 
         if (self.galaxycatalog is not None):
@@ -869,12 +913,14 @@ class Ministry:
 
                 mapunit = self.readMappable(mappable, fm)
 
+
 #                if (sbz & (ms[0].aschema != 'galaxygalaxy')
 #                  & (ms[0].aschema != 'halohalo')):
 #                    self.sortMappableByZ(mapunit, fm, [])
 
                 if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
                     mapunit = self.scListToDict(mapunit)
+                    mapunit = self.maskMappable(mapunit, mappable)                    
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
@@ -882,6 +928,7 @@ class Ministry:
 
                 elif 'only' in ms[0].aschema:
                     mapunit = self.scListToDict(mapunit)
+                    mapunit = self.maskMappable(mapunit, mappable)                    
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
@@ -890,6 +937,7 @@ class Ministry:
                 if sbz & ((ms[0].aschema == 'galaxygalaxy')
                   | (ms[0].aschema == 'halohalo')):
                     mapunit = self.dcListToDict(mapunit)
+                    mapunit = self.maskMappable(mapunit, mappable)                    
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:

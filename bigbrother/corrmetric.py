@@ -90,10 +90,7 @@ class CorrelationFunction(Metric):
             
         print('mkey: {0}'.format(self.mkey))
 
-        if (mcutind is None) & (self.mkey == 'luminosity'):
-            self.mcutind = 0
-        else:
-            self.mcutind = mcutind
+        self.mcutind = mcutind
 
         if self.subjack:
             raise NotImplementedError
@@ -264,8 +261,10 @@ class WPrpLightcone(CorrelationFunction):
                   nrbins=None, pimax=None, subjack=False,
                   catalog_type=None, tag=None, mcutind=None,
                   same_rand=False, inv_m=True, cosmology_flag=None,
-                  color_cut=False, precompute_color=False,
+                  bimodal_ccut=False, percentile_ccut=None,
+                  precompute_color=False,
                   centrals_only=False, rsd=False,
+                  randnside=None,
                   **kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
@@ -278,16 +277,19 @@ class WPrpLightcone(CorrelationFunction):
                                       inv_m=inv_m,catalog_type=catalog_type,
                                       tag=tag, **kwargs)
 
-        self.color_cut = color_cut
+        self.bimodal_ccut = bimodal_ccut
+        self.percentile_ccut = percentile_ccut
         self.splitcolor = None
-        if self.color_cut:
+        
+        if self.bimodal_ccut:
             self.hcbins = 100
+            self.ncbins = 2
+        elif self.percentile_ccut is not None:
             self.ncbins = 2
         else:
             self.ncbins = 1
 
         self.pccolor = precompute_color
-
         self.centrals_only = centrals_only
 
         self.logbins = logbins
@@ -308,6 +310,11 @@ class WPrpLightcone(CorrelationFunction):
             self.minr = rbins[0]
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
+
+        if self.randnside is None:
+            self.randnside = 128
+        else:
+            self.randnside = randnside
 
         if cosmology_flag is None:
             self.cosmology_flag = 2
@@ -427,15 +434,14 @@ class WPrpLightcone(CorrelationFunction):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
             zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
-            if (self.splitcolor is None) & (self.color_cut):
+            if (self.splitcolor is None) & (self.bimodal_ccut):
                 ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
                 self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
+            elif (self.splitcolor is None) & (self.percentile_ccut is not None):
+                self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
 
             for li, j in enumerate(self.minds):
                 print('Finding luminosity indices')
-                print('self.mbins: {0}'.format(self.mbins))
-                print('j: {0}'.format(j))
-
                 if self.mcutind is not None:
                     lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
                 else:
@@ -447,27 +453,18 @@ class WPrpLightcone(CorrelationFunction):
                     print('Generating Randoms')
                     print('mu: {0}'.format(mu))
                     print('cz: {0}'.format(cz))
+                    print('zlidx, zhidx: {0}, {1}'.format(zlidx, zhidx))
+                    print('any(lidx): {0}'.format(lidx.any()))                    
                     if len(cz[zlidx:zhidx][lidx])==0:
                         self.rand_ind+=1
                         continue
-                    print('lidx: {0}'.format(lidx))
-                    print('azang: {0}'.format((np.isnan(mu['azim_ang'][zlidx:zhidx][lidx]).any())))
-                    print('azang: {0}'.format((np.isinf(mu['azim_ang'][zlidx:zhidx][lidx]).any())))
-                    print('plang: {0}'.format(np.isnan(mu['polar_ang'][zlidx:zhidx][lidx]).any()))
-                    print('plang: {0}'.format(np.isinf(mu['polar_ang'][zlidx:zhidx][lidx]).any()))
-                    print('cz: {0}'.format(np.isnan(cz[zlidx:zhidx][lidx]).any()))
-                    print('cz: {0}'.format(np.isinf(cz[zlidx:zhidx][lidx]).any()))
 
-                    rands = self.generateAngularRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx], z=cz[zlidx:zhidx][lidx], nside=128)
-                    print('rand azang: {0}'.format(np.isnan(rands['azim_ang']).any()))
-                    print('rand plang: {0}'.format(np.isnan(rands['polar_ang']).any()))
-                    print('rand cz: {0}'.format(np.isnan(rands['redshift']).any()))
+                    rands = self.generateAngularRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx], z=cz[zlidx:zhidx][lidx], nside=self.randnside)
 
                 for k in range(self.ncbins):
                     if self.ncbins == 1:
                         cidx = lidx
                     else:
-                        print(self.splitcolor)
                         if k==0:
                             cidx = lidx & (self.splitcolor < clr[zlidx:zhidx])
                         else:
@@ -482,7 +479,7 @@ class WPrpLightcone(CorrelationFunction):
                     #data data
                     print('calculating data data pairs')
                     sys.stdout.flush()
-                    if self.nd[self.jcount,k,j,i]<2:
+                    if (self.nd[self.jcount,k,j,i]<2) | (self.nr[self.jcount,k,j,i]<2):
                         continue
 
                     ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1,
@@ -529,7 +526,13 @@ class WPrpLightcone(CorrelationFunction):
                                             rands['polar_ang'],
                                             rands['redshift'])
 
-                        rrresults = np.array(rrresults[0]).reshape(-1,int(self.pimax),5)
+                        try:
+                            rrresults = np.array(rrresults[0]).reshape(-1,int(self.pimax),5)
+                        except:
+                            print('min rand azang : {0}'.format(np.min(rands['axim_ang'])))
+                            print('max rand azang : {0}'.format(np.max(rands['axim_ang'])))
+                            print('min rand plang : {0}'.format(np.min(rands['polar_ang'])))
+                            print('max rand plang : {0}'.format(np.max(rands['polar_ang'])))                                                             
 
                     self.rr[self.jcount,:,:,k,j,i] = rrresults[:,:,4]
 
