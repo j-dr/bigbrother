@@ -311,7 +311,7 @@ class WPrpLightcone(CorrelationFunction):
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
 
-        if self.randnside is None:
+        if randnside is None:
             self.randnside = 128
         else:
             self.randnside = randnside
