@@ -451,6 +451,12 @@ class WPrpLightcone(CorrelationFunction):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
             zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
+            if zlidx==zhidx:
+                print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
+                print("Min and max z: {0}, {1}".format(np.min(mu['redshift']), np.max(mu['redshift'])))
+                print(mu['redshift'])
+                continue
+
             if (self.splitcolor is None) & (self.bimodal_ccut):
                 ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
                 self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
