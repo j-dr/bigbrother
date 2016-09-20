@@ -114,6 +114,7 @@ class Area(Metric):
                 jc = 0
 
                 for g in garea:
+                    if g is None: continue
                     nj = g.shape[0]
                     self.jarea[jc:jc+nj] = g
 

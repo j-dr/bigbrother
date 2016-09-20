@@ -930,7 +930,7 @@ class Ministry:
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
 
-                if sbz & ((ms[0].aschema == 'galaxygalaxy')
+                elif sbz & ((ms[0].aschema == 'galaxygalaxy')
                   | (ms[0].aschema == 'halohalo')):
                     mapunit = self.dcListToDict(mapunit)
                     mapunit = self.maskMappable(mapunit, mappable)                    
