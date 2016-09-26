@@ -10,7 +10,7 @@ import time
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum, ColorDist
 from .lineofsight     import DNDz
 from .massmetric      import Richness
-from .healpix_utils   import Area
+from .healpix_utils   import Area, PixMetric
 from .corrmetric      import GalaxyRadialProfileBCC
 from .basecatalog     import BaseCatalog
 
@@ -19,11 +19,12 @@ class GalaxyCatalog(BaseCatalog):
     Base class for galaxy catalogs
     """
 
-    def __init__(self, ministry, filestruct, zbins=None, **kwargs):
+    def __init__(self, ministry, filestruct, zbins=None, zp=None, **kwargs):
 
 
         self.ctype = 'galaxycatalog'
         self.zbins = zbins
+        self.zp = zp
         BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
 
 
@@ -71,7 +72,6 @@ class GalaxyCatalog(BaseCatalog):
         #BCC catalogs have pixels in filenames
         if (('BCC' in self.__class__.__name__) &
           (self.filenside is not None) & (self.filenside>=self.groupnside)):
-            print('BCC')
             fk = self.filestruct.keys()
 
             for f in self.filestruct[fk[0]]:
@@ -81,7 +81,6 @@ class GalaxyCatalog(BaseCatalog):
                     fpix.append([p])
                 else:
                     if not self.nest:
-                        print('not nest')
                         while p > 12*self.filenside**2:
                             p = p - 1000
                         p = hp.ring2nest(self.filenside, p)
@@ -99,19 +98,54 @@ class GalaxyCatalog(BaseCatalog):
         else:
             ct = ['galaxycatalog']
 
-            pmetric = PixMetric(self.ministry, self.groupnside, catalog_type=ct)
+            pmetric = PixMetric(self.ministry, self.groupnside,
+                                  catalog_type=ct,nest=self.nest)
             mg = self.ministry.genMetricGroups([pmetric])
             ms = mg[0][1]
             fm = mg[0][0]
 
-            for mappable in self.ministry.genMappable(fm):
+            mappables = self.ministry.genMappables(mg[0])
+
+            if self.ministry.parallel:
+                from mpi4py import MPI
+                
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                size = comm.Get_size()
+
+                mappables = mappables[rank::size]
+
+            for i, mappable in enumerate(mappables):
+
                 mapunit = self.ministry.readMappable(mappable, fm)
-                mapunit = self.ministry.treeToDict(mapunit)
-                mapunit = self.convert(mapunit, ms)
-                fpix.append(pmetric(mapunit))
+
+                if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                elif 'only' in ms[0].aschema:
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                if ((ms[0].aschema == 'galaxygalaxy')
+                  | (ms[0].aschema == 'halohalo')):
+                    mapunit = self.ministry.dcListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                fpix.append(pmetric.map(mapunit))
+
+                del mapunit
+
+            if self.ministry.parallel:
+                gfpix = comm.allgather(fpix)
+                fpix = []
+                for fp in gfpix:
+                    fpix.extend(fp)
 
         return fpix
-
 
     def getArea(self, jackknife=False):
 
@@ -140,7 +174,7 @@ class GalaxyCatalog(BaseCatalog):
         else:
             raise(ValueError("Reader {0} is not supported for galaxy catalogs".format(self.reader)))
 
-        return self.maskMappable(mapunit, mappable)
+        return mapunit
 
     def readAsciiMappable(self, mappable, fieldmap):
 

@@ -79,6 +79,12 @@ class Metric(object):
 
         return midpoint
 
+    def splitPercentile(self, x, p):
+
+        pi = p*len(x)
+        xidx = x.argsort()
+        
+        return x[xidx[pi]]
 
     def jackknife(self, arg, reduce_jk=True):
 

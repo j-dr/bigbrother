@@ -92,7 +92,8 @@ class HaloCatalog(BaseCatalog):
         else:
             ct = ['halocatalog']
 
-            pmetric = PixMetric(self.ministry, self.groupnside, catalog_type=ct)
+            pmetric = PixMetric(self.ministry, self.groupnside,
+                                catalog_type=ct, nest=self.nest)
             mg = self.ministry.genMetricGroups([pmetric])
             ms = mg[0][1]
             fm = mg[0][0]
@@ -175,7 +176,7 @@ class HaloCatalog(BaseCatalog):
         elif self.reader=='rockstar':
             mapunit =  self.readRockstarMappable(mappable, fieldmap)
 
-        return self.maskMappable(mapunit, mappable)
+        return mapunit
 
 
     def readRockstarMappable(self, mappable, fieldmap):

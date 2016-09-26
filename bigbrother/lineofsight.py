@@ -114,8 +114,9 @@ class DNDz(Metric):
         if self.zcounts is None:
             self.zcounts = np.zeros((self.njack, self.nzbins,self.nmagbins))
 
+        print(mapunit['appmag'])
+
         for idx, aidx in self.selector.generateSelections(mapunit):
-            print(idx)
             c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
             shp = [1 for i in range(len(aidx)+1)]
             shp[1] = len(c)
@@ -128,14 +129,16 @@ class DNDz(Metric):
         if rank is not None:
             gzcounts = comm.gather(self.zcounts, root=0)
 
-            gshape = [self.zcounts.shape[i] for i in range(len(self.zcounts.shape))]
-            gshape[0] = self.njacktot
 
             if rank==0:
+                gshape = [self.zcounts.shape[i] for i in range(len(self.zcounts.shape))]
+                gshape[0] = self.njacktot
+
                 self.zcounts = np.zeros(gshape)
                 jc = 0
 
                 for g in gzcounts:
+                    if g is None: continue
                     nj = g.shape[0]
                     self.zcounts[jc:jc+nj,:,:] = g
 
@@ -316,17 +319,17 @@ class PeakDNDz(DNDz):
 
         DNDz.reduce(self, rank=rank, comm=comm)
 
-        if (rank is not None) & (rank==0):
-
-            self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
-
-            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
-            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+        if (rank is not None):
+            if (rank==0):
+                self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
+                
+                self.zpeak = np.sum(self.jzpeak, axis=0) / self.njacktot
+                self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njacktot - 1) / self.njacktot
         else:
             self.jzpeak = self.zbins[np.argmax(self.jdndz, axis=1)]
 
-            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njack
-            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njack - 1) / self.njack
+            self.zpeak = np.sum(self.jzpeak, axis=0) / self.njacktot
+            self.varzpeak = np.sum((self.jzpeak-self.zpeak)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
 
@@ -391,6 +394,120 @@ class PeakDNDz(DNDz):
             plt.savefig(plotname)
 
         return f, ax
+
+
+class MedianDNDz(DNDz):
+
+    def __init__(self, ministry, **kwargs):
+
+        if 'zbins' not in kwargs.keys():
+            kwargs['zbins'] = np.linspace(ministry.minz, ministry.maxz, 60)
+
+
+        if 'magbins' not in kwargs.keys():
+            kwargs['magbins'] = np.linspace(19.5, 22, 30)
+
+        DNDz.__init__(self, ministry, **kwargs)
+
+
+    def reduce(self, rank=None, comm=None):
+
+        DNDz.reduce(self, rank=rank, comm=comm)
+
+        if (rank is not None):
+            if (rank==0):
+                self.jcdf = np.cumsum(self.jdndz, axis=1)
+                self.jcdf = self.jcdf/self.jcdf[:,-1,...].reshape(self.njacktot, 1, self.nmagbins)
+                self.jzmedian = np.zeros((self.njacktot, self.nmagbins))
+
+                for i in range(self.njacktot):
+                    for j in range(self.nmagbins):
+                        self.jzmedian[i,j] = self.zbins[self.jcdf[i,:,j].searchsorted(0.5)]
+                
+                self.zmedian = np.sum(self.jzmedian, axis=0) / self.njacktot
+                self.varzmedian = np.sum((self.jzmedian-self.zmedian)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+        else:
+            self.jcdf = np.cumsum(self.jdndz, axis=1)
+            self.jcdf = self.jcdf/self.jcdf[:,-1,...].reshape(self.njacktot, 1, self.nmagbins)
+            self.jzmedian = np.zeros((self.njacktot, self.nmagbins))
+
+            for i in range(self.njacktot):
+                for j in range(self.nmagbins):
+                    self.jzmedian[i,j] = self.zbins[self.jcdf[i,:,j].searchsorted(0.5)]
+                
+            self.zmedian = np.sum(self.jzmedian, axis=0) / self.njacktot
+            self.varzmedian = np.sum((self.jzmedian-self.zmedian)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+    def visualize(self, xlabel=None, ylabel=None, compare=False,
+                    ax=None, f=None, plotname=None, **kwargs):
+
+        if f is None:
+            f, ax = plt.subplots(1, figsize=(15,15))
+            ax = np.atleast_1d(ax)
+            newaxes = True
+        else:
+            newaxes = False
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            if ylabel is None:
+                sax.set_ylabel(r'Median of $\frac{dN}{dZ}\, [deg^{-2}]$', fontsize=16, labelpad=20)
+            else:
+                sax.set_ylabel(xlabel, fontsize=16, labelpad=20)
+
+            if xlabel is None:
+                sax.set_xlabel(r'$mag$', fontsize=16, labelpad=20)
+            else:
+                sax.set_xlabel(xlabel, fontsize=16, labelpad=20)
+
+        l1 = ax[0].plot(self.magbins, self.zmedian,**kwargs)
+        ax[0].fill_between(self.magbins, self.zmedian - np.sqrt(self.varzmedian),
+                            self.zmedian + np.sqrt(self.varzmedian),**kwargs)
+        ax[0].tick_params(axis='x', labelsize=16)
+        ax[0].tick_params(axis='y', labelsize=16)
+
+        #plt.tight_layout()
+
+        if (plotname is not None) and (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1
+
+
+    def compare(self, othermetrics, labels=None, plotname=None, **kwargs):
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax, l1 = m.visualize(compare=True,color=self._color_list[i],
+                                         **kwargs)
+            else:
+                f, ax, l1 = m.visualize(compare=True,color=self._color_list[i],
+                                          f=f, ax=ax, **kwargs)
+            lines.extend(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels, 'best')
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
 
 
 

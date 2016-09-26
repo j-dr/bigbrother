@@ -97,9 +97,6 @@ class BaseCatalog:
         for p in upix:
             fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
 
-        print('upix: {0}'.format(upix))
-        print('fgrps: {0}'.format(fgrps))
-
         return upix, fgrps
 
     def readFITSMappable(self, mappable, fieldmap):
@@ -201,7 +198,20 @@ class BaseCatalog:
                 except:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
 
-                mapunit[key] = conversion(mapunit, key)
+                if '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]) == 'flux2mag':
+                    print(self.__class__.__name__)
+                    print(m.__class__.__name__)
+                    if hasattr(self, 'zp'):
+                        if self.zp is not None:
+                            mapunit[key] = conversion(mapunit, key, zp=self.zp)
+                            print(mapunit[key])
+                        else:
+                            mapunit[key] = conversion(mapunit, key)
+                    else:
+                        mapunit[key] = conversion(mapunit, key)
+                else:
+                    mapunit[key] = conversion(mapunit, key)
+
                 beenconverted.append(key)
 
         return mapunit
