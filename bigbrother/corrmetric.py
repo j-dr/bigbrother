@@ -29,7 +29,7 @@ class CorrelationFunction(Metric):
                    nrbins=None, subjack=False, lightcone=True,
                    catalog_type=None, mcutind=None,
                    tag=None, same_rand=False, inv_m=True,
-                   **kwargs):
+                   randname=None, **kwargs):
         """
         Generic correlation function.
         """
@@ -65,7 +65,7 @@ class CorrelationFunction(Metric):
 
         self.nmbins = len(self.mbins)-1
         print('nmbins: {0}'.format(self.nmbins))
-        
+
         if same_rand & inv_m:
             self.minds = np.arange(self.nmbins)[::-1]
         else:
@@ -73,6 +73,7 @@ class CorrelationFunction(Metric):
 
         self.same_rand = same_rand
         self.inv_m = inv_m
+        self.randname = randname
 
         if nrbins is None:
             self.nrbins = 15
@@ -87,7 +88,7 @@ class CorrelationFunction(Metric):
         else:
             self.mkey = 'halomass'
             self.aschema = 'halohalo'
-            
+
         print('mkey: {0}'.format(self.mkey))
 
         self.mcutind = mcutind
@@ -96,6 +97,15 @@ class CorrelationFunction(Metric):
             raise NotImplementedError
 
         self.jsamples = 0
+
+    def getRandoms(self, aza, pla, z=None):
+
+        if self.randname is None:
+            rand = self.generateAngularRandoms(mapunit['azim_ang'], mapunit['polar_ang'], z=z, nside=self.randnside)
+        else:
+            rand = self.readAngularRandoms(self.randname, len(aza), z=z)
+
+        return rand
 
     def generateAngularRandoms(self, aza, pla, z=None, urand_factor=20,
                                rand_factor=10, nside=8, nest=True):
@@ -142,7 +152,7 @@ class CorrelationFunction(Metric):
             if ncycles == 0:
                 gr = grand[inarea]
                 rlen = len(gr)
- 
+
             else:
                 gr = np.hstack([gr, grand[inarea]])
                 rlen = len(gr)
@@ -154,6 +164,44 @@ class CorrelationFunction(Metric):
         gr = gr[ridx]
 
         return gr
+
+    def readAngularRandoms(self, fname, ngal, z=None, rand_factor=10):
+        """
+        Use randoms from a file
+        """
+
+        try:
+            r = np.loadtxt(fname)
+            if r.shape[1]<2:
+                raise ValueError("Not enough columns in {0} to be a random catalog".format(fname))
+            elif r.shape[1]>2:
+                warnings.warn("More than 2 columns in {0}, assuming first two are ra and dec respectively.")
+
+            rand = np.array(len(r), dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
+            rand['azim_ang'] = r[:,0]
+            rand['polar_ang'] = r[:,1]
+
+        except:
+            try:
+                r = fitsio.read(fname, columns=['RA', 'DEC'])
+
+                rand = np.array(len(r), dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
+                rand['azim_ang'] = r['RA']
+                rand['polar_ang'] = r['DEC']
+
+            except ValueError as e:
+                print(e)
+                r = fitsio.read(fname, columns=['azim_ang', 'polar_ang'])
+
+                rand = np.array(len(r), dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
+                rand['azim_ang'] = r['azim_ang']
+                rand['polar_ang'] = r['polar_ang']
+
+        if z is not None:
+            rand['redshift'] = np.random.choice(z, size=ngal*rand_factor)
+
+        return rand
+
 
     def genbins(self, minb, maxb, nb):
 
@@ -297,7 +345,7 @@ class WPrpLightcone(CorrelationFunction):
         self.bimodal_ccut = bimodal_ccut
         self.percentile_ccut = percentile_ccut
         self.splitcolor = None
-        
+
         if self.bimodal_ccut:
             self.hcbins = 100
             self.ncbins = 2
@@ -474,15 +522,11 @@ class WPrpLightcone(CorrelationFunction):
 
                 if (li==self.rand_ind) | (not self.same_rand):
                     print('Generating Randoms')
-                    print('mu: {0}'.format(mu))
-                    print('cz: {0}'.format(cz))
-                    print('zlidx, zhidx: {0}, {1}'.format(zlidx, zhidx))
-                    print('any(lidx): {0}'.format(lidx.any()))                    
                     if len(cz[zlidx:zhidx][lidx])==0:
                         self.rand_ind+=1
                         continue
 
-                    rands = self.generateAngularRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx], z=cz[zlidx:zhidx][lidx], nside=self.randnside)
+                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx], z=cz[zlidx:zhidx][lidx])
 
                 for k in range(self.ncbins):
                     if self.ncbins == 1:
@@ -552,10 +596,7 @@ class WPrpLightcone(CorrelationFunction):
                         try:
                             rrresults = np.array(rrresults[0]).reshape(-1,int(self.pimax),5)
                         except:
-                            print('min rand azang : {0}'.format(np.min(rands['axim_ang'])))
-                            print('max rand azang : {0}'.format(np.max(rands['axim_ang'])))
-                            print('min rand plang : {0}'.format(np.min(rands['polar_ang'])))
-                            print('max rand plang : {0}'.format(np.max(rands['polar_ang'])))                                                             
+                            raise
 
                     self.rr[self.jcount,:,:,k,j,i] = rrresults[:,:,4]
 
