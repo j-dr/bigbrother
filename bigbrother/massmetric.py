@@ -70,6 +70,7 @@ class MassFunction(MassMetric):
             self.unitmap = {'halomass':'msunh'}
             self.lightcone = False
 
+        self.masscounts = None
 
 
     @jackknifeMap
@@ -88,7 +89,7 @@ class MassFunction(MassMetric):
         #Want to count galaxies in bins of luminosity for
         #self.nbands different bands in self.nzbins
         #redshift bins
-        if not hasattr(self, 'masscounts'):
+        if self.masscounts is None:
             self.masscounts = np.zeros((self.njack,
                                         len(self.massbins)-1,
                                         self.ndefs,
@@ -129,6 +130,7 @@ class MassFunction(MassMetric):
                 self.masscounts = np.zeros(dshape)
 
                 for g in gdata:
+                    if g is None: continue
                     nj = g.shape[0]
                     self.masscounts[jc:jc+nj,:,:,:] = g
 
@@ -204,6 +206,10 @@ class SimpleHOD(MassMetric):
 
         self.unitmap = {'halomass':'msunh'}
 
+        self.occcounts   = None
+        self.sqocccounts = None
+        self.halocounts  = None
+
     def map(self, mapunit):
 
         #The number of mass definitions to measure mfcn for
@@ -219,7 +225,7 @@ class SimpleHOD(MassMetric):
         #Want to count galaxies in bins of luminosity for
         #self.nbands different bands in self.nzbins
         #redshift bins
-        if not hasattr(self, 'occcounts'):
+        if self.occcounts is None:
             self.occcounts = np.zeros((len(self.massbins)-1, self.ndefs,
                                        self.nzbins))
             self.sqocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
@@ -311,6 +317,13 @@ class GalHOD(MassMetric):
         else:
             self.unitmap = {'halomass':'msunh', 'rhalo':'mpch'}
 
+
+        self.sqocccounts  = None
+        self.cocccounts   = None
+        self.sqsocccounts = None
+        self.sqcocccounts = None
+        self.halocounts   = None
+
     def map(self, mapunit):
         #The number of mass definitions to measure mfcn for
         if len(mapunit['halomass'].shape)>1:
@@ -325,7 +338,7 @@ class GalHOD(MassMetric):
         #Want to count galaxies in bins of luminosity for
         #self.nbands different bands in self.nzbins
         #redshift bins
-        if not hasattr(self, 'socccounts'):
+        if self.socccounts is None:
             self.socccounts = np.zeros((len(self.massbins)-1, self.ndefs,
                                        self.nmagcuts, self.nzbins))
             self.cocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
@@ -424,6 +437,11 @@ class OccMass(MassMetric):
         self.aschema = 'haloonly'
         self.unitmap = {'halomass':'msunh'}
 
+        self.occ    = None
+        self.occsq  = None
+        self.count  = None
+        self.ndefs = 1
+
     @jackknifeMap
     def map(self, mapunit):
 
@@ -435,7 +453,7 @@ class OccMass(MassMetric):
 
         self.nbands = self.ndefs
 
-        if not hasattr(self, 'occmass'):
+        if self.occ is None:
             self.occ   = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
             self.occsq = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
             self.count = np.zeros((self.njack,self.nmassbins,self.ndefs,self.nzbins))
@@ -460,9 +478,9 @@ class OccMass(MassMetric):
 
             if rank==0:
                 jc = 0
-                oshape = [self.occ.shape[i] for i in range(len(self.occ.shape))]
-                osshape = [self.occsq.shape[i] for i in range(len(self.occsq.shape))]
-                cshape = [self.count.shape[i] for i in range(len(self.count.shape))]
+                oshape = [self.njack,self.nmassbins,self.ndefs,self.nzbins]
+                osshape = [self.njack,self.nmassbins,self.ndefs,self.nzbins]
+                cshape = [self.njack,self.nmassbins,self.ndefs,self.nzbins]
 
                 oshape[0] = self.njacktot
                 osshape[0] = self.njacktot
@@ -473,13 +491,13 @@ class OccMass(MassMetric):
                 self.cshape = np.zeros(cshape)
 
                 for i, g in enumerate(gocc):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.occ[jc:jc+nj,:,:,:] = g
                     self.occsq[jc:jc+nj,:,:,:] = goccsq[i]
                     self.count[jc:jc+nj,:,:,:] = gcount[i]
 
                     jc += nj
-
 
                 self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
 
@@ -637,7 +655,6 @@ class Richness(MassMetric):
         else:
             self.colorbins = colorbins
 
-
         self.split_info = splitinfo
 
         self.aschema = 'galaxyonly'
@@ -658,8 +675,11 @@ class Richness(MassMetric):
             self.min_lum    = -19
 
         self.splitcolor = redsplit
-
         self.nbands = 1
+
+        self.halo_counts           = None
+        self.galaxy_counts         = None
+        self.galaxy_counts_squared = None
 
     @jackknifeMap
     def map(self, mapunit):
@@ -726,22 +746,22 @@ class Richness(MassMetric):
             ggc = comm.gather(self.galaxy_counts, root=0)
             ggcs = comm.gather(self.galaxy_counts_squared, root=0)
 
-            hshape = [self.halo_counts.shape[i] for i in range(len(self.halo_counts.shape))]
-            gshape = [self.galaxy_counts.shape[i] for i in range(len(self.galaxy_counts.shape))]
-            gsshape = [self.galaxy_counts_squared.shape[i] for i in range(len(self.galaxy_counts.shape))]
-
-            hshape[0] = self.njacktot
-            gshape[0] = self.njacktot
-            gsshape[0] = self.njacktot
-
-
             if rank==0:
+                hshape = [self.halo_counts.shape[i] for i in range(len(self.halo_counts.shape))]
+                gshape = [self.galaxy_counts.shape[i] for i in range(len(self.galaxy_counts.shape))]
+                gsshape = [self.galaxy_counts_squared.shape[i] for i in range(len(self.galaxy_counts.shape))]
+
+                hshape[0] = self.njacktot
+                gshape[0] = self.njacktot
+                gsshape[0] = self.njacktot
+                
                 self.halo_counts = np.zeros(hshape)
                 self.galaxy_counts = np.zeros(gshape)
                 self.galaxy_counts_squared = np.zeros(gsshape)
 
                 jc = 0
                 for i, g in enumerate(ghc):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.halo_counts[jc:jc+nj,:,:,:] = g
                     self.galaxy_counts[jc:jc+nj,:,:,:] = ggc[i]

@@ -3,6 +3,8 @@ from __future__ import print_function, division
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
+import fitsio
+import warnings
 import sys
 
 try:
@@ -66,10 +68,12 @@ class CorrelationFunction(Metric):
         self.nmbins = len(self.mbins)-1
         print('nmbins: {0}'.format(self.nmbins))
 
-        if same_rand & inv_m:
+        if inv_m:
             self.minds = np.arange(self.nmbins)[::-1]
         else:
             self.minds = np.arange(self.nmbins)
+
+        print('self.minds: {0}'.format(self.minds))
 
         self.same_rand = same_rand
         self.inv_m = inv_m
@@ -101,7 +105,7 @@ class CorrelationFunction(Metric):
     def getRandoms(self, aza, pla, z=None):
 
         if self.randname is None:
-            rand = self.generateAngularRandoms(mapunit['azim_ang'], mapunit['polar_ang'], z=z, nside=self.randnside)
+            rand = self.generateAngularRandoms(aza, pla, z=z, nside=self.randnside)
         else:
             rand = self.readAngularRandoms(self.randname, len(aza), z=z)
 
@@ -170,32 +174,35 @@ class CorrelationFunction(Metric):
         Use randoms from a file
         """
 
+        print('Reading randoms from file: {0}'.format(fname))
+
         try:
-            r = np.loadtxt(fname)
+            r = np.genfromtxt(fname)
             if r.shape[1]<2:
                 raise ValueError("Not enough columns in {0} to be a random catalog".format(fname))
             elif r.shape[1]>2:
                 warnings.warn("More than 2 columns in {0}, assuming first two are ra and dec respectively.")
 
-            rand = np.array(len(r), dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
-            rand['azim_ang'] = r[:,0]
-            rand['polar_ang'] = r[:,1]
+            rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64), ('redshift', np.float64)]))
+            rand['azim_ang'] = np.random.choice(r[:,0], size=ngal*rand_factor)
+            rand['polar_ang'] = np.random.choice(r[:,1], size=ngal*rand_factor)
 
-        except:
+        except Exception as e:
+            print(e)
             try:
                 r = fitsio.read(fname, columns=['RA', 'DEC'])
 
-                rand = np.array(len(r), dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
-                rand['azim_ang'] = r['RA']
-                rand['polar_ang'] = r['DEC']
+                rand = np.array(ngal*rand_factor, dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
+                rand['azim_ang'] = np.random.choice(r['RA'], size=ngal*rand_factor)
+                rand['polar_ang'] = np.random.choice(r['DEC'], size=ngal*rand_factor)
 
             except ValueError as e:
                 print(e)
                 r = fitsio.read(fname, columns=['azim_ang', 'polar_ang'])
 
-                rand = np.array(len(r), dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
-                rand['azim_ang'] = r['azim_ang']
-                rand['polar_ang'] = r['polar_ang']
+                rand = np.array(ngal*rand_factor, dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
+                rand['azim_ang'] = np.random.choice(r['azim_ang'], size=ngal*rand_factor)
+                rand['polar_ang'] = np.random.choice(r['polar_ang'], size=ngal*rand_factor)
 
         if z is not None:
             rand['redshift'] = np.random.choice(z, size=ngal*rand_factor)
@@ -424,23 +431,6 @@ class WPrpLightcone(CorrelationFunction):
         self.rr = None
 
 
-    def splitBimodal(self, x, y, largepoly=30):
-        p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
-
-        extrema = np.roots(np.polyder(p))
-        extrema = extrema[np.isreal(extrema)]
-        extrema = extrema[(extrema - x[1]) * (x[-2] - extrema) > 0] # exclude the endpoints due false maxima during fitting
-
-        root_vals = [sum([p[::-1][i]*(root**i) for i in range(len(p))]) for root in extrema]
-        peaks = extrema[np.argpartition(root_vals, -2)][-2:] # find two peaks of bimodal distribution
-
-        mid = np.where((x - peaks[0])* (peaks[1] - x) > 0) # want data points between the peaks
-        p_mid = np.polyfit(x[mid], y[mid], 2) # fit middle section to a parabola
-
-        midpoint = np.roots(np.polyder(p_mid))[0]
-
-        return midpoint
-
     def addRSD(self, mapunit):
 
         rvec = hp.ang2vec(-(mapunit['polar_ang'] - 90) * np.pi / 180.,
@@ -508,11 +498,13 @@ class WPrpLightcone(CorrelationFunction):
             if (self.splitcolor is None) & (self.bimodal_ccut):
                 ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
                 self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
-            elif (self.splitcolor is None) & (self.percentile_ccut is not None):
-                self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
 
             for li, j in enumerate(self.minds):
                 print('Finding luminosity indices')
+                print('self.mbins[j]: {0}'.format(self.mbins[j]))
+                print('self.mbins[j+1]: {0}'.format(self.mbins[j+1]))
+
+
                 if self.mcutind is not None:
                     lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
                 else:
@@ -527,6 +519,10 @@ class WPrpLightcone(CorrelationFunction):
                         continue
 
                     rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx], z=cz[zlidx:zhidx][lidx])
+                    
+                if (self.percentile_ccut is not None):
+                    self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)                            
+
 
                 for k in range(self.ncbins):
                     if self.ncbins == 1:
@@ -609,24 +605,25 @@ class WPrpLightcone(CorrelationFunction):
             gdr = comm.gather(self.dr, root=0)
             grr = comm.gather(self.rr, root=0)
 
-            ndshape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
-            nrshape = [self.nr.shape[i] for i in range(len(self.nr.shape))]
-            ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
-            drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
-            rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
-
-            ndshape.insert(1,1)
-            ndshape.insert(1,1)
-            nrshape.insert(1,1)
-            nrshape.insert(1,1)
-
-            ndshape[0] = self.njacktot
-            nrshape[0] = self.njacktot
-            ddshape[0] = self.njacktot
-            drshape[0] = self.njacktot
-            rrshape[0] = self.njacktot
 
             if rank==0:
+                ndshape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
+                nrshape = [self.nr.shape[i] for i in range(len(self.nr.shape))]
+                ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+                drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
+                rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+
+                ndshape.insert(1,1)
+                ndshape.insert(1,1)
+                nrshape.insert(1,1)
+                nrshape.insert(1,1)
+
+                ndshape[0] = self.njacktot
+                nrshape[0] = self.njacktot
+                ddshape[0] = self.njacktot
+                drshape[0] = self.njacktot
+                rrshape[0] = self.njacktot
+                
                 self.nd = np.zeros(ndshape)
                 self.nr = np.zeros(nrshape)
                 self.dd = np.zeros(ddshape)

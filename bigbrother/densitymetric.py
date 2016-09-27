@@ -52,9 +52,11 @@ class DensityMagnitudePDF(Metric):
         self.aschema = 'galaxyonly'
         self.unitmap = {'luminosity':'mag', 'density':'mpch'}
 
+        self.densmagcounts = None
+
     def map(self, mapunit):
 
-        if not hasattr(self, 'densmagcounts'):
+        if self.densmagcounts is None:
             self.densmagcounts = np.zeros((self.ndensbins, self.nmagbins,
                                             self.nzbins))
 

@@ -87,6 +87,8 @@ class LuminosityFunction(MagnitudeMetric):
 
         self.aschema = 'galaxyonly'
 
+        self.lumcounts = None
+
     @jackknifeMap
     def map(self, mapunit):
         """
@@ -114,7 +116,7 @@ class LuminosityFunction(MagnitudeMetric):
         #Want to count galaxies in bins of luminosity for
         #self.nbands different bands in self.nzbins
         #redshift bins
-        if not hasattr(self, 'lumcounts'):
+        if self.lumcounts is None:
             self.lumcounts = np.zeros((self.njack, len(self.magbins)-1,
                                         self.nbands, self.nzbins))
 
@@ -143,15 +145,17 @@ class LuminosityFunction(MagnitudeMetric):
         if rank is not None:
             gdata = comm.gather(self.lumcounts, root=0)
 
-            gshape = [self.lumcounts.shape[i] for i in range(len(self.lumcounts.shape))]
-            gshape[0] = self.njacktot
 
             if rank==0:
+                gshape = [self.lumcounts.shape[i] for i in range(len(self.lumcounts.shape))]
+                gshape[0] = self.njacktot
+                
                 self.lumcounts = np.zeros(gshape)
                 jc = 0
                 #iterate over gathered arrays, filling in arrays of rank==0
                 #process
                 for g in gdata:
+                    if g is None: continue
                     nj = g.shape[0]
                     self.lumcounts[jc:jc+nj,:,:,:] = g
 
@@ -182,7 +186,6 @@ class LuminosityFunction(MagnitudeMetric):
             self.varluminosity_function = np.sum((self.jluminosity_function - self.luminosity_function) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
             self.y = self.luminosity_function
             self.ye = np.sqrt(self.varluminosity_function)
-
 
     def integrate(self, lmin, lmax, z, band=1):
         """
@@ -273,13 +276,14 @@ class MagCounts(MagnitudeMetric):
         if rank is not None:
             gdata = comm.gather(self.mc, root=0)
 
-            gshape = [self.mc.shape[i] for i in range(len(self.mc.shape))]
-            gshape[0] = self.njacktot
-
             if rank==0:
+                gshape = [self.mc.shape[i] for i in range(len(self.mc.shape))]
+                gshape[0] = self.njacktot
+                
                 self.mc = np.zeros(gshape)
                 jc = 0
                 for g in gdata:
+                    if g is None: continue
                     nj = g.shape[0]
                     self.mc[jc:jc+nj,:,:,:] = g
 
@@ -360,6 +364,9 @@ class LcenMass(Metric):
         self.aschema = 'galaxyonly'
         self.unitmap = {'luminosity':'mag', 'halomass':'msunh'}
 
+        self.totlum   = None
+        self.bincount = None
+
     @jackknifeMap
     def map(self, mapunit):
 
@@ -371,7 +378,7 @@ class LcenMass(Metric):
             mu[k] = mapunit[k][mapunit['central']==1]
 
 
-        if not hasattr(self, 'totlum'):
+        if self.totlum is None:
             self.totlum = np.zeros((self.njack, len(self.massbins)-1,
                                       self.nbands, len(self.zbins)-1))
             self.bincount = np.zeros((self.njack, len(self.massbins)-1,
@@ -394,18 +401,19 @@ class LcenMass(Metric):
             gtotlum = comm.gather(self.totlum, root=0)
             gbincount = comm.gather(self.bincount, root=0)
 
-            tshape = [self.totlum.shape[i] for i in range(len(self.totlum.shape))]
-            bshape = [self.bincount.shape[i] for i in range(len(self.bincount.shape))]
-
-            tshape[0] = self.njacktot
-            bshape[0] = self.njacktot
-
             if rank==0:
+                tshape = [self.totlum.shape[i] for i in range(len(self.totlum.shape))]
+                bshape = [self.bincount.shape[i] for i in range(len(self.bincount.shape))]
+
+                tshape[0] = self.njacktot
+                bshape[0] = self.njacktot
+                
                 self.bincount = np.zeros(tshape)
                 self.totlum = np.zeros(bshape)
 
                 jc = 0
                 for i, g in enumerate(gtotlum):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.totlum[jc:jc+nj,:,:,:] = g
                     self.bincount[jc:jc+nj,:,:,:] = gbincount[i]
@@ -577,13 +585,14 @@ class ColorDist(GMetric):
         if rank is not None:
             gcd = comm.gather(self.cd, root=0)
 
-            gshape = [self.cd.shape[i] for i in range(len(self.cd.shape))]
-            gshape[0] = self.njacktot
-
             if rank==0:
+                gshape = [self.cd.shape[i] for i in range(len(self.cd.shape))]
+                gshape[0] = self.njacktot
+                
                 self.cd = np.zeros(gshape)
                 jc = 0
                 for i, g in enumerate(gcd):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.cd[jc:jc+nj,:,:,:] = g
 
@@ -668,6 +677,8 @@ class ColorColor(Metric):
         else:
             self.unitmap = {self.mkey:'mag'}
 
+        self.cc = None
+
     @jackknifeMap
     def map(self, mapunit):
 
@@ -683,7 +694,7 @@ class ColorColor(Metric):
         for i, b in enumerate(self.usebands[:-1]):
             clr[:,i] = mapunit[self.mkey][:,self.usebands[i]] - mapunit[self.mkey][:,self.usebands[i+1]]
 
-        if not hasattr(self, 'cc'):
+        if self.cc is None:
             self.cc = np.zeros((self.njack,len(self.cbins)-1, len(self.cbins)-1,
                                 self.nbands-2, self.nzbins))
 
@@ -719,13 +730,15 @@ class ColorColor(Metric):
         if rank is not None:
             gcc = comm.gather(self.cc, root=0)
 
-            gshape = [self.cc.shape[i] for i in range(len(self.cc.shape))]
-            gshape[0] = self.njacktot
 
             if rank==0:
+                gshape = [self.cc.shape[i] for i in range(len(self.cc.shape))]
+                gshape[0] = self.njacktot
+                
                 self.cc = np.zeros(gshape)
                 jc = 0
                 for i, g in enumerate(gcc):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.cc[jc:jc+nj,:,:,:] = g
 
@@ -910,6 +923,8 @@ class ColorMagnitude(Metric):
         self.aschema = 'galaxyonly'
         self.unitmap = {self.mkey:'mag'}
 
+        self.cc = None
+
     @jackknifeMap
     def map(self, mapunit):
 
@@ -925,7 +940,7 @@ class ColorMagnitude(Metric):
             mu = mapunit
 
 
-        if not hasattr(self, 'cc'):
+        if self.cc is None:
             self.cc = np.zeros((self.njack, len(self.magbins)-1,
                                 len(self.cbins)-1,
                                 int(self.nbands*(self.nbands-1)/2),
@@ -966,6 +981,7 @@ class ColorMagnitude(Metric):
                 dshape[0] = self.njacktot
 
                 for i, g in enumerate(gcc):
+                    if g is None: continue
                     self.cc = np.zeros(dshape)
                     nj = g.shape[0]
                     self.cc[jc:jc+nj,:,:,:,:] = g
@@ -1129,10 +1145,13 @@ class FQuenched(Metric):
         self.unitmap = {self.mkey:'mag'}
         self.aschema = 'galaxyonly'
 
+        self.qscounts = None
+        self.tcounts = None
+
     @jackknifeMap
     def map(self, mapunit):
 
-        if not hasattr(self, 'qscounts'):
+        if self.qscounts is None:
             self.qscounts = np.zeros((self.njack, self.nzbins))
             self.tcounts = np.zeros((self.njack,self.nzbins))
 
@@ -1172,18 +1191,20 @@ class FQuenched(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
-            qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
-            tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
-
-            qcshape[0] = self.njacktot
-            tcshape[0] = self.njacktot
 
             if rank==0:
+                qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
+                tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
+
+                qcshape[0] = self.njacktot
+                tcshape[0] = self.njacktot
+                
                 self.qscounts = np.zeros(qcshape)
                 self.tcounts = np.zeros(tcshape)
 
                 jc = 0
                 for i, g in enumerate(gqs):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
@@ -1269,10 +1290,13 @@ class FRed(Metric):
 
         self.ctcat = np.genfromtxt('/nfs/slac/g/ki/ki23/des/jderose/l-addgals/training/cooper/dr6_cooper_id_with_red.dat')
 
+        self.qscounts = None
+        self.tcounts  = None
+
     @jackknifeMap
     def map(self, mapunit):
 
-        if not hasattr(self, 'nred'):
+        if self.qscounts is None:
             self.qscounts = np.zeros((self.njack,self.nzbins))
             self.tcounts = np.zeros((self.njack,self.nzbins))
 
@@ -1304,18 +1328,19 @@ class FRed(Metric):
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
 
-            qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
-            tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
-
-            qcshape[0] = self.njacktot
-            tcshape[0] = self.njacktot
-
             if rank==0:
+                qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
+                tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
+
+                qcshape[0] = self.njacktot
+                tcshape[0] = self.njacktot
+                
                 self.qscounts = np.zeros(qcshape)
                 self.tcounts = np.zeros(tcshape)
 
                 jc = 0
                 for i, g in enumerate(gqs):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
@@ -1421,10 +1446,13 @@ class FQuenchedLum(Metric):
         self.aschema = 'galaxyonly'
         self.unitmap = {'luminosity':'mag'}
 
+        self.qscounts = None
+        self.tcounts  = None
+
     @jackknifeMap
     def map(self, mapunit):
 
-        if not hasattr(self, 'qscounts'):
+        if self.qscounts is None:
             self.qscounts = np.zeros((self.njack,
                                        len(self.magbins)-1,self.nzbins))
             self.tcounts = np.zeros((self.njack,
@@ -1474,19 +1502,20 @@ class FQuenchedLum(Metric):
         if rank is not None:
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
-
-            qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
-            tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
-
-            qcshape[0] = self.njacktot
-            tcshape[0] = self.njacktot
-
+            
             if rank==0:
+                qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
+                tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
+
+                qcshape[0] = self.njacktot
+                tcshape[0] = self.njacktot
+
                 self.qscounts = np.zeros(qcshape)
                 self.tcounts = np.zeros(tcshape)
 
                 jc = 0
                 for i, g in enumerate(gqs):
+                    if g is None: continue
                     nj = g.shape[0]
                     self.qscounts[jc:jc+nj,:] = g
                     self.tcounts[jc:jc+nj,:] = gtc[i]
