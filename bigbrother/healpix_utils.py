@@ -52,7 +52,7 @@ class PixMetric(Metric):
     def map(self, mapunit):
 
         pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'], nest=self.nest)
-        
+
         return np.unique(pix)
 
     def reduce(self, rank=None, comm=None):
@@ -63,6 +63,49 @@ class PixMetric(Metric):
 
     def compare(self):
         pass
+
+class SubBoxMetric(Metric):
+
+    def __init__(self, ministry, nbox, tag=None, **kwargs):
+        """
+        Initialize a PixMetric object. Note, all metrics should define
+        an attribute called mapkeys which specifies the types of data that they
+        expect.
+
+        Arguments
+        ---------
+        ministry : Ministry
+            The ministry object that this metric is associated with.
+        """
+        Metric.__init__(self, ministry, tag=tag, **kwargs)
+
+        self.nbox = nbox
+        self.lbox = self.ministry.boxsize
+
+        self.mapkeys = ['x', 'y', 'z']
+        self.aschema = 'singleonly'
+        self.unitmap = {'x':'mpch', 'y':'mpch', 'z':'mpch'}
+
+
+    def map(self, mapunit):
+
+        xi = (self.nbox * mapunit['x']) // self.lbox
+        yi = (self.nbox * mapunit['y']) // self.lbox
+        zi = (self.nbox * mapunit['z']) // self.lbox
+
+        bidx = xi * self.nbox**2 + yi * self.nbox * zi
+
+        return np.unique(bidx)
+
+    def reduce(self, rank=None, comm=None):
+        pass
+
+    def visualize(self):
+        pass
+
+    def compare(self):
+        pass
+
 
 
 class Area(Metric):
@@ -75,7 +118,7 @@ class Area(Metric):
 
         if self.catalog_type is None:
             self.catalog_type = ['galaxycatalog']
-            
+
         if self.catalog_type == ['galaxycatalog']:
             self.aschema = 'galaxyonly'
         elif self.catalog_type == ['halocatalog']:

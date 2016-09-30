@@ -108,7 +108,7 @@ class GalaxyCatalog(BaseCatalog):
 
             if self.ministry.parallel:
                 from mpi4py import MPI
-                
+
                 comm = MPI.COMM_WORLD
                 rank = comm.Get_rank()
                 size = comm.Get_size()
@@ -146,6 +146,7 @@ class GalaxyCatalog(BaseCatalog):
                     fpix.extend(fp)
 
         return fpix
+
 
     def getArea(self, jackknife=False):
 
@@ -540,7 +541,7 @@ class DESGoldCatalog(GalaxyCatalog):
 
     def filterBadregion(self, mapunit):
         print('Filtering badregion')
-        
+
         print('No badregions: {0}'.format((mapunit['badregion']==0).all()))
 
         return mapunit['badregion']==0

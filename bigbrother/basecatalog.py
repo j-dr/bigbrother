@@ -83,21 +83,36 @@ class BaseCatalog:
         in each file. Assumes files have already been
         sorted correctly by parseFileStruct
         """
-        
+
     def groupFiles(self):
         """
         Group files together spatially. Healpix grouping implemented,
         subbox grouping still needs to be done.
         """
 
-        fpix = self.getFilePixels(self.groupnside)
-        upix = np.unique(np.array([p for sublist in fpix for p in sublist]))
-        fgrps = []
+        if self.jtype == 'healpix':
 
-        for p in upix:
-            fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
+            fpix = self.getFilePixels(self.groupnside)
+            upix = np.unique(np.array([p for sublist in fpix for p in sublist]))
+            fgrps = []
 
-        return upix, fgrps
+            for p in upix:
+                fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
+
+            return upix, fgrps
+
+        elif self.jtype == 'subbox':
+
+            fsbox = self.getFileSubBoxes(self.nbox, [self.ctype])
+
+            ubox = np.unique(np.array([b for sublist in fsbox for b in sublist]))
+            fgrps = []
+
+            for b in ubox:
+                fgrps.append([i for i in range(len(fsbox)) if b in fsbox[i]])
+
+            return ubox, fgrps
+
 
     def readFITSMappable(self, mappable, fieldmap):
         """
@@ -128,11 +143,70 @@ class BaseCatalog:
 
         return mapunit
 
+    def getFileSubBoxes(nbox, ct):
+
+        fbox = []
+
+        if (('BCC' in self.__class__.__name__):
+            raise ValueError('BCC catalogs are not in boxes!')
+        else:
+
+            bmetric = SubBoxMetric(self.ministry, nbox,
+                                  catalog_type=ct)
+            mg = self.ministry.genMetricGroups([bmetric])
+            ms = mg[0][1]
+            fm = mg[0][0]
+
+            mappables = self.ministry.genMappables(mg[0])
+
+            if self.ministry.parallel:
+                from mpi4py import MPI
+
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                size = comm.Get_size()
+
+                mappables = mappables[rank::size]
+
+            for i, mappable in enumerate(mappables):
+
+                mapunit = self.ministry.readMappable(mappable, fm)
+
+                if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                elif 'only' in ms[0].aschema:
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                if ((ms[0].aschema == 'galaxygalaxy')
+                  | (ms[0].aschema == 'halohalo')):
+                    mapunit = self.ministry.dcListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                fbox.append(bmetric.map(mapunit))
+
+                del mapunit
+
+            if self.ministry.parallel:
+                gfbox = comm.allgather(fbox)
+                fbox = []
+                for fb in gfbox:
+                    if fb is None: continue
+                    fbox.extend(fb)
+
+        return fbox
+
     def maskMappable(self, mapunit, mappable):
 
-        tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
 
         if mappable.jtype == 'healpix':
+            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
                 try:
@@ -144,6 +218,34 @@ class BaseCatalog:
 
             pix = hp.ang2pix(self.groupnside, tp[:,1], tp[:,0], nest=self.nest)
             pidx = pix==mappable.grp
+
+            mu = {}
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][pidx]
+
+            mapunit = mu
+            return mapunit
+
+        elif mappable.jtype == 'subbox':
+            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),3))
+
+            print('Masking {0} using subbox {1}'.format(mappable.name, mappable.grp))
+            for i, key in enumerate(['x', 'y', 'z']):
+                if self.unitmap[key] != 'mpch':
+                    try:
+                        conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],'mpch'))
+                    except:
+                        conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],'mpch'))
+
+                    tp[:,i] = conversion(mapunit, key)
+
+            xi = (self.nbox * tp[:,0]) // self.ministry.boxsize
+            yi = (self.nbox * tp[:,1]) // self.ministry.boxsize
+            zi = (self.nbox * tp[:,2]) // self.ministry.boxsize
+
+            bidx = xi * self.nbox**2 + yi * self.nbox * zi
+
+            pidx = bidx==mappable.grp
 
             mu = {}
             for k in mapunit.keys():
@@ -191,7 +293,7 @@ class BaseCatalog:
                 except KeyError as e:
                     print(e)
                     print("Catalog unitmap: {0}".format(self.unitmap))
-                    print("Metric unitmap: {0}".format(m.unitmap))                    
+                    print("Metric unitmap: {0}".format(m.unitmap))
 
                 try:
                     conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
@@ -266,4 +368,3 @@ class PlaceHolder(BaseCatalog):
 
         self.ctype = 'placeholder'
         BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
-
