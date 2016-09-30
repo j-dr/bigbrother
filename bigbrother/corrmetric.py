@@ -519,9 +519,9 @@ class WPrpLightcone(CorrelationFunction):
                         continue
 
                     rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx], z=cz[zlidx:zhidx][lidx])
-                    
+
                 if (self.percentile_ccut is not None):
-                    self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)                            
+                    self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
 
 
                 for k in range(self.ncbins):
@@ -623,7 +623,7 @@ class WPrpLightcone(CorrelationFunction):
                 ddshape[0] = self.njacktot
                 drshape[0] = self.njacktot
                 rrshape[0] = self.njacktot
-                
+
                 self.nd = np.zeros(ndshape)
                 self.nr = np.zeros(nrshape)
                 self.dd = np.zeros(ddshape)
@@ -958,7 +958,7 @@ class WPrpSnapshot(CorrelationFunction):
 
         return f, ax
 
-class TabulatedWPrpLightcone(CorrelationFunction):
+class TabulatedWPrpLightcone(WPrpLightcone):
 
     def __init__(self, fname, *args, **kwargs):
 
