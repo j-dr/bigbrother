@@ -705,12 +705,18 @@ class WPrpLightcone(CorrelationFunction):
         else:
             newaxes = False
 
-        rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
 
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
                 for k, c in enumerate(usecolors):
                     ye = np.sqrt(self.varwprp[:,c,l,z])
+                    print(len(rmean))
+                    print(self.wprp[:,c,l,z].shape)
                     l1 = ax[j][i].plot(rmean, self.wprp[:,c,l,z], **kwargs)
                     ax[j][i].fill_between(rmean, self.wprp[:,c,l,z]-ye, self.wprp[:,c,l,z]+ye, alpha=0.5, **kwargs)
 
@@ -960,7 +966,7 @@ class WPrpSnapshot(CorrelationFunction):
 
 class TabulatedWPrpLightcone(WPrpLightcone):
 
-    def __init__(self, fname, *args, **kwargs):
+    def __init__(self, ministry, fname, *args, **kwargs):
 
         self.fname = fname
 
@@ -984,18 +990,21 @@ class TabulatedWPrpLightcone(WPrpLightcone):
         else:
             self.ncuts = 1
 
-        WPrpLightcone.__init__(self, *args, **kwargs)
+        WPrpLightcone.__init__(self, ministry, *args, **kwargs)
 
         self.nomap = True
         self.loadWPrp()
 
 
     def loadWPrp(self):
-
-        tab = np.genfromtxt(self.fname)
-        self.wprp = np.zeros((tab.shape[0], self.ncuts))
-        self.varwprp = np.zeros((tab.shape[0], self.ncuts))
+        print(self.fname)
+        tab = np.loadtxt(self.fname)
+        print(tab)
+        self.wprp = np.zeros((tab.shape[0], 1, self.ncuts, 1))
+        self.varwprp = np.zeros((tab.shape[0], 1, self.ncuts, 1))
         self.rmean = tab[:,self.rmeancol]
+        self.wprp[:,0,:,0] = tab[:,self.wprpcol:self.wprpcol+self.ncuts]
+        self.varwprp[:,0,:,0] = tab[:,self.wprperr:self.wprperr+self.ncuts]
 
 
 class GalaxyRadialProfileBCC(Metric):

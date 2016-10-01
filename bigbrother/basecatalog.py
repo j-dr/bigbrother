@@ -147,7 +147,7 @@ class BaseCatalog:
 
         fbox = []
 
-        if (('BCC' in self.__class__.__name__):
+        if 'BCC' in self.__class__.__name__:
             raise ValueError('BCC catalogs are not in boxes!')
         else:
 
