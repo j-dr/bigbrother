@@ -641,11 +641,9 @@ class WPrpLightcone(CorrelationFunction):
                 self.jdr = self.jackknife(self.dr, reduce_jk=False)
                 self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
-                jDD = self.jdd / (self.jnd * (self.jnd - 1) / 2)
-                jDR = self.jdr / (self.jnd * self.jnr)
-                jRR = self.jrr / (self.jnr * (self.jnr - 1) / 2)
+                fnorm = self.jnr / self.jnd
 
-                self.jwprppi = (jDD - 2 * jDR + jRR) / jRR
+                self.jwprppi = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
                 self.jwprp = 2 * np.sum(self.jwprppi, axis=2)
 
                 self.wprppi = np.sum(self.jwprppi, axis=0) / self.njacktot
@@ -662,11 +660,9 @@ class WPrpLightcone(CorrelationFunction):
             self.jdr = self.jackknife(self.dr, reduce_jk=False)
             self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
-            jDD = self.jdd / (self.jnd * (self.jnd - 1) / 2)
-            jDR = self.jdr / (self.jnd * self.jnr)
-            jRR = self.jrr / (self.jnr * (self.jnr - 1) / 2)
+            fnorm = self.jnr / self.jnd
 
-            self.jwprppi = (jDD - 2 * jDR + jRR) / jRR
+            self.jwprppi = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
             self.jwprp = 2 * np.sum(self.jwprppi, axis=2)
 
             self.wprppi = np.sum(self.jwprppi, axis=0) / self.njacktot
