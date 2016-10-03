@@ -55,7 +55,6 @@ class CorrelationFunction(Metric):
             self.nzbins = 1
             self.zbins = None
 
-        print('zbins: {0}'.format(self.zbins))
 
         if (mbins is None) & (self.catalog_type == ['galaxycatalog']):
             self.mbins = np.array([-30, 0])
@@ -66,14 +65,11 @@ class CorrelationFunction(Metric):
             self.mbins = mbins
 
         self.nmbins = len(self.mbins)-1
-        print('nmbins: {0}'.format(self.nmbins))
 
         if inv_m:
             self.minds = np.arange(self.nmbins)[::-1]
         else:
             self.minds = np.arange(self.nmbins)
-
-        print('self.minds: {0}'.format(self.minds))
 
         self.same_rand = same_rand
         self.inv_m = inv_m
@@ -92,8 +88,6 @@ class CorrelationFunction(Metric):
         else:
             self.mkey = 'halomass'
             self.aschema = 'halohalo'
-
-        print('mkey: {0}'.format(self.mkey))
 
         self.mcutind = mcutind
 
@@ -501,9 +495,6 @@ class WPrpLightcone(CorrelationFunction):
 
             for li, j in enumerate(self.minds):
                 print('Finding luminosity indices')
-                print('self.mbins[j]: {0}'.format(self.mbins[j]))
-                print('self.mbins[j+1]: {0}'.format(self.mbins[j+1]))
-
 
                 if self.mcutind is not None:
                     lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
@@ -715,8 +706,6 @@ class WPrpLightcone(CorrelationFunction):
             for j, z in enumerate(usez):
                 for k, c in enumerate(usecolors):
                     ye = np.sqrt(self.varwprp[:,c,l,z])
-                    print(len(rmean))
-                    print(self.wprp[:,c,l,z].shape)
                     l1 = ax[j][i].plot(rmean, self.wprp[:,c,l,z], **kwargs)
                     ax[j][i].fill_between(rmean, self.wprp[:,c,l,z]-ye, self.wprp[:,c,l,z]+ye, alpha=0.5, **kwargs)
 
@@ -1000,11 +989,11 @@ class TabulatedWPrpLightcone(WPrpLightcone):
         print(self.fname)
         tab = np.loadtxt(self.fname)
         print(tab)
-        self.wprp = np.zeros((tab.shape[0], 1, self.ncuts, 1))
-        self.varwprp = np.zeros((tab.shape[0], 1, self.ncuts, 1))
+        self.wprp = np.zeros((tab.shape[0], self.ncuts, 1, 1))
+        self.varwprp = np.zeros((tab.shape[0], self.ncuts, 1, 1))
         self.rmean = tab[:,self.rmeancol]
-        self.wprp[:,0,:,0] = tab[:,self.wprpcol:self.wprpcol+self.ncuts]
-        self.varwprp[:,0,:,0] = tab[:,self.wprperr:self.wprperr+self.ncuts]
+        self.wprp[:,:,0,0] = tab[:,self.wprpcol:self.wprpcol+self.ncuts]
+        self.varwprp[:,:,0,0] = tab[:,self.wprperr:self.wprperr+self.ncuts]
 
 
 class GalaxyRadialProfileBCC(Metric):

@@ -464,7 +464,7 @@ class DESGoldCatalog(GalaxyCatalog):
                                                    ('FLUX_AUTO_I',['auto']),
                                                    ('FLUX_AUTO_Z',['auto'])]),
                              'modest':OrderedDict([('MODEST_CLASS',['basic'])]),
-                             'badregion':OrderedDict([('BADFLAG',['basic'])]),
+                             'badregion':OrderedDict([('BADREGION',['badregion'])]),
                              'polar_ang':OrderedDict([('DEC',['basic'])]),
                              'azim_ang':OrderedDict([('RA',['basic'])]),
                              'redshift':OrderedDict([('BPZ_MC',['photoz'])])}

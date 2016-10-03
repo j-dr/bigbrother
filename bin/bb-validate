@@ -53,6 +53,7 @@ if __name__=="__main__":
                     dill.dump(mstry, fp)
 
     else:
+        noplot = False
         if 'outdir' in cfg['Validate'].keys():
             with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'],
                         cfg['Ministry']['ministry_name']), 'w') as fp:
