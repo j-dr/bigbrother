@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
-from .healpix_utils import PixMetric
+from .healpix_utils import PixMetric, SubBoxMetric
 from astropy.cosmology import FlatLambdaCDM
 import units
 import numpy as np
@@ -111,6 +111,9 @@ class BaseCatalog:
             for b in ubox:
                 fgrps.append([i for i in range(len(fsbox)) if b in fsbox[i]])
 
+            print('Unique subboxes: {0}'.format(ubox))
+            print('File groups: {0}'.format(fgrps))
+
             return ubox, fgrps
 
 
@@ -143,7 +146,7 @@ class BaseCatalog:
 
         return mapunit
 
-    def getFileSubBoxes(nbox, ct):
+    def getFileSubBoxes(self, nbox, ct):
 
         fbox = []
 
@@ -243,7 +246,7 @@ class BaseCatalog:
             yi = (self.nbox * tp[:,1]) // self.ministry.boxsize
             zi = (self.nbox * tp[:,2]) // self.ministry.boxsize
 
-            bidx = xi * self.nbox**2 + yi * self.nbox * zi
+            bidx = xi * self.nbox**2 + yi * self.nbox + zi
 
             pidx = bidx==mappable.grp
 

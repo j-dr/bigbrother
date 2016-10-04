@@ -776,7 +776,7 @@ class ColorColor(Metric):
 
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usecolors=None, **kwargs):
+                  usecolors=None, colors=None, **kwargs):
 
         if hasattr(self, 'magmean'):
             mclr = self.mclr
@@ -800,8 +800,8 @@ class ColorColor(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,j].T, 10,
-                                        **kwargs)
+                l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,j].T, 5,
+                                        colors=colors, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -824,7 +824,7 @@ class ColorColor(Metric):
         return f, ax, l1
 
     def compare(self, othermetrics, plotname=None, usecolors=None,
-                  labels=None, **kwargs):
+                  labels=None, colors=None, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -836,19 +836,26 @@ class ColorColor(Metric):
                 assert(len(usecolors)==len(tocompare))
         else:
             usecolors = [None]*len(tocompare)
+            
+        if colors is None:
+            colors = [None]*len(tocompare)
+        else:
+            assert(len(colors)==len(tocompare))
 
         if labels is None:
             labels = [None] * len(tocompare)
+
+            
 
         lines = []
 
         for i, m in enumerate(tocompare):
             if i==0:
                 f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
-                                    **kwargs)
+                                    colors=colors[i], **kwargs)
             else:
                 f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
-                                        ax=ax, f=f, **kwargs)
+                                        ax=ax, f=f, colors=colors[i],**kwargs)
 
             lines.append(l)
 

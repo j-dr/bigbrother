@@ -476,8 +476,8 @@ class GMetric(Metric):
             sax.spines['left'].set_alpha(0.0)
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'%s' % xlabel, labelpad=20)
-            sax.set_ylabel(r'%s' % ylabel, labelpad=20)
+            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_ylabel(r'%s' % ylabel, labelpad=40)
             #plt.tight_layout()
 
         if (plotname is not None) & (not compare):

@@ -15,7 +15,7 @@ except:
 
 try:
     import Corrfunc._countpairs_mocks as countpairs_mocks
-    import Corrfunc._countpairs as countpairs
+    import Corrfunc.theory.DDrppi as DDrppi
     hascorrfunc = True
 except:
     hascorrfunc = False
@@ -71,6 +71,8 @@ class CorrelationFunction(Metric):
         else:
             self.minds = np.arange(self.nmbins)
 
+        self.rand_ind = 0
+
         self.same_rand = same_rand
         self.inv_m = inv_m
         self.randname = randname
@@ -104,6 +106,26 @@ class CorrelationFunction(Metric):
             rand = self.readAngularRandoms(self.randname, len(aza), z=z)
 
         return rand
+
+    def getCartesianRandoms(self, x, y, z, rand_fact=10):
+        
+        rsize = len(x)*rand_fact
+        rdtype = np.dtype([('px', np.float64), ('py', np.float64),
+                           ('pz', np.float64)])
+
+        gr = np.zeros(rsize, dtype=rdtype)
+        gr['px'] = np.random.uniform(low=np.min(x),
+                                     high=np.max(x),
+                                     size=rsize)
+        gr['py'] = np.random.uniform(low=np.min(y),
+                                     high=np.max(y),
+                                     size=rsize)
+        gr['pz'] = np.random.uniform(low=np.min(z),
+                                     high=np.max(z),
+                                     size=rsize)
+
+        return gr
+
 
     def generateAngularRandoms(self, aza, pla, z=None, urand_factor=20,
                                rand_factor=10, nside=8, nest=True):
@@ -711,6 +733,10 @@ class WPrpLightcone(CorrelationFunction):
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -718,8 +744,8 @@ class WPrpLightcone(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$w_{p}(r_{p})$')
-            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=20)
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$',labelpad=20)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -782,7 +808,7 @@ class WPrpSnapshot(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  **kwargs):
+                  rsd=False, **kwargs):
 
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -820,7 +846,8 @@ class WPrpSnapshot(CorrelationFunction):
             self.pimax = pimax
 
         self.writeCorrfuncBinFile(self.rbins)
-        #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
+
+        self.rsd = rsd
 
         self.mapkeys = ['px', 'py', 'pz', self.mkey]
         self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
@@ -829,60 +856,235 @@ class WPrpSnapshot(CorrelationFunction):
         else:
             self.unitmap[self.mkey] = 'msunh'
 
+        if self.rsd:
+            self.mapkeys.append('velocity')
+            self.unitmap['velocity'] = 'kms'
+
+        self.nd = None
+        self.nr = None
+        self.dd = None
+        self.dr = None
+        self.rr = None
 
 
+    def addRSD(self, mapunit):
+
+        vr = mapunit['velocity'][:,2]
+
+        return vr + mapunit['pz']
+
+
+    @jackknifeMap
     def map(self, mapunit):
 
         if not hascorrfunc:
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
-        if not hasattr(self, 'wthetaj'):
-            self.wprp = np.zeros((self.nrbins, self.nmbins))
+        if self.dd is None:
+            self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
+            self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
+            self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
+            self.nd = np.zeros((self.njack, self.nmbins))
+            self.nr = np.zeros((self.njack, self.nmbins))
 
-        for li, j in enumerate(self.minds):
+
+        if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
+            mu = {}
+            mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float64)
+            mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float64)
+            mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float64)
+
+            mu['px'][:] = mapunit['px'][:]
+            mu['py'][:] = mapunit['py'][:]
+            mu['pz'][:] = mapunit['pz'][:]
+            mu[self.mkey] = mapunit[self.mkey]
+
+            if self.rsd:
+                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
+                mu['velocity'][:] = mapunit['velocity'][:]
+        else:
+            mu = mapunit
+
+        if self.rsd:
+            cz = self.addRSD(mu)
+        else:
+            cz = mu['pz']
+
+        for li, i in enumerate(self.minds):
             print('Finding luminosity indices')
-            lidx = (self.mbins[j] <= mapunit['luminosity'][:,self.mcutind]) & (mapunit['luminosity'][:,self.mcutind] < self.mbins[j+1])
+            if self.mcutind is not None:
+                lidx = (self.mbins[i] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[i+1])
+            else:
+                lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
 
-            if not lidx.any():
-                print("No galaxies in magnitude bin [{0},{1})".format(self.mbins[j], self.mbins[j+1]))
-                continue
+            if (li==self.rand_ind) | (not self.same_rand):
+                print('Generating Randoms')
+                if len(cz[lidx])==0:
+                    self.rand_ind+=1
+                    continue
 
-            wprp = countpairs.countpairs_wp(self.ministry.boxsize,
-                                        self.pimax,
-                                        1,
-                                        self.binfilename,
-                                        mapunit['px'][lidx],
-                                        mapunit['py'][lidx],
-                                        mapunit['pz'][lidx])
+                rands = self.getCartesianRandoms(mu['px'][lidx], mu['py'][lidx], cz[lidx])
 
-            self.wprp[:,li] = np.array([wprp[k][3] for k in range(self.nrbins)])
+            self.nd[self.jcount,i] = len(cz[lidx])
+            self.nr[self.jcount,i] = len(rands)
+
+            ddout = DDrppi(1,1,self.pimax,
+                              self.binfilename,
+                              mapunit['px'][lidx],
+                              mapunit['py'][lidx],
+                              mapunit['pz'][lidx],
+                              False,
+                              mapunit['px'][lidx],
+                              mapunit['py'][lidx],
+                              mapunit['pz'][lidx])
+            
+            ddout = np.array(ddout[0]).reshape(-1,int(self.pimax),5)
+            self.dd[self.jcount,:,:,k,j,i] = ddout[:,:,4]
+
+            drout = DDrppi(0,1,self.pimax,
+                              self.binfilename,
+                              mapunit['px'][lidx],
+                              mapunit['py'][lidx],
+                              mapunit['pz'][lidx],
+                              False,
+                              rand['px'],
+                              rand['py'],
+                              rand['pz'])
+
+            
+            drout = np.array(drout[0]).reshape(-1,int(self.pimax),5)
+            self.dr[self.jcount,:,:,k,j,i] = drout[:,:,4]
+            if (li==0) | (not self.same_rand):
+                rrout = DDrppi(1,1,self.pimax,
+                               self.binfilename,
+                               rand['px'],
+                               rand['py'],
+                               rand['pz'],
+                               False,
+                               rand['px'],
+                               rand['py'],
+                               rand['pz'])
+                rrout = np.array(rrout[0]).reshape(-1,int(self.pimax),5)
+
+            self.rr[self.jcount,:,:,k,j,i] = rrout[:,:,4]
+
 
     def reduce(self, rank=None, comm=None):
-        pass
+
+        if rank is not None:
+            gnd = comm.gather(self.nd, root=0)
+            gnr = comm.gather(self.nr, root=0)
+            gdd = comm.gather(self.dd, root=0)
+            gdr = comm.gather(self.dr, root=0)
+            grr = comm.gather(self.rr, root=0)
+
+
+            if rank==0:
+                ndshape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
+                nrshape = [self.nr.shape[i] for i in range(len(self.nr.shape))]
+                ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+                drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
+                rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+
+                ndshape.insert(1,1)
+                ndshape.insert(1,1)
+                nrshape.insert(1,1)
+                nrshape.insert(1,1)
+
+                ndshape[0] = self.njacktot
+                nrshape[0] = self.njacktot
+                ddshape[0] = self.njacktot
+                drshape[0] = self.njacktot
+                rrshape[0] = self.njacktot
+
+                self.nd = np.zeros(ndshape)
+                self.nr = np.zeros(nrshape)
+                self.dd = np.zeros(ddshape)
+                self.dr = np.zeros(drshape)
+                self.rr = np.zeros(rrshape)
+
+                jc = 0
+                for i, g in enumerate(gnd):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.nd[jc:jc+nj,0,0,:] = g
+                    self.nr[jc:jc+nj,0,0,:] = gnr[i]
+                    self.dd[jc:jc+nj,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:] = gdr[i]
+                    self.rr[jc:jc+nj,:,:,:] = grr[i]
+
+                    jc += nj
+
+                self.jwprp = np.zeros(self.dd.shape)
+
+                self.jnd = self.jackknife(self.nd, reduce_jk=False)
+                self.jnr = self.jackknife(self.nr, reduce_jk=False)
+                self.jdd = self.jackknife(self.dd, reduce_jk=False)
+                self.jdr = self.jackknife(self.dr, reduce_jk=False)
+                self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+                fnorm = self.jnr / self.jnd
+
+                self.jwprppi = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
+                self.jwprp = 2 * np.sum(self.jwprppi, axis=2)
+
+                self.wprppi = np.sum(self.jwprppi, axis=0) / self.njacktot
+                self.wprp = np.sum(self.jwprp, axis=0) / self.njacktot
+
+                self.varwprppi = np.sum((self.jwprppi - self.wprppi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+                self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+        else:
+            self.jwprp = np.zeros(self.dd.shape)
+            self.jnd = self.jnd.reshape(self.njacktot, 1, 1, self.nmbins)
+            self.jnr = self.jnr.reshape(self.njacktot, 1, 1, self.nmbins)
+
+            self.jnd = self.jackknife(self.nd, reduce_jk=False)
+            self.jnr = self.jackknife(self.nr, reduce_jk=False)
+            self.jdd = self.jackknife(self.dd, reduce_jk=False)
+            self.jdr = self.jackknife(self.dr, reduce_jk=False)
+            self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+            fnorm = self.jnr / self.jnd
+
+            self.jwprppi = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
+            self.jwprp = 2 * np.sum(self.jwprppi, axis=2)
+
+            self.wprppi = np.sum(self.jwprppi, axis=0) / self.njacktot
+            self.wprp = np.sum(self.jwprp, axis=0) / self.njacktot
+
+            self.varwprppi = np.sum((self.jwprppi - self.wprppi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+            self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
-                    usez=None, compare=False, **kwargs):
+                    compare=False, **kwargs):
 
         if usecols is None:
             usecols = range(self.nmbins)
 
-        if usez is None:
-            usez = [0]
-
         if f is None:
-            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+            f, ax = plt.subplots(len(usecols), sharex=True,
                                     sharey=True, figsize=(8,8))
             ax = np.array(ax)
-            ax = ax.reshape(len(usez), len(usecols))
+            ax = ax.reshape(len(usecols))
             newaxes = True
         else:
             newaxes = False
 
-        rmeans = (self.rbins[1:]-self.rbins[:-1]) / 2
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
 
         for i, l in enumerate(usecols):
-            l1 = ax[usez[0]][i].loglog(rmeans, self.wprp[:,i])
+            ye = np.sqrt(self.varwprp[:,l])
+            l1 = ax[i].plot(rmean, self.wprp[:,l], **kwargs)
+            ax[i].fill_between(rmean, self.wprp[:,l]-ye, self.wprp[:,l]+ye, alpha=0.5, **kwargs)
+
+            ax[i].set_xscale('log')
+            ax[i].set_yscale('log')
+
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -899,11 +1101,11 @@ class WPrpSnapshot(CorrelationFunction):
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
 
-        return f, ax, l1
+        return f, ax, l1[0]
 
 
     def compare(self, othermetrics, plotname=None, usecols=None,
-                 labels=None, usez=None, **kwargs):
+                 usez=None, labels=None, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -916,15 +1118,6 @@ class WPrpSnapshot(CorrelationFunction):
         else:
             usecols = [None]*len(tocompare)
 
-        if usez is not None:
-            if not hasattr(usez[0], '__iter__'):
-                usez = [usez]*len(tocompare)
-            else:
-                assert(len(usez)==len(tocompare))
-        else:
-            usez = [None]*len(tocompare)
-
-
         if labels is None:
             labels = [None]*len(tocompare)
 
@@ -934,11 +1127,13 @@ class WPrpSnapshot(CorrelationFunction):
             if usecols[i] is not None:
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
-                f, ax, l1 = m.visualize(usecols=usecols[i], compare=True,
-                                    **kwargs)
+                f, ax, l1 = m.visualize(usecols=usecols[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          **kwargs)
             else:
-                f, ax, l1 = m.visualize(usecols=usecols[i], compare=True,
-                                    f=f, ax=ax, **kwargs)
+                f, ax, l1 = m.visualize(usecols=usecols[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, **kwargs)
             lines.append(l1)
 
         if labels[0]!=None:
@@ -948,6 +1143,7 @@ class WPrpSnapshot(CorrelationFunction):
             plt.savefig(plotname)
 
         return f, ax
+
 
 class TabulatedWPrpLightcone(WPrpLightcone):
 
@@ -1032,10 +1228,12 @@ class GalaxyRadialProfileBCC(Metric):
         self.mapkeys = ['luminosity', 'redshift', 'rhalo']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
+        self.rcounts = None
+
     @jackknifeMap
     def map(self, mapunit):
 
-        if not hasattr(self, 'rcounts'):
+        if self.rcounts is None:
             self.rcounts = np.zeros((self.njack, self.nrbins,
                                     self.nlumbins,
                                     self.nzbins))
@@ -1064,6 +1262,7 @@ class GalaxyRadialProfileBCC(Metric):
                 #iterate over gathered arrays, filling in arrays of rank==0
                 #process
                 for g in gdata:
+                    if g is None: continue
                     nj = g.shape[0]
                     self.rcounts[jc:jc+nj,:,:,:] = g
 

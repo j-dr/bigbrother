@@ -67,11 +67,17 @@ def parseConfig(cfg):
 
     replaceNoneStr(cfg)
 
+
     if 'Ministry' in cfg.keys():
         mcfg = cfg['Ministry']
+
+        if 'boxsize' not in mcfg.keys():
+            mcfg['boxsize'] = None
+
         try:
             mstry = Ministry(mcfg['omegam'], mcfg['omegal'], mcfg['h'],
-                             mcfg['minz'], mcfg['maxz'], mcfg['area'])
+                             mcfg['minz'], mcfg['maxz'], area=mcfg['area'],
+                             boxsize=mcfg['boxsize'])
         except KeyError as e:
             print('One of the necessary keys for Ministry is missing')
             print(e)

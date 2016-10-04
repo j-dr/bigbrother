@@ -231,8 +231,8 @@ class DNDz(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$\frac{dN}{dZ}\, [deg^{-2}]$')
-            sax.set_xlabel(r'$z$')
+            sax.set_ylabel(r'$\frac{dN}{dZ}\, [deg^{-2}]$', labelpad=40)
+            sax.set_xlabel(r'$z$', labelpad=40)
 
         for i, c in enumerate(usecuts):
             if onepanel:

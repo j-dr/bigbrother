@@ -772,9 +772,8 @@ class Ministry:
 
     def maskMappable(self, mapunit, mappable):
 
-        tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
-
         if mappable.jtype == 'healpix':
+            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
 
@@ -801,6 +800,53 @@ class Ministry:
 
             mapunit = mu
             
+            return mapunit
+
+        elif mappable.jtype == 'subbox':
+            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),3))
+            if hasattr(self, 'galaxycatalog'):
+                if 'px' in self.galaxycatalog.unitmap.keys():
+                    um = self.galaxycatalog.unitmap
+                        
+            elif hasattr(self, 'halocatalog'):
+                if 'px' in self.halocatalog.unitmap.keys():
+                    um = self.halocatalog.unitmap
+
+            print('Masking {0} using subbox {1}'.format(mappable.name, mappable.grp))
+
+            for i, key in enumerate(['px', 'py', 'pz']):
+                if um[key] != 'mpch':
+                    try:
+                        conversion = getattr(self, '{0}2{1}'.format(um[key],'mpch'))
+                    except:
+                        conversion = getattr(units, '{0}2{1}'.format(um[key],'mpch'))
+
+                    tp[:,i] = conversion(mapunit, key)
+                else:
+                    tp[:,i] = mapunit[key]
+
+            xi = (mappable.nbox * tp[:,0]) // self.boxsize
+            yi = (mappable.nbox * tp[:,1]) // self.boxsize
+            zi = (mappable.nbox * tp[:,2]) // self.boxsize
+
+            print(mappable.nbox)
+            print(xi)
+            print(yi)
+            print(zi)
+
+            bidx = xi * mappable.nbox**2 + yi * mappable.nbox + zi
+
+            print(bidx)
+
+            pidx = bidx==mappable.grp
+
+            print(pidx)
+
+            mu = {}
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][pidx]
+
+            mapunit = mu
             return mapunit
 
         elif mappable.jtype is None:
@@ -909,7 +955,6 @@ class Ministry:
 
                 mapunit = self.readMappable(mappable, fm)
 
-
 #                if (sbz & (ms[0].aschema != 'galaxygalaxy')
 #                  & (ms[0].aschema != 'halohalo')):
 #                    self.sortMappableByZ(mapunit, fm, [])
@@ -938,6 +983,12 @@ class Ministry:
                     mapunit = self.filter(mapunit)
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
+                elif ((ms[0].aschema == 'galaxygalaxy')
+                  | (ms[0].aschema == 'halohalo')):
+                    mapunit = self.dcListToDict(mapunit)
+                    mapunit = self.maskMappable(mapunit, mappable)                    
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
 
                 for m in ms:
                     print('*****{0}*****'.format(m.__class__.__name__))

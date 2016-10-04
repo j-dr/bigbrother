@@ -82,18 +82,21 @@ class SubBoxMetric(Metric):
         self.nbox = nbox
         self.lbox = self.ministry.boxsize
 
-        self.mapkeys = ['x', 'y', 'z']
+        self.mapkeys = ['px', 'py', 'pz']
         self.aschema = 'singleonly'
-        self.unitmap = {'x':'mpch', 'y':'mpch', 'z':'mpch'}
+        self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
 
 
     def map(self, mapunit):
 
-        xi = (self.nbox * mapunit['x']) // self.lbox
-        yi = (self.nbox * mapunit['y']) // self.lbox
-        zi = (self.nbox * mapunit['z']) // self.lbox
+        print('self.nbox: {0}'.format(self.nbox))
+        print('self.lbox: {0}'.format(self.lbox))
 
-        bidx = xi * self.nbox**2 + yi * self.nbox * zi
+        xi = (self.nbox * mapunit['px']) // self.lbox
+        yi = (self.nbox * mapunit['py']) // self.lbox
+        zi = (self.nbox * mapunit['pz']) // self.lbox
+
+        bidx = xi * self.nbox**2 + yi * self.nbox + zi
 
         return np.unique(bidx)
 
