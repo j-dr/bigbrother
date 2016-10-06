@@ -110,8 +110,8 @@ class CorrelationFunction(Metric):
     def getCartesianRandoms(self, x, y, z, rand_fact=10):
         
         rsize = len(x)*rand_fact
-        rdtype = np.dtype([('px', np.float64), ('py', np.float64),
-                           ('pz', np.float64)])
+        rdtype = np.dtype([('px', np.float32), ('py', np.float32),
+                           ('pz', np.float32)])
 
         gr = np.zeros(rsize, dtype=rdtype)
         gr['px'] = np.random.uniform(low=np.min(x),
@@ -886,13 +886,14 @@ class WPrpSnapshot(CorrelationFunction):
             self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
             self.nd = np.zeros((self.njack, self.nmbins))
             self.nr = np.zeros((self.njack, self.nmbins))
-
+            
+        print(mapunit['px'].dtype)
 
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
             mu = {}
-            mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float64)
-            mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float64)
-            mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float64)
+            mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float32)
+            mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float32)
+            mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float32)
 
             mu['px'][:] = mapunit['px'][:]
             mu['py'][:] = mapunit['py'][:]
@@ -900,7 +901,7 @@ class WPrpSnapshot(CorrelationFunction):
             mu[self.mkey] = mapunit[self.mkey]
 
             if self.rsd:
-                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
+                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
                 mu['velocity'][:] = mapunit['velocity'][:]
         else:
             mu = mapunit
@@ -928,45 +929,62 @@ class WPrpSnapshot(CorrelationFunction):
             self.nd[self.jcount,i] = len(cz[lidx])
             self.nr[self.jcount,i] = len(rands)
 
+            print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,i]))
+            print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,i]))
+
+            #data data
+            print('calculating data data pairs')
+            sys.stdout.flush()
+
             ddout = DDrppi(1,1,self.pimax,
                               self.binfilename,
-                              mapunit['px'][lidx],
-                              mapunit['py'][lidx],
-                              mapunit['pz'][lidx],
+                              mu['px'][lidx],
+                              mu['py'][lidx],
+                              mu['pz'][lidx],
                               False,
-                              mapunit['px'][lidx],
-                              mapunit['py'][lidx],
-                              mapunit['pz'][lidx])
-            
-            ddout = np.array(ddout[0]).reshape(-1,int(self.pimax),5)
-            self.dd[self.jcount,:,:,k,j,i] = ddout[:,:,4]
+                              mu['px'][lidx],
+                              mu['py'][lidx],
+                              mu['pz'][lidx])
+
+            ddout = np.array(ddout)
+            ddout = ddout.reshape(-1,int(self.pimax))
+            self.dd[self.jcount,:,:,i] = ddout['npairs']
+
+            print('calculating data random pairs')
+            sys.stdout.flush()
 
             drout = DDrppi(0,1,self.pimax,
                               self.binfilename,
-                              mapunit['px'][lidx],
-                              mapunit['py'][lidx],
-                              mapunit['pz'][lidx],
+                              mu['px'][lidx],
+                              mu['py'][lidx],
+                              mu['pz'][lidx],
                               False,
-                              rand['px'],
-                              rand['py'],
-                              rand['pz'])
+                              rands['px'],
+                              rands['py'],
+                              rands['pz'])
 
-            
-            drout = np.array(drout[0]).reshape(-1,int(self.pimax),5)
-            self.dr[self.jcount,:,:,k,j,i] = drout[:,:,4]
+            drout = np.array(drout)
+            drout = drout.reshape(-1,int(self.pimax))
+            self.dr[self.jcount,:,:,i] = drout['npairs']
+
+            print('calculating random random pairs')
+            sys.stdout.flush()
+
             if (li==0) | (not self.same_rand):
                 rrout = DDrppi(1,1,self.pimax,
                                self.binfilename,
-                               rand['px'],
-                               rand['py'],
-                               rand['pz'],
+                               rands['px'],
+                               rands['py'],
+                               rands['pz'],
                                False,
-                               rand['px'],
-                               rand['py'],
-                               rand['pz'])
-                rrout = np.array(rrout[0]).reshape(-1,int(self.pimax),5)
+                               rands['px'],
+                               rands['py'],
+                               rands['pz'])
 
-            self.rr[self.jcount,:,:,k,j,i] = rrout[:,:,4]
+                rrout = np.array(rrout)
+                rrout = rrout.reshape(-1,int(self.pimax))
+
+            self.rr[self.jcount,:,:,i] = rrout['npairs']
 
 
     def reduce(self, rank=None, comm=None):
@@ -1035,8 +1053,8 @@ class WPrpSnapshot(CorrelationFunction):
                 self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
         else:
             self.jwprp = np.zeros(self.dd.shape)
-            self.jnd = self.jnd.reshape(self.njacktot, 1, 1, self.nmbins)
-            self.jnr = self.jnr.reshape(self.njacktot, 1, 1, self.nmbins)
+            self.nd = self.nd.reshape(self.njacktot, 1, 1, self.nmbins)
+            self.nr = self.nr.reshape(self.njacktot, 1, 1, self.nmbins)
 
             self.jnd = self.jackknife(self.nd, reduce_jk=False)
             self.jnr = self.jackknife(self.nr, reduce_jk=False)
@@ -1055,9 +1073,13 @@ class WPrpSnapshot(CorrelationFunction):
             self.varwprppi = np.sum((self.jwprppi - self.wprppi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
             self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
+        
+        self.wprp = self.wprp.reshape(-1, 1, self.nmbins, 1)
+        self.varwprp = self.varwprp.reshape(-1, 1, self.nmbins, 1)
+
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
-                    compare=False, **kwargs):
+                    usez=None, compare=False, **kwargs):
 
         if usecols is None:
             usecols = range(self.nmbins)
@@ -1066,7 +1088,7 @@ class WPrpSnapshot(CorrelationFunction):
             f, ax = plt.subplots(len(usecols), sharex=True,
                                     sharey=True, figsize=(8,8))
             ax = np.array(ax)
-            ax = ax.reshape(len(usecols))
+            ax = ax.reshape(1, len(usecols))
             newaxes = True
         else:
             newaxes = False
@@ -1078,13 +1100,12 @@ class WPrpSnapshot(CorrelationFunction):
             rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
 
         for i, l in enumerate(usecols):
-            ye = np.sqrt(self.varwprp[:,l])
-            l1 = ax[i].plot(rmean, self.wprp[:,l], **kwargs)
-            ax[i].fill_between(rmean, self.wprp[:,l]-ye, self.wprp[:,l]+ye, alpha=0.5, **kwargs)
+            ye = np.sqrt(self.varwprp[:,0,l,0])
+            l1 = ax[0][i].plot(rmean, self.wprp[:,0,l,0], **kwargs)
+            ax[0][i].fill_between(rmean, self.wprp[:,0,l,0]-ye, self.wprp[:,0,l,0]+ye, alpha=0.5, **kwargs)
 
-            ax[i].set_xscale('log')
-            ax[i].set_yscale('log')
-
+            ax[0][i].set_xscale('log')
+            ax[0][i].set_yscale('log')
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -1118,6 +1139,15 @@ class WPrpSnapshot(CorrelationFunction):
         else:
             usecols = [None]*len(tocompare)
 
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
         if labels is None:
             labels = [None]*len(tocompare)
 
@@ -1127,11 +1157,11 @@ class WPrpSnapshot(CorrelationFunction):
             if usecols[i] is not None:
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
-                f, ax, l1 = m.visualize(usecols=usecols[i],
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
                                           compare=True, color=Metric._color_list[i],
                                           **kwargs)
             else:
-                f, ax, l1 = m.visualize(usecols=usecols[i],
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
                                           compare=True, color=Metric._color_list[i],
                                           f=f, ax=ax, **kwargs)
             lines.append(l1)
