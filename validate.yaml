@@ -1,0 +1,70 @@
+#example configuration file for BCC validation
+#general information
+Ministry  :
+  omegam  : 0.286
+  omegal  : 0.714
+  h       : 0.7
+  minz    : 0.0
+  maxz    : 2.0
+  area    : 10000
+  ministry_name : "Buzzard-1_v1.2"
+  metrics :
+      WPrpLightcone :
+          mbins  : np.array([-20, -19])
+          zbins    : np.array([0.0268, 0.0641])
+          pimax    : 60.0
+          color_cut: False
+          same_rand: True
+          tag : zehavi2021
+          rsd : False
+          jtype : healpix
+
+#galaxy catalog information
+GalaxyCatalog  :
+  catalog_type  : BCC
+  jtype         : healpix
+  filestruct    :
+    gtruth         :  /home/jderose/uscratch/BCC/Chinchilla/Herd/Chinchilla-1/addgalspostprocess/truth/Chinchilla*fits
+  fieldmap      :
+    luminosity  :
+      - AMAG : [ gtruth ]
+    appmag      :
+      - OMAG : [ gtruth ]
+    azim_ang    :
+      - RA   : [ gtruth ]
+    polar_ang   :
+      - DEC  : [ gtruth ]
+    redshift    :
+      - Z    : [ gtruth ]
+    central    :
+      - CENTRAL : [ gtruth ]
+    halomass    :
+      - M200    : [ gtruth ]
+    rhalo       :
+      - RHALO   : [ gtruth ]
+    haloid      :
+      - HALOID  : [ gtruth ]
+  unitmap  :
+    azim_ang  : ra
+    polar_ang : dec
+    appmag    : mag
+    luminosity: mag
+    halomass  : msunh
+  filters  :
+    - Appmag
+  zbins : np.linspace(0, 2.0, 6)
+
+#halo catalog information
+HaloCatalog  :
+  catalog_type  : BCC
+  jtype         : healpix
+  filestruct    :
+    htruth       :  /home/jderose/uscratch/BCC/Chinchilla/Herd/Chinchilla-1/addgalspostprocess/*halos.*.fits
+  zbins : np.linspace(0, 2.0, 6)
+
+#Some configuration parameters for running validations
+Validate  :
+  parallel : True
+  nmap     : 15
+  outdir : /home/jderose/projects/SkyFactory/chinchilla-herd/Chinchilla-1/validation/
+
