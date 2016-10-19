@@ -4,16 +4,22 @@ A package to run distributed validation metrics over large mock galaxy catalogs 
 
 ## Dependencies
 
-numpy
-scipy
-astropy
-matplotlib
-fitsio
-corrfunc
-healpy
-cosmocalc
-helpers
-yaml
+* numpy
+* scipy
+* astropy
+* matplotlib
+* fitsio
+* corrfunc
+* healpy
+* cosmocalc
+* helpers
+* yaml
+
+## Installation
+For now the only way to install this code is:
+``git clone https://github.com/j-dr/bigbrother.git``
+``cd bigbrother``
+``python setup.py install (--user)``
 
 ## Some Features
 
