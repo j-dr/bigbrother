@@ -16,10 +16,11 @@ A package to run distributed validation metrics over large mock galaxy catalogs 
 * yaml
 
 ## Installation
-For now the only way to install this code is:
+For now the only way to install this code is:   
 ``git clone https://github.com/j-dr/bigbrother.git``   
 ``cd bigbrother``   
 ``python setup.py install (--user)``
+
 
 
 ## Some Features
