@@ -108,7 +108,7 @@ class CorrelationFunction(Metric):
         return rand
 
     def getCartesianRandoms(self, x, y, z, rand_fact=10):
-        
+
         rsize = len(x)*rand_fact
         rdtype = np.dtype([('px', np.float32), ('py', np.float32),
                            ('pz', np.float32)])
@@ -886,7 +886,7 @@ class WPrpSnapshot(CorrelationFunction):
             self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
             self.nd = np.zeros((self.njack, self.nmbins))
             self.nr = np.zeros((self.njack, self.nmbins))
-            
+
         print(mapunit['px'].dtype)
 
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
@@ -932,6 +932,7 @@ class WPrpSnapshot(CorrelationFunction):
             print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,i]))
             print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,i]))
 
+            if self.nd[self.jcount,i]<2: continue
             #data data
             print('calculating data data pairs')
             sys.stdout.flush()
@@ -1073,7 +1074,7 @@ class WPrpSnapshot(CorrelationFunction):
             self.varwprppi = np.sum((self.jwprppi - self.wprppi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
             self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
-        
+
         self.wprp = self.wprp.reshape(-1, 1, self.nmbins, 1)
         self.varwprp = self.varwprp.reshape(-1, 1, self.nmbins, 1)
 
