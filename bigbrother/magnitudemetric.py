@@ -149,7 +149,7 @@ class LuminosityFunction(MagnitudeMetric):
             if rank==0:
                 gshape = [self.lumcounts.shape[i] for i in range(len(self.lumcounts.shape))]
                 gshape[0] = self.njacktot
-                
+
                 self.lumcounts = np.zeros(gshape)
                 jc = 0
                 #iterate over gathered arrays, filling in arrays of rank==0
@@ -279,7 +279,7 @@ class MagCounts(MagnitudeMetric):
             if rank==0:
                 gshape = [self.mc.shape[i] for i in range(len(self.mc.shape))]
                 gshape[0] = self.njacktot
-                
+
                 self.mc = np.zeros(gshape)
                 jc = 0
                 for g in gdata:
@@ -344,25 +344,37 @@ class LcenMass(Metric):
     Central galaxy luminosity - halo virial mass relation.
     """
     def __init__(self, ministry, zbins=None, massbins=None,
-                 catalog_type=['galaxycatalog'], tag=None, **kwargs):
+                 catalog_type=['galaxycatalog'], tag=None, lightcone=True,
+                 **kwargs):
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
-        if zbins is None:
-            self.zbins = [0.0, 0.2]
-        else:
-            self.zbins = zbins
-            self.zbins = np.array(self.zbins)
+        self.lightcone = lightcone
 
-        self.nzbins = len(self.zbins)-1
+        if self.lightcone:
+            if zbins is None:
+                self.zbins = [self.ministry.minz, self.ministry.maxz]
+            else:
+                self.zbins = zbins
+                self.zbins = np.array(self.zbins)
+
+            self.nzbins = len(self.zbins)-1
+
+        else:
+            self.zbins = None
+            self.nzbins = 1
 
         if massbins is None:
             self.massbins = np.logspace(12, 15, 20)
         else:
             self.massbins = massbins
 
-        self.mapkeys = ['luminosity', 'redshift', 'central', 'halomass']
+        self.mapkeys = ['luminosity', 'central', 'halomass']
         self.aschema = 'galaxyonly'
         self.unitmap = {'luminosity':'mag', 'halomass':'msunh'}
+
+        if self.lightcone:
+            self.mapkeys.append('redshift')
+            self.unitmap['redshift'] = 'z'
 
         self.totlum   = None
         self.bincount = None
@@ -384,15 +396,23 @@ class LcenMass(Metric):
             self.bincount = np.zeros((self.njack, len(self.massbins)-1,
                                         self.nbands, len(self.zbins)-1))
 
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mu['redshift'].searchsorted(self.zbins[i])
-            zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
-            mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
+        if self.lightcone:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mu['redshift'].searchsorted(self.zbins[i])
+                zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
+                mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
+
+                for j in range(len(self.massbins)-1):
+                    blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
+                    self.bincount[self.jcount,j,:,i] += len(blum)
+                    self.totlum[self.jcount,j,:,i] += np.sum(blum, axis=0)
+        else:
+            mb = np.digitize(mu['halomass'], bins=self.massbins)
 
             for j in range(len(self.massbins)-1):
-                blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
-                self.bincount[self.jcount,j,:,i] += len(blum)
-                self.totlum[self.jcount,j,:,i] += np.sum(blum, axis=0)
+                blum = mu['luminosity'][mb==j]
+                self.bincount[self.jcount,j,:,0] += len(blum)
+                self.totlum[self.jcount,j,:,0] += np.sum(blum, axis=0)
 
 
     def reduce(self, rank=None, comm=None):
@@ -407,7 +427,7 @@ class LcenMass(Metric):
 
                 tshape[0] = self.njacktot
                 bshape[0] = self.njacktot
-                
+
                 self.bincount = np.zeros(tshape)
                 self.totlum = np.zeros(bshape)
 
@@ -588,7 +608,7 @@ class ColorDist(GMetric):
             if rank==0:
                 gshape = [self.cd.shape[i] for i in range(len(self.cd.shape))]
                 gshape[0] = self.njacktot
-                
+
                 self.cd = np.zeros(gshape)
                 jc = 0
                 for i, g in enumerate(gcd):
@@ -734,7 +754,7 @@ class ColorColor(Metric):
             if rank==0:
                 gshape = [self.cc.shape[i] for i in range(len(self.cc.shape))]
                 gshape[0] = self.njacktot
-                
+
                 self.cc = np.zeros(gshape)
                 jc = 0
                 for i, g in enumerate(gcc):
@@ -836,7 +856,7 @@ class ColorColor(Metric):
                 assert(len(usecolors)==len(tocompare))
         else:
             usecolors = [None]*len(tocompare)
-            
+
         if colors is None:
             colors = [None]*len(tocompare)
         else:
@@ -845,7 +865,7 @@ class ColorColor(Metric):
         if labels is None:
             labels = [None] * len(tocompare)
 
-            
+
 
         lines = []
 
@@ -1205,7 +1225,7 @@ class FQuenched(Metric):
 
                 qcshape[0] = self.njacktot
                 tcshape[0] = self.njacktot
-                
+
                 self.qscounts = np.zeros(qcshape)
                 self.tcounts = np.zeros(tcshape)
 
@@ -1341,7 +1361,7 @@ class FRed(Metric):
 
                 qcshape[0] = self.njacktot
                 tcshape[0] = self.njacktot
-                
+
                 self.qscounts = np.zeros(qcshape)
                 self.tcounts = np.zeros(tcshape)
 
@@ -1509,7 +1529,7 @@ class FQuenchedLum(Metric):
         if rank is not None:
             gqs = comm.gather(self.qscounts, root=0)
             gtc = comm.gather(self.tcounts, root=0)
-            
+
             if rank==0:
                 qcshape = [self.qscounts.shape[i] for i in range(len(self.qscounts.shape))]
                 tcshape = [self.tcounts.shape[i] for i in range(len(self.tcounts.shape))]
@@ -1984,7 +2004,7 @@ class TabulatedLuminosityFunction(LuminosityFunction):
         elf = np.zeros((len(self.xmean),self.nbands,len(zs)))
         elfe = np.zeros((len(self.xmean),self.nbands,len(zs)))
         ex  = np.zeros((len(self.xmean),self.nbands,len(zs)))
-        
+
         for i, z in enumerate(zs):
             elf[:,:,i] = self.luminosity_function[:,:,0] * 10 ** (0.4 * P * (z - z0))
             elfe[:,:,i] = self.ye[:,:,0]
