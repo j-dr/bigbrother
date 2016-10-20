@@ -346,8 +346,6 @@ class GMetric(Metric):
                 for j in range(nzbins):
                     if fracdev==False:
                         if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
-                        print(mxs.shape)
-                        print(self.y.shape)
                         l1 = ax[i][j].plot(mxs[:,b,j], self.y[:,b,j], **kwargs)
                         if self.ye is not None:
                             ax[i][j].fill_between(mxs[:,b,j], self.y[:,b,j]-self.ye[:,b,j],
@@ -369,9 +367,6 @@ class GMetric(Metric):
                             vrye = ref_ye[li:hi,rb,j]**2
                             fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
                             dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) ** 2 + ref_ye[li:hi,rb,j] ** 2 / ref_y[li:hi,rb,j]**2 )
-                            print('dye: {0}'.format(dye))
-                            print('lidx: {0}'.format(lidx))
-                            print('hidx: {0}'.format(hidx))
                         else:
                             fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
                             dye = None

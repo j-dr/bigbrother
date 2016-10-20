@@ -777,12 +777,12 @@ class Ministry:
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
 
-                if hasattr(self, 'galaxycatalog'):
+                if self.galaxycatalog is not None:
                     if 'azim_ang' in self.galaxycatalog.unitmap.keys():
                         um = self.galaxycatalog.unitmap
                         nest = self.galaxycatalog.nest
                         
-                elif hasattr(self, 'halocatalog'):
+                elif self.halocatalog is not None:
                     if 'azim_ang' in self.halocatalog.unitmap.keys():
                         um = self.halocatalog.unitmap
                         nest = self.halocatalog.nest
@@ -856,9 +856,12 @@ class Ministry:
     
     def convert(self, mapunit, metrics):
 
+        print('convert gal')
         if (self.galaxycatalog is not None):
             mapunit = self.galaxycatalog.convert(mapunit, metrics)
+
         if (self.halocatalog is not None):
+            print('convert halo')
             mapunit = self.halocatalog.convert(mapunit, metrics)
 
         return mapunit
@@ -968,9 +971,13 @@ class Ministry:
                         mapunit = self.sortMapunitByZ(mapunit)
 
                 elif 'only' in ms[0].aschema:
+                    print('sctod')
                     mapunit = self.scListToDict(mapunit)
+                    print('masking')
                     mapunit = self.maskMappable(mapunit, mappable)                    
+                    print('convert')
                     mapunit = self.convert(mapunit, ms)
+                    print('filter')
                     mapunit = self.filter(mapunit)
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)

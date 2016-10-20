@@ -382,19 +382,24 @@ class LcenMass(Metric):
     @jackknifeMap
     def map(self, mapunit):
 
-        self.nbands = mapunit['luminosity'].shape[1]
+        if len(mapunit['luminosity'].shape) < 2:
+            self.nbands = 1
+        else:
+            self.nbands = mapunit['luminosity'].shape[1]
 
         mu = {}
 
         for k in mapunit.keys():
-            mu[k] = mapunit[k][mapunit['central']==1]
-
+            if (k=='luminosity') & len(mapunit[k].shape) < 2:
+                mu[k] = mapunit[k][mapunit['central']==1].reshape(-1,1)
+            else:
+                mu[k] = mapunit[k][mapunit['central']==1]
 
         if self.totlum is None:
             self.totlum = np.zeros((self.njack, len(self.massbins)-1,
-                                      self.nbands, len(self.zbins)-1))
+                                      self.nbands, self.nzbins))
             self.bincount = np.zeros((self.njack, len(self.massbins)-1,
-                                        self.nbands, len(self.zbins)-1))
+                                        self.nbands, self.nzbins))
 
         if self.lightcone:
             for i, z in enumerate(self.zbins[:-1]):
@@ -460,9 +465,11 @@ class LcenMass(Metric):
             f, ax = plt.subplots(len(usebands), self.nzbins,
                                  sharex=True, sharey=True,
                                  figsize=(8,8))
+            ax = np.array(ax).reshape(len(usebands), self.nzbins)
             newaxes = True
         else:
             newaxes = False
+            ax = np.array(ax).reshape(len(usebands), self.nzbins)
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -476,16 +483,10 @@ class LcenMass(Metric):
             sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
             sax.set_ylabel(r'$L_{cen}\, [mag]$')
 
-        if self.nzbins>1:
-            for i, b in enumerate(usebands):
-                for j in range(self.nzbins):
-                    ax[i][j].semilogx(mmass, self.lcen_mass[:,b,j],
-                                      **kwargs)
-        else:
-            for i, b in enumerate(usebands):
-                for j in range(self.nzbins):
-                    ax[i].semilogx(mmass, self.lcen_mass[:,b,j],
-                                   **kwargs)
+        for i, b in enumerate(usebands):
+            for j in range(self.nzbins):
+                ax[i][j].semilogx(mmass, self.lcen_mass[:,b,j],
+                                  **kwargs)
 
         #plt.tight_layout()
 
@@ -2013,5 +2014,4 @@ class TabulatedLuminosityFunction(LuminosityFunction):
         self.luminosity_function = elf
         self.y = self.luminosity_function
         self.ye = elfe
-        print(self.ye.shape)
         self.xmean = ex

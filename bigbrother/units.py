@@ -17,6 +17,12 @@ def flux2mag(mapunit, mapkey, zp=30.0):
     print('zp : {0}'.format(zp))
     return zp - 2.5*np.log10(mapunit[mapkey])
 
+def magh2mag(mapunit, mapkey, h=0.7):
+    return mapunit[mapkey] + 5.0 * np.log10(h)
+
+def mag2magh(mapunit, mapkey, h=0.7):
+    return mapunit[mapkey] - 5.0 * np.log10(h)
+
 def bccmag2mag(mapunit, mapkey, Q=3.16):
     """
     Note, any catalog using this conversion should define

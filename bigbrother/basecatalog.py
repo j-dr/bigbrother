@@ -304,16 +304,20 @@ class BaseCatalog:
                     conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]))
 
                 if '{0}2{1}'.format(self.unitmap[key],m.unitmap[key]) == 'flux2mag':
-                    print(self.__class__.__name__)
-                    print(m.__class__.__name__)
                     if hasattr(self, 'zp'):
                         if self.zp is not None:
                             mapunit[key] = conversion(mapunit, key, zp=self.zp)
                             print(mapunit[key])
                         else:
+                            print('none zp')
+                            print(self.__class__.__name__)
                             mapunit[key] = conversion(mapunit, key)
                     else:
+                        print('no zp')
+                        print(self.__class__.__name__)
                         mapunit[key] = conversion(mapunit, key)
+                elif ('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'magh2mag') | ('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'mag2magh'):
+                   mapunit[key] = conversion(mapunit, key, h=self.ministry.h)
                 else:
                     mapunit[key] = conversion(mapunit, key)
 
