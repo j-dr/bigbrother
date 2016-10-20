@@ -1441,7 +1441,7 @@ class FQuenchedLum(Metric):
 
     def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None,
                  catalog_type=['galaxycatalog'], tag=None,
-                 cbins=None, cinds=None, **kwargs):
+                 cbins=None, cinds=None, varerr=False, **kwargs):
         Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag, **kwargs)
         self.zbins = zbins
 
@@ -1469,6 +1469,8 @@ class FQuenchedLum(Metric):
             self.cinds = [0, 1]
         else:
             self.cinds = cinds
+
+        self.varerr = varerr
 
         self.mapkeys = ['luminosity', 'redshift']
         self.aschema = 'galaxyonly'
@@ -1549,20 +1551,30 @@ class FQuenchedLum(Metric):
                     self.tcounts[jc:jc+nj,:] = gtc[i]
                     jc += nj
 
+                if self.varerr:
+                    self.jfquenched = self.qscounts / self.tcounts
+                    self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+                    self.varfquenched = np.sum(self.jfquenched - self.fquenched, axis=0) / self.njacktot
+                else:
+                    self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+                    self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
+                    self.jfquenched = self.jqscounts / self.jtcounts
+                    self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+                    self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
+
+        else:
+            if self.varerr:
+                self.jfquenched = self.qscounts / self.tcounts
+                self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
+                self.varfquenched = np.sum(self.jfquenched - self.fquenched, axis=0) / self.njacktot
+            else:
                 self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
                 self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
 
                 self.jfquenched = self.jqscounts / self.jtcounts
                 self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
                 self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
-
-        else:
-            self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
-            self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
-
-            self.jfquenched = self.jqscounts / self.jtcounts
-            self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
-            self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, f=None, ax=None, plotname=None,
