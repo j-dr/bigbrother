@@ -1566,7 +1566,8 @@ class FQuenchedLum(Metric):
 
 
     def visualize(self, f=None, ax=None, plotname=None,
-                  compare=False, label=None, **kwargs):
+                  compare=False, label=None, xlabel=None,
+                  ylabel=None, **kwargs):
 
         if f is None:
             f, ax = plt.subplots(1,self.nzbins, figsize=(8,8))
@@ -1577,7 +1578,11 @@ class FQuenchedLum(Metric):
 
         lm = (self.magbins[:-1]+self.magbins[1:])/2
         for i in range(self.nzbins):
-            l1 = ax[0][i].errorbar(lm, self.fquenched[:,i], yerr=np.sqrt(self.varfquenched[:,i]), label=label, **kwargs)
+            ye = np.sqrt(self.varfquenched[:,i])
+            l1 = ax[0][i].plot(lm, self.fquenched[:,i], label=label, **kwargs)
+            ax[0][1].fill_between(lm , self.fquenched[:,i]-ye,
+                                    self.fquenched[:,i]+ye,
+                                    **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -1588,8 +1593,14 @@ class FQuenchedLum(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$Mag$')
-            sax.set_ylabel(r'$f_{red}$')
+            if xlabel is None:
+                sax.set_xlabel(r'$Mag$')
+            else:
+                sax.set_xlabel(xlabel)
+            if xlabel is None:
+                sax.set_ylabel(r'$f_{red}$')
+            else:
+                sax.set_xlabel(ylabel)
 
         #plt.tight_layout()
 
@@ -1610,9 +1621,14 @@ class FQuenchedLum(Metric):
 
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax, l1 = m.visualize(compare=True,label=labels[i], **kwargs)
+                f, ax, l1 = m.visualize(compare=True,label=labels[i],
+                                          color=Metric._color_list[i],
+                                          **kwargs)
             else:
-                f, ax, l1 = m.visualize(f=f, ax=ax, compare=True, label=labels[i], **kwargs)
+                f, ax, l1 = m.visualize(f=f, ax=ax, compare=True,
+                                          label=labels[i],
+                                          color=Metric._color_list[i],
+                                          **kwargs)
             lines.append(l1)
 
         if plotname is not None:
