@@ -200,7 +200,9 @@ class HealpixMap(Metric):
             self.ncuts = len(cuts[self.cutkey])
 
         self.aschema      = 'singleonly'
-        self.catalog_type = ['galaxycatalog']
+        if self.catalog_type is None:
+            self.catalog_type = ['galaxycatalog']
+            
         self.unitmap      = {'polar_ang':'rad', 'azim_ang':'rad'}
         self.pbins        = np.arange(12*nside**2+1)
         self.hmap         = np.zeros((12*nside**2, self.ncuts))
