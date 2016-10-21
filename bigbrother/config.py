@@ -75,9 +75,14 @@ def parseConfig(cfg):
             mcfg['boxsize'] = None
 
         try:
-            mstry = Ministry(mcfg['omegam'], mcfg['omegal'], mcfg['h'],
-                             mcfg['minz'], mcfg['maxz'], area=mcfg['area'],
-                             boxsize=mcfg['boxsize'])
+            om = mcfg.pop('omegam')
+            ol = mcfg.pop('omegal')
+            h  = mcfg.pop('h')
+            minz = mcfg.pop('minz')
+            maxz = mcfg.pop('maxz')
+
+            mstry = Ministry(om, ol, h, minz, maxz, **mcfg)
+
         except KeyError as e:
             print('One of the necessary keys for Ministry is missing')
             print(e)
