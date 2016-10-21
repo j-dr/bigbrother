@@ -15,7 +15,8 @@ except:
 
 try:
     import Corrfunc._countpairs_mocks as countpairs_mocks
-    import Corrfunc.theory.DDrppi as DDrppi
+    from Corrfunc.theory import DDrppi, DD
+    from Corrfunc.utils import convert_3d_counts_to_cf
     hascorrfunc = True
 except:
     hascorrfunc = False
@@ -31,7 +32,7 @@ class CorrelationFunction(Metric):
                    nrbins=None, subjack=False, lightcone=True,
                    catalog_type=None, mcutind=None,
                    tag=None, same_rand=False, inv_m=True,
-                   randname=None, **kwargs):
+                   randname=None, upper_limit=False, **kwargs):
         """
         Generic correlation function.
         """
@@ -43,6 +44,7 @@ class CorrelationFunction(Metric):
             self.catalog_type = catalog_type
 
         self.lightcone = lightcone
+        self.upper_limit = upper_limit
 
         if (zbins is None) & lightcone:
             self.zbins = np.linspace(self.ministry.minz, self.ministry.maxz, 4)
@@ -64,7 +66,10 @@ class CorrelationFunction(Metric):
             print(mbins)
             self.mbins = mbins
 
-        self.nmbins = len(self.mbins)-1
+        if self.upper_limit:
+            self.nmbins = len(self.mbins)
+        else:
+            self.nmbins = len(self.mbins)-1
 
         if inv_m:
             self.minds = np.arange(self.nmbins)[::-1]
@@ -350,7 +355,7 @@ class WPrpLightcone(CorrelationFunction):
                   catalog_type=None, tag=None, mcutind=None,
                   same_rand=False, inv_m=True, cosmology_flag=None,
                   bimodal_ccut=False, percentile_ccut=None,
-                  precompute_color=False,
+                  precompute_color=False, upper_limit=False,
                   centrals_only=False, rsd=False,
                   randnside=None,
                   **kwargs):
@@ -363,7 +368,7 @@ class WPrpLightcone(CorrelationFunction):
                                       nrbins=nrbins, subjack=subjack,
                                       mcutind=mcutind, same_rand=same_rand,
                                       inv_m=inv_m,catalog_type=catalog_type,
-                                      tag=tag, **kwargs)
+                                      tag=tag, upper_limit=upper_limit, **kwargs)
 
         self.bimodal_ccut = bimodal_ccut
         self.percentile_ccut = percentile_ccut
@@ -519,9 +524,16 @@ class WPrpLightcone(CorrelationFunction):
                 print('Finding luminosity indices')
 
                 if self.mcutind is not None:
-                    lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
+                    if self.upper_limit:
+                        lidx = mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j]
+                    else:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
                 else:
-                    lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+                    if self.upper_limit:
+                        lidx = mu[self.mkey][zlidx:zhidx] < self.mbins[j]
+                    else:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+
                 if self.centrals_only:
                     lidx = lidx & (mu['central'][zlidx:zhidx]==1)
 
@@ -808,7 +820,7 @@ class WPrpSnapshot(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  rsd=False, **kwargs):
+                  rsd=False, upper_limit=False, **kwargs):
 
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -816,7 +828,7 @@ class WPrpSnapshot(CorrelationFunction):
         """
         CorrelationFunction.__init__(self, ministry, lightcone=False,
                                       mbins=mbins, nrbins=nrbins,
-                                      mcutind=mcutind,
+                                      mcutind=mcutind, upper_limit=upper_limit,
                                       same_rand=same_rand, inv_m=inv_m,
                                       catalog_type=catalog_type, tag=tag,
                                       **kwargs)
@@ -826,7 +838,7 @@ class WPrpSnapshot(CorrelationFunction):
 
         if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
             self.minr = 1e-1
-            self.maxr = 10
+            self.maxr = 25
             self.nrbins = 15
             self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
         elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
@@ -914,9 +926,15 @@ class WPrpSnapshot(CorrelationFunction):
         for li, i in enumerate(self.minds):
             print('Finding luminosity indices')
             if self.mcutind is not None:
-                lidx = (self.mbins[i] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[i+1])
+                if self.upper_limit:
+                    lidx = mu[self.mkey][:,self.mcutind] < self.mbins[i]
+                else:
+                    lidx = (self.mbins[i] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[i+1])
             else:
-                lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
+                if self.upper_limit:
+                    lidx = mu[self.mkey] < self.mbins[i]
+                else:
+                    lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
 
             if (li==self.rand_ind) | (not self.same_rand):
                 print('Generating Randoms')
@@ -1110,6 +1128,461 @@ class WPrpSnapshot(CorrelationFunction):
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_ylabel(r'$w_{p}(r_{p})$')
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1[0]
+
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 usez=None, labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
+class XiofR(CorrelationFunction):
+
+    def __init__(self, ministry, mbins=None, zbins=None, rbins=None,
+                  minr=None, maxr=None, logbins=True, nrbins=None,
+                  lightcone=True, catalog_type=None, tag=None,
+                  mcutind=None, same_rand=False, inv_m=True,
+                  **kwargs):
+
+        """
+        Real space 3-d correlation function, xi(r), for use with non-periodic
+        data.
+        """
+        CorrelationFunction.__init__(self, ministry, lightcone=lightcone,
+                                      mbins=mbins, nrbins=nrbins,
+                                      mcutind=mcutind, zbins=zbins,
+                                      same_rand=same_rand, inv_m=inv_m,
+                                      catalog_type=catalog_type, tag=tag,
+                                      **kwargs)
+
+        self.logbins = logbins
+        self.c = 299792.458
+
+        if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
+            self.minr = 1e-1
+            self.maxr = 25
+            self.nrbins = 15
+            self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
+        elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
+            self.minr = minr
+            self.maxr = maxr
+            self.nrbins = nrbins
+            self.rbins = self.genbins(minr, maxr, nrbins)
+        else:
+            self.rbins = rbins
+            self.minr = rbins[0]
+            self.maxr = rbins[1]
+            self.nrbins = len(rbins)-1
+
+        self.writeCorrfuncBinFile(self.rbins)
+
+        self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+
+        if self.lightcone:
+            self.mapkeys.append('redshift')
+            self.unitmap['redshift'] = 'z'
+
+        if self.mkey == 'luminosity':
+            self.unitmap[self.mkey] = 'mag'
+        else:
+            self.unitmap[self.mkey] = 'msunh'
+
+        self.nd = None
+        self.nr = None
+        self.dd = None
+        self.dr = None
+        self.rr = None
+
+    @jackknifeMap
+    def map(self, mapunit):
+
+        if not hascorrfunc:
+            raise(ImportError("CorrFunc is required to calculate xi(r)"))
+
+        if self.dd is None:
+            self.dd = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
+            self.dr = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
+            self.rr = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
+            self.nd = np.zeros((self.njack, self.nmbins, self.nzbins))
+            self.nr = np.zeros((self.njack, self.nmbins, self.nzbins))
+
+        if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
+            mu = {}
+            mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float32)
+            mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float32)
+            mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float32)
+
+            mu['px'][:] = mapunit['px'][:]
+            mu['py'][:] = mapunit['py'][:]
+            mu['pz'][:] = mapunit['pz'][:]
+            mu[self.mkey] = mapunit[self.mkey]
+
+        else:
+            mu = mapunit
+
+        if self.lightcone:
+            for i in range(self.nzbins):
+                print('Finding redshift indices')
+
+                zlidx = mu['redshift'].searchsorted(self.zbins[i])
+                zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
+
+                if zlidx==zhidx:
+                    print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
+                    print("Min and max z: {0}, {1}".format(np.min(mu['redshift']), np.max(mu['redshift'])))
+                    print(mu['redshift'])
+                    continue
+
+                for lj, j in enumerate(self.minds):
+                    print('Finding luminosity indices')
+                    if self.mcutind is not None:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
+                    else:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+
+                    if (lj==self.rand_ind) | (not self.same_rand):
+                        print('Generating Randoms')
+                        if len(mu['pz'][zlidx:zhidx][lidx])==0:
+                            self.rand_ind+=1
+                            continue
+
+                        rands = self.getCartesianRandoms(mu['px'][zlidx:zhidx][lidx],
+                                                         mu['py'][zlidx:zhidx][lidx],
+                                                         mu['pz'][zlidx:zhidx][lidx])
+
+                        
+                    self.nd[self.jcount,j,i] = len(mu['pz'][zlidx:zhidx][lidx])
+                    self.nr[self.jcount,j,i] = len(rands)
+
+                    print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,i]))
+                    print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,j,i]))
+
+                    if self.nd[self.jcount,j,i]<2: continue
+                    #data data
+                    print('calculating data data pairs')
+                    sys.stdout.flush()
+                    
+                    ddout = DD(1,1,
+                                 self.binfilename,
+                                 mu['px'][zlidx:zhidx][lidx],
+                                 mu['py'][zlidx:zhidx][lidx],
+                                 mu['pz'][zlidx:zhidx][lidx],
+                                 False,
+                                 mu['px'][zlidx:zhidx][lidx],
+                                 mu['py'][zlidx:zhidx][lidx],
+                                 mu['pz'][zlidx:zhidx][lidx])
+
+                    ddout = np.array(ddout)
+
+                    self.dd[self.jcount,:,j,i] = ddout['npairs']
+
+                    print('calculating data random pairs')
+                    sys.stdout.flush()
+                    
+                    drout = DD(0,1,
+                                 self.binfilename,
+                                 mu['px'][zlidx:zhidx][lidx],
+                                 mu['py'][zlidx:zhidx][lidx],
+                                 mu['pz'][zlidx:zhidx][lidx],
+                                 False,
+                                 rands['px'],
+                                 rands['py'],
+                                 rands['pz'])
+
+                    drout = np.array(drout)
+                    self.dr[self.jcount,:,j,i] = drout['npairs']
+
+                    print('calculating random random pairs')
+                    sys.stdout.flush()
+                    
+                    if (lj==0) | (not self.same_rand):
+                        rrout = DD(1,1,
+                                     self.binfilename,
+                                     rands['px'],
+                                     rands['py'],
+                                     rands['pz'],
+                                     False,
+                                     rands['px'],
+                                     rands['py'],
+                                     rands['pz'])
+
+                        rrout = np.array(rrout)
+
+                    self.rr[self.jcount,:,j,i] = rrout['npairs']
+
+        else:
+            i=0
+            for lj, j in enumerate(self.minds):
+                print('Finding luminosity indices')
+                if self.mcutind is not None:
+                    lidx = (self.mbins[j] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[j+1])
+                else:
+                    lidx = (self.mbins[j] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[j+1])
+
+                if (lj==self.rand_ind) | (not self.same_rand):
+                    print('Generating Randoms')
+                    if len(mu['pz'][lidx])==0:
+                        self.rand_ind+=1
+                        continue
+
+                    rands = self.getCartesianRandoms(mu['px'][lidx],
+                                                     mu['py'][lidx],
+                                                     mu['pz'][lidx])
+
+                        
+                self.nd[self.jcount,j,i] = len(mu['pz'][lidx])
+                self.nr[self.jcount,j,i] = len(rands)
+
+                print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,i]))
+                print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,j,i]))
+
+                if self.nd[self.jcount,j,i]<2: continue
+                #data data
+                print('calculating data data pairs')
+                sys.stdout.flush()
+                    
+                ddout = DD(1,1,
+                             self.binfilename,
+                             mu['px'][lidx],
+                             mu['py'][lidx],
+                             mu['pz'][lidx],
+                             False,
+                             mu['px'][lidx],
+                             mu['py'][lidx],
+                             mu['pz'][lidx])
+
+                ddout = np.array(ddout)
+
+                self.dd[self.jcount,:,j,i] = ddout['npairs']
+                print('calculating data random pairs')
+                sys.stdout.flush()
+                    
+                drout = DD(0,1,
+                             self.binfilename,
+                             mu['px'][lidx],
+                             mu['py'][lidx],
+                             mu['pz'][lidx],
+                             False,
+                             rands['px'],
+                             rands['py'],
+                             rands['pz'])
+
+                drout = np.array(drout)
+                self.dr[self.jcount,:,j,i] = drout['npairs']
+
+                print('calculating random random pairs')
+                sys.stdout.flush()
+                
+                if (lj==0) | (not self.same_rand):
+                    rrout = DD(1,1,
+                                 self.binfilename,
+                                 rands['px'],
+                                 rands['py'],
+                                 rands['pz'],
+                                 False,
+                                 rands['px'],
+                                 rands['py'],
+                                 rands['pz'])
+
+                    rrout = np.array(rrout)
+                self.rr[self.jcount,:,j,i] = rrout['npairs']
+
+
+    def reduce(self, rank=None, comm=None):
+
+        if rank is not None:
+            gnd = comm.gather(self.nd, root=0)
+            gnr = comm.gather(self.nr, root=0)
+            gdd = comm.gather(self.dd, root=0)
+            gdr = comm.gather(self.dr, root=0)
+            grr = comm.gather(self.rr, root=0)
+
+
+            if rank==0:
+                ndshape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
+                nrshape = [self.nr.shape[i] for i in range(len(self.nr.shape))]
+                ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+                drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
+                rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+
+                ndshape.insert(1,1)
+                ndshape.insert(1,1)
+                nrshape.insert(1,1)
+                nrshape.insert(1,1)
+
+                ndshape[0] = self.njacktot
+                nrshape[0] = self.njacktot
+                ddshape[0] = self.njacktot
+                drshape[0] = self.njacktot
+                rrshape[0] = self.njacktot
+
+                self.nd = np.zeros(ndshape)
+                self.nr = np.zeros(nrshape)
+                self.dd = np.zeros(ddshape)
+                self.dr = np.zeros(drshape)
+                self.rr = np.zeros(rrshape)
+
+                jc = 0
+                for i, g in enumerate(gnd):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.nd[jc:jc+nj,0,:,:] = g
+                    self.nr[jc:jc+nj,0,:,:] = gnr[i]
+                    self.dd[jc:jc+nj,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:] = gdr[i]
+                    self.rr[jc:jc+nj,:,:,:] = grr[i]
+
+                    jc += nj
+
+                self.jxi = np.zeros(self.dd.shape)
+
+                self.jnd = self.jackknife(self.nd, reduce_jk=False)
+                self.jnr = self.jackknife(self.nr, reduce_jk=False)
+                self.jdd = self.jackknife(self.dd, reduce_jk=False)
+                self.jdr = self.jackknife(self.dr, reduce_jk=False)
+                self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+                for i in xrange(self.njacktot):
+                    for j in xrange(self.nmbins):
+                        for k in xrange(self.nzbins):
+                            self.jxi[i,:,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,k],
+                                                                        self.jnd[i,0,j,k],
+                                                                        self.jnr[i,0,j,k],
+                                                                        self.jnr[i,0,j,k],
+                                                                        self.dd[i,:,j,k],
+                                                                        self.dr[i,:,j,k],
+                                                                        self.dr[i,:,j,k],
+                                                                        self.rr[i,:,j,k])
+
+                self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
+                self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+        else:
+            self.jxi = np.zeros(self.dd.shape)
+            self.jnd = self.jackknife(self.nd, reduce_jk=False)
+            self.jnr = self.jackknife(self.nr, reduce_jk=False)
+            self.jdd = self.jackknife(self.dd, reduce_jk=False)
+            self.jdr = self.jackknife(self.dr, reduce_jk=False)
+            self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+            for i in xrange(self.njacktot):
+                for j in xrange(self.nmbins):
+                    for k in xrange(self.nzbins):
+                        self.jxi[i,:,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,k],
+                                                                      self.jnd[i,0,j,k],
+                                                                      self.jnr[i,0,j,k],
+                                                                      self.jnr[i,0,j,k],
+                                                                      self.dd[i,:,j,k],
+                                                                      self.dr[i,:,j,k],
+                                                                      self.dr[i,:,j,k],
+                                                                      self.rr[i,:,j,k])
+
+            self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
+            self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+        self.xi = self.xi.reshape(self.nrbins, 0, self.nmbins, self.nzbins)
+        self.varxi = self.varxi.reshape(self.nrbins, 0, self.nmbins, self.nzbins)
+
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, **kwargs):
+
+        if usecols is None:
+            usecols = range(self.nmbins)
+        if usez is None:
+            uzez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                ye = np.sqrt(self.varxi[:,0,l,z])
+                l1 = ax[j][i].plot(rmean, self.xi[:,0,l,z], **kwargs)
+                ax[j][i].fill_between(rmean, self.xi[:,0,l,z]-ye, self.xi[:,0,l,z]+ye, alpha=0.5, **kwargs)
+
+                ax[j][i].set_xscale('log')
+                ax[j][i].set_yscale('log')
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')

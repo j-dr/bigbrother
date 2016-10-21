@@ -797,7 +797,8 @@ class ColorColor(Metric):
 
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usecolors=None, colors=None, **kwargs):
+                  usecolors=None, colors=None, xlabel=None, 
+                  ylabel=None, nc=5, **kwargs):
 
         if hasattr(self, 'magmean'):
             mclr = self.mclr
@@ -821,11 +822,17 @@ class ColorColor(Metric):
 
         for i in usecolors:
             for j in range(self.nzbins):
-                l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,j].T, 5,
+                l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,j].T, nc,
                                         colors=colors, **kwargs)
+                l1 = plt.Rectangle((0,0),1,1,fc = l1.collections[0].get_color()[0])
+
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -833,8 +840,14 @@ class ColorColor(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$Color$')
-            sax.set_ylabel(r'$Color$')
+            if xlabel is None:
+                sax.set_xlabel(r'$Color$', labelpad=40)
+            else:
+                sax.set_xlabel(xlabel, labelpad=40)
+            if ylabel is None:
+                sax.set_ylabel(r'$Color$', labelpad=40)
+            else:
+                sax.set_ylabel(ylabel, labelpad=40)
 
         #plt.tight_layout()
 
@@ -882,7 +895,7 @@ class ColorColor(Metric):
 
 
         if labels[0]!=None:
-            f.legend(lines, labels)
+            f.legend(lines, labels, 'best')
 
         if plotname is not None:
             plt.savefig(plotname)
@@ -1582,7 +1595,7 @@ class FQuenchedLum(Metric):
                   ylabel=None, **kwargs):
 
         if f is None:
-            f, ax = plt.subplots(1,self.nzbins, figsize=(8,8))
+            f, ax = plt.subplots(1,self.nzbins, figsize=(8,8), sharex=True, sharey=True)
             ax = np.atleast_2d(ax)
             newaxes = True
         else:
@@ -1592,12 +1605,16 @@ class FQuenchedLum(Metric):
         for i in range(self.nzbins):
             ye = np.sqrt(self.varfquenched[:,i])
             l1 = ax[0][i].plot(lm, self.fquenched[:,i], label=label, **kwargs)
-            ax[0][1].fill_between(lm , self.fquenched[:,i]-ye,
+            ax[0][i].fill_between(lm , self.fquenched[:,i]-ye,
                                     self.fquenched[:,i]+ye,
-                                    **kwargs)
+                                    alpha=0.5, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -1606,13 +1623,13 @@ class FQuenchedLum(Metric):
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
             if xlabel is None:
-                sax.set_xlabel(r'$Mag$')
+                sax.set_xlabel(r'$Mag$', labelpad=30)
             else:
-                sax.set_xlabel(xlabel)
-            if xlabel is None:
-                sax.set_ylabel(r'$f_{red}$')
+                sax.set_xlabel(xlabel,labelpad=30)
+            if ylabel is None:
+                sax.set_ylabel(r'$f_{red}$',labelpad=30)
             else:
-                sax.set_xlabel(ylabel)
+                sax.set_ylabel(ylabel,labelpad=30)
 
         #plt.tight_layout()
 
