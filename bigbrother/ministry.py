@@ -53,7 +53,8 @@ class Ministry:
     _known_halo_catalog_types   = ['BCC', 'PlaceHolder']
 
     def __init__(self, omega_m, omega_l, h, minz, maxz, area=None,
-                 boxsize=None, one_metric_group=False, parallel=False):
+                 ministry_name=None, boxsize=None, one_metric_group=False,
+                 parallel=False):
         """
         Initialize a ministry object
 
@@ -73,6 +74,7 @@ class Ministry:
             The area spanned by all catalogs held
         """
 
+        self.ministry_name = ministry_name
         self.omega_m = omega_m
         self.omega_l = omega_l
         self.h = h

@@ -1,5 +1,8 @@
 from __future__ import print_function
 from .metric import Metric, GMetric
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 import numpy as np
 import healpy as hp
 
@@ -223,21 +226,18 @@ class HealpixMap(Metric):
     def reduce(self, rank=None, comm=None):
         if rank is not None:
             ghmap = None
-            comm.gather(self.hmap, root=0)
+            ghmap = comm.gather(self.hmap, root=0)
 
             if rank==0:
-                ghmap = np.zeros_like(self.hmap[0])
-                for g in self.hmap:
+                self.hmap = np.zeros_like(ghmap[0])
+                for g in ghmap:
                     if g is None: continue
 
-                    ghmap += g
-
-                print('size of ghmap {0}'.format(ghmap.shape))
-                self.hmap = ghmap 
+                    self.hmap += g
 
 
     def visualize(self, plotname=None, compare=False):
-        hp.mollview(self.hmap)
+        hp.mollview(self.hmap[:,0])
         f = plt.gcf()
         ax = plt.gca()
 
