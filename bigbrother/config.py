@@ -75,11 +75,12 @@ def parseConfig(cfg):
             mcfg['boxsize'] = None
 
         try:
-            om = mcfg.pop('omegam')
-            ol = mcfg.pop('omegal')
-            h  = mcfg.pop('h')
-            minz = mcfg.pop('minz')
-            maxz = mcfg.pop('maxz')
+            cmetrics = mcfg.pop('metrics', None)
+            om = mcfg.pop('omegam', None)
+            ol = mcfg.pop('omegal', None)
+            h  = mcfg.pop('h', None)
+            minz = mcfg.pop('minz', None)
+            maxz = mcfg.pop('maxz', None)
 
             mstry = Ministry(om, ol, h, minz, maxz, **mcfg)
 
@@ -135,10 +136,10 @@ def parseConfig(cfg):
             hc = HaloCatalog(mstry, fs, fieldmap=fm, **hcfg)
             mstry.halocatalog = hc
 
-    if 'metrics' in mcfg.keys():
+    if cmetrics is not None:
         metrics = []
 
-        for m in mcfg['metrics']:
+        for m in cmetrics:
             if hasattr(mam, m):
                 mtr = getattr(mam, m)
             elif hasattr(msm, m):
@@ -150,15 +151,15 @@ def parseConfig(cfg):
             elif hasattr(hpm, m):
                 mtr = getattr(hpm, m)
 
-            for k in mcfg['metrics'][m]:
-                if mcfg['metrics'][m][k] == 'None':
-                    mcfg['metrics'][m][k] = None
+            for k in cmetrics[m]:
+                if cmetrics[m][k] == 'None':
+                    cmetrics[m][k] = None
 
                 if k in _eval_keys:
-                    mcfg['metrics'][m][k] = eval(mcfg['metrics'][m][k])
+                    cmetrics[m][k] = eval(cmetrics[m][k])
 
 
-            mtr = mtr(mstry, **mcfg['metrics'][m])
+            mtr = mtr(mstry, **cmetrics[m])
             metrics.append(mtr)
 
         mstry.metrics = metrics

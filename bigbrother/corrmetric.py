@@ -1280,6 +1280,9 @@ class XiofR(CorrelationFunction):
             mu['pz'][:] = mapunit['pz'][:]
             mu[self.mkey] = mapunit[self.mkey]
 
+            if self.lightcone:
+                mu['redshift'] = mapunit['redshift']
+                
         else:
             mu = mapunit
 
@@ -1469,8 +1472,6 @@ class XiofR(CorrelationFunction):
                 rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
 
                 ndshape.insert(1,1)
-                ndshape.insert(1,1)
-                nrshape.insert(1,1)
                 nrshape.insert(1,1)
 
                 ndshape[0] = self.njacktot
@@ -1519,6 +1520,10 @@ class XiofR(CorrelationFunction):
 
                 self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
                 self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+                self.xi = self.xi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
+                self.varxi = self.varxi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
+
         else:
             self.jxi = np.zeros(self.dd.shape)
             self.jnd = self.jackknife(self.nd, reduce_jk=False)
@@ -1542,8 +1547,8 @@ class XiofR(CorrelationFunction):
             self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
             self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
-        self.xi = self.xi.reshape(self.nrbins, 0, self.nmbins, self.nzbins)
-        self.varxi = self.varxi.reshape(self.nrbins, 0, self.nmbins, self.nzbins)
+            self.xi = self.xi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
+            self.varxi = self.varxi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
                     usez=None, compare=False, **kwargs):
@@ -1551,7 +1556,7 @@ class XiofR(CorrelationFunction):
         if usecols is None:
             usecols = range(self.nmbins)
         if usez is None:
-            uzez = range(self.nzbins)
+            usez = range(self.nzbins)
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
