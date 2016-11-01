@@ -10,7 +10,7 @@ import time
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum, ColorDist
 from .lineofsight     import DNDz
 from .massmetric      import Richness
-from .healpix_utils   import Area, PixMetric
+from .healpix_utils   import Area, PixMetric, HealpixMap
 from .corrmetric      import GalaxyRadialProfileBCC
 from .basecatalog     import BaseCatalog
 
@@ -325,7 +325,8 @@ class BCCCatalog(GalaxyCatalog):
                                   jtype=self.jtype),
                         DNDz(self.ministry,
                               magbins=[20, 21, 22, 23],
-                              jtype=self.jtype)]
+                              jtype=self.jtype),
+                        HealpixMap(self.ministry)]
 
         if len(self.filters) == 0:
             self.filters = ['Appmag']
