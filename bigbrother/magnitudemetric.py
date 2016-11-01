@@ -388,12 +388,16 @@ class LcenMass(Metric):
             self.nbands = mapunit['luminosity'].shape[1]
 
         mu = {}
+        mc = mapunit['central']==1
+        mc = mc.reshape(len(mapunit['central']))
 
         for k in mapunit.keys():
-            if (k=='luminosity') & len(mapunit[k].shape) < 2:
-                mu[k] = mapunit[k][mapunit['central']==1].reshape(-1,1)
+            if (k=='luminosity') & (len(mapunit[k].shape) < 2):
+                mu[k] = mapunit[k][mc].reshape(-1,1)
             else:
-                mu[k] = mapunit[k][mapunit['central']==1]
+                mu[k] = mapunit[k][mc]
+
+        del mc
 
         if self.totlum is None:
             self.totlum = np.zeros((self.njack, len(self.massbins)-1,
@@ -403,6 +407,8 @@ class LcenMass(Metric):
 
         if self.lightcone:
             for i, z in enumerate(self.zbins[:-1]):
+                print(mu['redshift'].shape)
+                print(mapunit['redshift'].shape)
                 zlidx = mu['redshift'].searchsorted(self.zbins[i])
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
                 mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
@@ -485,8 +491,12 @@ class LcenMass(Metric):
 
         for i, b in enumerate(usebands):
             for j in range(self.nzbins):
-                ax[i][j].semilogx(mmass, self.lcen_mass[:,b,j],
-                                  **kwargs)
+                ye = np.sqrt(self.varlcen_mass[:,b,j])
+                ax[i][j].plot(mmass, self.lcen_mass[:,b,j],
+                                **kwargs)
+                ax[i][j].fill_between(mmass, self.lcen_mass[:,b,j] - ye,
+                                self.lcen_mass[:,b,j] + ye)
+                ax[i][j].set_xscale('log')
 
         #plt.tight_layout()
 
@@ -513,10 +523,11 @@ class LcenMass(Metric):
                 assert(len(usebands[0])==len(usebands[i]))
             if i==0:
                 f, ax = m.visualize(usebands=usebands[i], compare=True,
-                                    **kwargs)
+                                    color=Metric._color_list[i],**kwargs)
             else:
                 f, ax = m.visualize(usebands=usebands[i], compare=True,
-                                    f=f, ax=ax, **kwargs)
+                                    f=f, ax=ax, color=Metric._color_list[i],
+                                    **kwargs)
 
         if plotname is not None:
             plt.savefig(plotname)

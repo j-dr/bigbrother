@@ -222,8 +222,18 @@ class HealpixMap(Metric):
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
-            comm.Reduce(self.hmap, hmap, root=0)
-            self.hmap = hmap
+            ghmap = None
+            comm.gather(self.hmap, root=0)
+
+            if rank==0:
+                ghmap = np.zeros_like(self.hmap[0])
+                for g in self.hmap:
+                    if g is None: continue
+
+                    ghmap += g
+
+                print('size of ghmap {0}'.format(ghmap.shape))
+                self.hmap = ghmap 
 
 
     def visualize(self, plotname=None, compare=False):
