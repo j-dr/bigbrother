@@ -232,9 +232,7 @@ class HealpixMap(Metric):
                 self.hmap = np.zeros_like(ghmap[0])
                 for g in ghmap:
                     if g is None: continue
-
                     self.hmap += g
-
 
     def visualize(self, plotname=None, compare=False):
         hp.mollview(self.hmap[:,0])

@@ -451,9 +451,27 @@ class LcenMass(Metric):
 
                     jc += nj
 
-                self.jblcen_mass, self.lcen_mass, self.varlcen_mass = self.jackknife(self.totlum/self.bincount)
+                self.jtotlum   = self.jackknife(self.totlum, reduce_jk=False)
+                self.jbincount = self.jackknife(self.bincount, reduce_jk=False)
+
+                self.lcen_mass = (np.sum(self.jtotlum / self.jbincount, axis=0) / 
+                                    self.njacktot)
+                self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
+                                            axis=0) * (self.njacktot - 1) / 
+                                            self.njacktot)
+
         else:
-            self.jblcen_mass, self.lcen_mass, self.varlcen_mass = self.jackknife(self.totlum/self.bincount)
+
+            self.jtotlum    = self.jackknife(self.totlum, reduce_jk=False)
+            self.jbincount  = self.jackknife(self.bincount, reduce_jk=False)
+            self.jlcen_mass = self.jtotlum / self.jbincount
+            self.lcen_mass  = np.sum(self.jlcen_mass, axis=0) / self.njacktot
+            print(self.jtotlum.shape)
+            print(self.jlcen_mass.shape)
+            print(self.lcen_mass.shape)
+            self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
+                                          axis=0) * (self.njacktot - 1) / 
+                                          self.njacktot)
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
                   usebands=None, **kwargs):
@@ -492,6 +510,10 @@ class LcenMass(Metric):
         for i, b in enumerate(usebands):
             for j in range(self.nzbins):
                 ye = np.sqrt(self.varlcen_mass[:,b,j])
+                print(mmass.shape)
+                print(self.varlcen_mass[:,b,j].shape)
+                print(ye.shape)
+
                 ax[i][j].plot(mmass, self.lcen_mass[:,b,j],
                                 **kwargs)
                 ax[i][j].fill_between(mmass, self.lcen_mass[:,b,j] - ye,
