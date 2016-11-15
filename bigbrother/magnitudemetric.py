@@ -267,7 +267,6 @@ class MagCounts(MagnitudeMetric):
                     self.mc[self.jcount,:,j,i] += c
         else:
             for j in range(self.nbands):
-                print(mapunit['appmag'][np.isnan(mapunit['appmag'][:,j]),j])
                 c, e = np.histogram(mapunit['appmag'][:,j], bins=self.magbins)
                 self.mc[self.jcount,:,j,0] += c
 
@@ -407,8 +406,6 @@ class LcenMass(Metric):
 
         if self.lightcone:
             for i, z in enumerate(self.zbins[:-1]):
-                print(mu['redshift'].shape)
-                print(mapunit['redshift'].shape)
                 zlidx = mu['redshift'].searchsorted(self.zbins[i])
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
                 mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
@@ -466,9 +463,6 @@ class LcenMass(Metric):
             self.jbincount  = self.jackknife(self.bincount, reduce_jk=False)
             self.jlcen_mass = self.jtotlum / self.jbincount
             self.lcen_mass  = np.sum(self.jlcen_mass, axis=0) / self.njacktot
-            print(self.jtotlum.shape)
-            print(self.jlcen_mass.shape)
-            print(self.lcen_mass.shape)
             self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
                                           axis=0) * (self.njacktot - 1) / 
                                           self.njacktot)
@@ -510,9 +504,6 @@ class LcenMass(Metric):
         for i, b in enumerate(usebands):
             for j in range(self.nzbins):
                 ye = np.sqrt(self.varlcen_mass[:,b,j])
-                print(mmass.shape)
-                print(self.varlcen_mass[:,b,j].shape)
-                print(ye.shape)
 
                 ax[i][j].plot(mmass, self.lcen_mass[:,b,j],
                                 **kwargs)

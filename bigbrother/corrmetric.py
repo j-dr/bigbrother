@@ -63,7 +63,6 @@ class CorrelationFunction(Metric):
         elif (mbins is None) & (self.catalog_type == ['halocatalog']):
             self.mbins = np.array([10**7, 10**17])
         else:
-            print(mbins)
             self.mbins = mbins
 
         if self.upper_limit:
@@ -899,8 +898,6 @@ class WPrpSnapshot(CorrelationFunction):
             self.nd = np.zeros((self.njack, self.nmbins))
             self.nr = np.zeros((self.njack, self.nmbins))
 
-        print(mapunit['px'].dtype)
-
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
             mu = {}
             mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float32)
@@ -1687,9 +1684,7 @@ class TabulatedWPrpLightcone(WPrpLightcone):
 
 
     def loadWPrp(self):
-        print(self.fname)
         tab = np.loadtxt(self.fname)
-        print(tab)
         self.wprp = np.zeros((tab.shape[0], self.ncuts, 1, 1))
         self.varwprp = np.zeros((tab.shape[0], self.ncuts, 1, 1))
         self.rmean = tab[:,self.rmeancol]

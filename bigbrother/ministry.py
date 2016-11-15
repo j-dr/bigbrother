@@ -832,18 +832,9 @@ class Ministry:
             yi = (mappable.nbox * tp[:,1]) // self.boxsize
             zi = (mappable.nbox * tp[:,2]) // self.boxsize
 
-            print(mappable.nbox)
-            print(xi)
-            print(yi)
-            print(zi)
-
             bidx = xi * mappable.nbox**2 + yi * mappable.nbox + zi
 
-            print(bidx)
-
             pidx = bidx==mappable.grp
-
-            print(pidx)
 
             mu = {}
             for k in mapunit.keys():
@@ -859,12 +850,10 @@ class Ministry:
     
     def convert(self, mapunit, metrics):
 
-        print('convert gal')
         if (self.galaxycatalog is not None):
             mapunit = self.galaxycatalog.convert(mapunit, metrics)
 
         if (self.halocatalog is not None):
-            print('convert halo')
             mapunit = self.halocatalog.convert(mapunit, metrics)
 
         return mapunit
@@ -974,13 +963,9 @@ class Ministry:
                         mapunit = self.sortMapunitByZ(mapunit)
 
                 elif 'only' in ms[0].aschema:
-                    print('sctod')
                     mapunit = self.scListToDict(mapunit)
-                    print('masking')
                     mapunit = self.maskMappable(mapunit, mappable)                    
-                    print('convert')
                     mapunit = self.convert(mapunit, ms)
-                    print('filter')
                     mapunit = self.filter(mapunit)
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)

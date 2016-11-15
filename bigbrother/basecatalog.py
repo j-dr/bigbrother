@@ -111,9 +111,6 @@ class BaseCatalog:
             for b in ubox:
                 fgrps.append([i for i in range(len(fsbox)) if b in fsbox[i]])
 
-            print('Unique subboxes: {0}'.format(ubox))
-            print('File groups: {0}'.format(fgrps))
-
             return ubox, fgrps
 
 
@@ -307,14 +304,9 @@ class BaseCatalog:
                     if hasattr(self, 'zp'):
                         if self.zp is not None:
                             mapunit[key] = conversion(mapunit, key, zp=self.zp)
-                            print(mapunit[key])
                         else:
-                            print('none zp')
-                            print(self.__class__.__name__)
                             mapunit[key] = conversion(mapunit, key)
                     else:
-                        print('no zp')
-                        print(self.__class__.__name__)
                         mapunit[key] = conversion(mapunit, key)
                 elif ('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'magh2mag') | ('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'mag2magh'):
                    mapunit[key] = conversion(mapunit, key, h=self.ministry.h)

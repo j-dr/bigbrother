@@ -206,11 +206,8 @@ class HaloCatalog(BaseCatalog):
                 dt = mapunit[mapkey].dtype[0]
                 ne = len(mapunit[mapkey])
                 nf = len(fieldmap[ft][mapkey])
-                print(ne)
-                print(nf)
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
             
-            print(mapunit[mapkey].shape)
 	return mapunit
 
 class BCCHaloCatalog(HaloCatalog):
