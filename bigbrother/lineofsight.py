@@ -101,6 +101,16 @@ class DNDz(Metric):
                                     'bins':self.magbins,
                                     'selection_ind':self.cutband}}
 
+        nmkeys = []
+        for s in selection_dict:
+            if 'mapkeys' in selection_dict[s]:
+                ss = selection_dict[s]
+                for m in ss['mapkeys']:
+                    if m not in self.mapkeys:
+                        self.mapkeys.append(m)
+                    if m not in self.unitmap:
+                        self.unitmap[m] = self.defaultUnits(m)
+
         self.zcounts = None
         self.selector = Selector(selection_dict)
 

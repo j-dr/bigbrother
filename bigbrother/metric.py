@@ -49,6 +49,12 @@ class Metric(object):
     @abstractmethod
     def compare(self, othermetric, plotname=None):
         pass
+    
+    def defaultUnits(self, key):
+        if key == 'halomass':
+            return 'msunh'
+        if key == 'central':
+            return 'unitless'
 
     def splitBimodal(self, x, y, largepoly=30):
         p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit
