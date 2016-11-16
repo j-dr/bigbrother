@@ -453,8 +453,8 @@ class LcenMass(Metric):
 
                 self.jtotlum   = self.jackknife(self.totlum, reduce_jk=False)
                 self.jbincount = self.jackknife(self.bincount, reduce_jk=False)
-
-                self.lcen_mass = (np.sum(self.jtotlum / self.jbincount, axis=0) / 
+                self.jlcen_mass = self.jtotlum / self.jbincount
+                self.lcen_mass = (np.sum(self.jlcen_mass, axis=0) / 
                                     self.njacktot)
                 self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
                                             axis=0) * (self.njacktot - 1) / 
