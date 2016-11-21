@@ -1213,6 +1213,9 @@ class FQuenched(Metric):
         self.unitmap = {self.mkey:'mag'}
         self.aschema = 'galaxyonly'
 
+        self.qscounts = None
+        self.tcounts  = None
+
 
     @jackknifeMap
     def map(self, mapunit):
