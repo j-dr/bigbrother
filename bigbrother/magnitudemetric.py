@@ -1319,7 +1319,7 @@ class FQuenched(Metric):
             newaxes = False
 
         zm = (self.zbins[:-1] + self.zbins[1:])/2
-        ze = np.sqrt(self.varfquenched)
+        ye = np.sqrt(self.varfquenched)
         ax.plot(zm, self.fquenched, **kwargs)
         ax.fill_between(zm, self.fquenched - ye, self.fquenched + ye, **kwargs)
 
