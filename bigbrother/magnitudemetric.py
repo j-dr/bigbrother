@@ -1328,7 +1328,7 @@ class FQuenched(Metric):
             plt.setp(sax.get_xticklines(), visible=False)
             plt.setp(sax.get_yticklines(), visible=False)
             plt.setp(sax.get_xticklabels(), visible=False)
-            plt.setp(sax.get_yticklabels(), visible=False)            
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -1336,8 +1336,8 @@ class FQuenched(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$z$')
-            sax.set_ylabel(r'$f_{red}$')
+            sax.set_xlabel(r'$z$', fontsize=16)
+            sax.set_ylabel(r'$f_{red}$', fontsize=16)
 
         #plt.tight_layout()
 
@@ -1499,8 +1499,8 @@ class FRed(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
-            sax.set_ylabel(r'$L_{cen}\, [mag]$')
+            sax.set_xlabel(r'$z$', fontsize=16)
+            sax.set_ylabel(r'$f_{red}$', fontsize=16)
 
         #plt.tight_layout()
 
