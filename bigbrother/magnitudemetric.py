@@ -1203,6 +1203,8 @@ class FQuenched(Metric):
         else:
             self.magind = magind
 
+        self.appmag = appmag
+
         if appmag:
             self.mkey = 'appmag'
         else:
