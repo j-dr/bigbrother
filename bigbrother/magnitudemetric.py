@@ -1302,8 +1302,9 @@ class FQuenched(Metric):
             newaxes = False
 
         zm = (self.zbins[:-1] + self.zbins[1:])/2
-
-        ax.plot(zm, self.fquenched)
+        ze = np.sqrt(self.varfquenched)
+        ax.plot(zm, self.fquenched, **kwargs)
+        ax.fill_between(zm, self.fquenched - ye, self.fquenched + ye, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -1330,9 +1331,14 @@ class FQuenched(Metric):
 
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax = m.visualize(compare=True, **kwargs)
+                f, ax = m.visualize(compare=True,
+                                    color=self._color_list[i],
+                                    **kwargs)
             else:
-                f, ax = m.visualize(f=f, ax=ax, compare=True, **kwargs)
+                f, ax = m.visualize(f=f, ax=ax,
+                                    color=self._color_list[i],
+                                    compare=True,
+                                    **kwargs)
 
         if plotname is not None:
             plt.savefig(plotname)
