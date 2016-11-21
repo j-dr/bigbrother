@@ -223,7 +223,7 @@ class GalaxyCatalog(BaseCatalog):
 
     def filterStar(self, mapunit):
         print('Filtering stars')
-        
+
         return mapunit['pstar']<0.2
 
 
@@ -337,10 +337,19 @@ class BCCCatalog(GalaxyCatalog):
 
         if self.fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['gtruth'])]),
-                             'appmag':OrderedDict([('MAG_G',['obs']), ('MAG_R',['obs']),
-                                                   ('MAG_I',['obs']), ('MAG_Z',['obs']),
-                                                   ('MAG_Y',['obs'])]),
-                             'redshift':OrderedDict([('Z',['gtruth'])])}
+                             'appmag':OrderedDict([('MAG_G',['gobs']),
+                                                   ('MAG_R',['gobs']),
+                                                   ('MAG_I',['gobs']),
+                                                   ('MAG_Z',['gobs']),
+                                                   ('MAG_Y',['gobs'])]),
+                             'redshift':OrderedDict([('Z',['gtruth'])]),
+                             'azim_ang':OrderedDict([('RA', ['gobs'])]),
+                             'polar_ang':OrderedDict([('DEC', ['gobs'])]),
+                             'central':OrderedDict([('CENTRAL', ['gtruth'])]),
+                             'halomass':OrderedDict([('M200', ['gtruth'])]),
+                             'rhalo':OrderedDict([('RHALO', ['gtruth'])]),
+                             'haloid':OrderedDict([('HALOID', ['gtruth'])]),
+                             'density':OrderedDict([('SIGMA5', ['gtruth'])])}
             self.sortbyz = True
         else:
             if 'redshift' in self.fieldmap.keys():
@@ -540,7 +549,7 @@ class DESGoldCatalog(GalaxyCatalog):
         print('Filtering modest')
 
         return mapunit['modest']==1
- 
+
     def filterPhotoz(self, mapunit):
         print('Filtering photoz')
 
