@@ -452,10 +452,10 @@ class LcenMass(Metric):
                 self.jbincount = self.jackknife(self.bincount, reduce_jk=False)
                 self.jlcen_mass = self.jtotlum / self.jbincount
 
-                self.lcen_mass = (np.sum(self.jlcen_mass, axis=0) / 
+                self.lcen_mass = (np.sum(self.jlcen_mass, axis=0) /
                                     self.njacktot)
-                self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
-                                            axis=0) * (self.njacktot - 1) / 
+                self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2,
+                                            axis=0) * (self.njacktot - 1) /
                                             self.njacktot)
 
         else:
@@ -464,8 +464,8 @@ class LcenMass(Metric):
             self.jbincount  = self.jackknife(self.bincount, reduce_jk=False)
             self.jlcen_mass = self.jtotlum / self.jbincount
             self.lcen_mass  = np.sum(self.jlcen_mass, axis=0) / self.njacktot
-            self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
-                                          axis=0) * (self.njacktot - 1) / 
+            self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2,
+                                          axis=0) * (self.njacktot - 1) /
                                           self.njacktot)
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
@@ -822,7 +822,7 @@ class ColorColor(Metric):
 
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usecolors=None, colors=None, xlabel=None, 
+                  usecolors=None, colors=None, xlabel=None,
                   ylabel=None, nc=5, **kwargs):
 
         if hasattr(self, 'magmean'):
@@ -1284,6 +1284,9 @@ class FQuenched(Metric):
                 self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
 
         else:
+            self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+            self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
             self.jfquenched = self.jqscounts / self.jtcounts
             self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
             self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
