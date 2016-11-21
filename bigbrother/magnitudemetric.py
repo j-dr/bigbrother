@@ -1243,7 +1243,7 @@ class FQuenched(Metric):
                     self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
                 elif (self.splitcolor==0).all():
                     czhidx = mapunit['redshift'].searchsorted(0.2)
-                    ccounts, cbins = np.histogram(clr[czhidx], self.hcbins)
+                    ccounts, cbins = np.histogram(clr[:czhidx], self.hcbins)
                     self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
                 else:
                     self.splitcolor[i] = self.splitcolor[i-1]
