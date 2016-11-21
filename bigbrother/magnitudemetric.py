@@ -1325,6 +1325,10 @@ class FQuenched(Metric):
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)            
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -1371,8 +1375,10 @@ class FQuenched(Metric):
 
 class FRed(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], catalog_type=['galaxycatalog'], zeroind=True,
-                  tag=None, **kwargs):
+    def __init__(self, ministry, zbins=None,
+                  catalog_type=['galaxycatalog'],
+                  zeroind=True, tag=None,
+                  ctfile=None, **kwargs):
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
         self.zbins = zbins
 
@@ -1387,7 +1393,12 @@ class FRed(Metric):
         self.aschema = 'galaxyonly'
         self.zeroind = zeroind
 
-        self.ctcat = np.genfromtxt('/nfs/slac/g/ki/ki23/des/jderose/l-addgals/training/cooper/dr6_cooper_id_with_red.dat')
+        if ctfile is None:
+            self.ctfile = '/nfs/slac/g/ki/ki23/des/jderose/l-addgals/training/cooper/dr6_cooper_id_with_red.dat'
+        else:
+            self.ctfile = ctfile
+
+        self.ctcat = np.genfromtxt(self.ctfile)
 
         self.qscounts = None
         self.tcounts  = None
@@ -1471,10 +1482,16 @@ class FRed(Metric):
 
         zm = (self.zbins[:-1] + self.zbins[1:])/2
 
-        ax.plot(zm, self.fquenched)
+        ye = np.sqrt(self.varfquenched)
+        ax.plot(zm, self.fquenched, **kwargs)
+        ax.fill_between(zm, self.fquenched - ye, self.fquenched + ye, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
