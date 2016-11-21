@@ -1176,7 +1176,8 @@ class ColorMagnitude(Metric):
 
 class FQuenched(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2],
+    def __init__(self, ministry, zbins=None,
+                  onezbin=False,
                   catalog_type=['galaxycatalog'],
                   tag=None, appmag=True, magind=None,
                   hcbins=None, **kwargs):
@@ -1184,8 +1185,13 @@ class FQuenched(Metric):
         Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag,**kwargs)
         self.zbins = zbins
 
-        if zbins is None:
+        if (zbins is None) & onezbin:
             self.nzbins = 1
+        elif zbins is None:
+            self.zbins = np.linspace(ministry.minz,
+                                     ministry.maxz,
+                                     50)
+            self.nzbins = len(zbins)-1
         else:
             self.nzbins = len(zbins)-1
             self.zbins = np.array(self.zbins)
@@ -1197,22 +1203,16 @@ class FQuenched(Metric):
         else:
             self.magind = magind
 
-        if hcbins is None:
-            self.hcbins = 100
-        else:
-            self.hcbins = hcbins
-
         if appmag:
             self.mkey = 'appmag'
         else:
             self.mkey = 'luminosity'
 
+
         self.mapkeys = [self.mkey, 'redshift']
         self.unitmap = {self.mkey:'mag'}
         self.aschema = 'galaxyonly'
 
-        self.qscounts = None
-        self.tcounts = None
 
     @jackknifeMap
     def map(self, mapunit):
@@ -1228,9 +1228,16 @@ class FQuenched(Metric):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                if self.appmag:
+                    ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                    self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+                elif (self.splitcolor==0).all():
+                    czhidx = mapunit['redshift'].searchsorted(0.2)
+                    ccounts, cbins = np.histogram(clr[czhidx], self.hcbins)
+                    self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+                else:
+                    self.splitcolor[i] = self.splitcolor[i-1]
 
-                self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
                 if self.splitcolor[i] is None:
                     continue
 
@@ -1344,6 +1351,13 @@ class FQuenched(Metric):
             plt.savefig(plotname)
 
         return f, ax
+
+#class ColorRedshift(Metric):
+#
+#    def __init__(self, ministry, zbins=None,
+#                  catalog_type=['galaxycatalog'],
+#                  tag=None, appmag=True, magind=None,
+#                  **kwargs):
 
 class FRed(Metric):
 
