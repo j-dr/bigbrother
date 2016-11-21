@@ -1210,6 +1210,11 @@ class FQuenched(Metric):
         else:
             self.mkey = 'luminosity'
 
+        if hcbins is None:
+            self.hcbins = 100
+        else:
+            self.hcbins = hcbins
+
 
         self.mapkeys = [self.mkey, 'redshift']
         self.unitmap = {self.mkey:'mag'}
