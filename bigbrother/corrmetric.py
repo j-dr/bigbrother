@@ -1136,8 +1136,8 @@ class WPrpSnapshot(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$w_{p}(r_{p})$')
-            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=20, fontsize=16)
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$', labelpad=20, fontsize=16)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -1592,8 +1592,8 @@ class XiofR(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$w_{p}(r_{p})$')
-            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$')
+            sax.set_ylabel(r'$\xi(r)$', fontsize=16, labelpad=20)
+            sax.set_xlabel(r'$r \, [ Mpc h^{-1}]$', fontsize=16, labelpad=20)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)

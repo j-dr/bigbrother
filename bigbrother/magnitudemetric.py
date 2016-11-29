@@ -1336,8 +1336,8 @@ class FQuenched(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$z$', fontsize=16)
-            sax.set_ylabel(r'$f_{red}$', fontsize=16)
+            sax.set_xlabel(r'$z$', fontsize=16, labelpad=20)
+            sax.set_ylabel(r'$f_{red}$', fontsize=16, labelpad=20)
 
         #plt.tight_layout()
 
@@ -1499,8 +1499,8 @@ class FRed(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$z$', fontsize=16)
-            sax.set_ylabel(r'$f_{red}$' fontsize=16)
+            sax.set_xlabel(r'$z$', fontsize=16, labelpad=20)
+            sax.set_ylabel(r'$f_{red}$', fontsize=16, labelpad=20)
 
         #plt.tight_layout()
 
