@@ -16,6 +16,7 @@ except:
 try:
     import Corrfunc._countpairs_mocks as countpairs_mocks
     from Corrfunc.theory import DDrppi, DD
+    from Corrfunc.mocks import DDtheta_mocks
     from Corrfunc.utils import convert_3d_counts_to_cf
     hascorrfunc = True
 except:
@@ -289,6 +290,13 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
+        self.nd = None
+        self.nr = None
+        self.dd = None
+        self.dr = None
+        self.rr = None
+
+
     @jackknifeMap
     def map(self, mapunit):
         if not hastreecorr:
@@ -297,53 +305,326 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.jsamples += 1
 
         if not hasattr(self, 'wthetaj'):
-            self.wthetaj = np.zeros((self.njack, self.nabins, self.nmbins, self.nzbins))
-            self.varwthetaj = np.zeros((self.njack, self.nabins, self.nmbins, self.nzbins))
+            self.nd = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nzbins))
+            self.nr = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nzbins))
+            self.dd = np.zeros((self.njack, self.ncbins, self.nabins,
+                                  self.nmbins, self.nzbins))
+            self.dr = np.zeros((self.njack, self.ncbins, self.nabins,
+                                  self.nmbins, self.nzbins))
+            self.rr = np.zeros((self.njack, self.ncbins, self.nabins,
+                                  self.nmbins, self.nzbins))
 
-        #putting this outside loop maybe faster, inside loop
-        #lower memory usage
-        rand = self.generateAngularRandoms(mapunit['azim_ang'], mapunit['polar_ang'], nside=128)
+        if (mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64):
+            mu = {}
+            mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
+            mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
+            mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
 
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-            zrlidx = rand['redshift'].searchsorted(self.zbins[i])
-            zrhidx = rand['redshift'].searchsorted(self.zbins[i+1])
+            mu['azim_ang'][:] = mapunit['azim_ang'][:]
+            mu['polar_ang'][:] = mapunit['polar_ang'][:]
+            mu['redshift'][:] = mapunit['redshift'][:]
+            mu[self.mkey] = mapunit[self.mkey]
 
-            for j in range(self.nmbins):
-                #luminosity should be at least 2d
-                lidx = np.where((self.mbins[i] < mapunit[self.mkey][zlidx:zhidx,0]) &
-                                (mapunit[self.mkey][zlidx:zhidx,0] <= self.mbins[i+1]))
-                cat  = {key:mapunit[key][zlidx:zhidx][lidx] for key in mapunit.keys()}
+            if self.rsd:
+                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
+                mu['velocity'][:] = mapunit['velocity'][:]
+        else:
+            mu = mapunit
+
+        if self.rsd:
+            z = self.addRSD(mu) / self.c
+        else:
+            z = mu['redshift']
+
+        #calculate DD
+        for i in range(self.nzbins):
+            print('Finding redshift indices')
+
+            zlidx = z.searchsorted(self.zbins[i])
+            zhidx = z.searchsorted(self.zbins[i+1])
+
+            if zlidx==zhidx:
+                print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
+                print("Min and max z: {0}, {1}".format(np.min(z), np.max(z)))
+                print(z)
+                continue
+
+            if (self.splitcolor is None) & (self.bimodal_ccut):
+                ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
+
+            for li, j in enumerate(self.minds):
+                print('Finding luminosity indices')
+
+                if self.mcutind is not None:
+                    if self.upper_limit:
+                        lidx = mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j]
+                    else:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
+                else:
+                    if self.upper_limit:
+                        lidx = mu[self.mkey][zlidx:zhidx] < self.mbins[j]
+                    else:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+
+                if self.centrals_only:
+                    lidx = lidx & (mu['central'][zlidx:zhidx]==1)
+
+                if (li==self.rand_ind) | (not self.same_rand):
+                    print('Generating Randoms')
+                    if len(z[zlidx:zhidx][lidx])==0:
+                        self.rand_ind+=1
+                        continue
+
+                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx])
+
+                if (self.percentile_ccut is not None):
+                    self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
+
+                for k in range(self.ncbins):
+                    if self.ncbins == 1:
+                        cidx = lidx
+                    else:
+                        if k==0:
+                            cidx = lidx & (self.splitcolor < clr[zlidx:zhidx])
+                        else:
+                            cidx = lidx & (self.splitcolor >= clr[zlidx:zhidx])
+
+                    self.nd[self.jcount,k,j,i] = len(mu['azim_ang'][zlidx:zhidx][cidx])
+                    self.nr[self.jcount,k,j,i] = len(rands)
+
+                    print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,k,j,i]))
+                    print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,k,j,i]))
+
+                    #data data
+                    print('calculating data data pairs')
+                    sys.stdout.flush()
+                    if (self.nd[self.jcount,k,j,i]<2) | (self.nr[self.jcount,k,j,i]<2):
+                        continue
+
+                    ddresults = DDtheta_mocks(1, 1, self.binfilename,
+                                            mu['azim_ang'][zlidx:zhidx][cidx],
+                                            mu['polar_ang'][zlidx:zhidx][cidx],
+                                            mu['azim_ang'][zlidx:zhidx][cidx],
+                                            mu['polar_ang'][zlidx:zhidx][cidx])
 
 
-                d  = treecorr.Catalog(x=cat['azim_ang'], y=cat['polar_ang'])
-                r = treecorr.Catalog(x=rand[zrlidx:zrhidx]['azim_ang'], y=rand['polar_ang'])
+                    ddresults = np.array(ddresults)
+                    self.dd[self.jcount,:,:,k,j,i] = ddresults[:,-2]
 
-                dd = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees',
-                                            bin_slop=0.001)
-                dr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees',
-                                            bin_slop=0.001)
-                rr = treecorr.NNCorrelation(nbins=self.nabins, min_sep=self.mintheta,
-                                            max_sep=self.maxtheta, sep_units='degrees',
-                                            bin_slop=0.001)
-                dd.process(d)
-                dr.process(d,r)
-                rr.process(r)
-                xi,varXi = dd.calculateXi(rr,dr)
-                self.wthetaj[self.jcount,:,j,i] = xi
-                self.varwthetaj[self.jcount,:,j,i] = varXi
+                    #data randoms
+                    print('calculating data random pairs')
+                    sys.stdout.flush()
+                    drresults = DDtheta_mocks(0, 1, self.binfilename,
+                                            mu['azim_ang'][zlidx:zhidx][cidx],
+                                            mu['polar_ang'][zlidx:zhidx][cidx],
+                                            rands['azim_ang'],
+                                            rands['polar_ang'])
+
+                    drresults = np.array(drresults)
+                    self.dr[self.jcount,:,:,k,j,i] = drresults[:,-2]
+
+                    #randoms randoms
+                    print('calculating random random pairs')
+                    sys.stdout.flush()
+                    if (li==0) | (not self.same_rand):
+                        rrresults = DDtheta_mocks(1, 1, self.binfilename,
+                                                rands['azim_ang'],
+                                                rands['polar_ang']
+                                                rands['azim_ang'],
+                                                rands['polar_ang'])
+
+
+                    self.rr[self.jcount,:,:,k,j,i] = rrresults[:,-2]
+
 
     def reduce(self, rank=None, comm=None):
-       pass
 
-    def visualize(self):
-        pass
+        if rank is not None:
+            gnd = comm.gather(self.nd, root=0)
+            gnr = comm.gather(self.nr, root=0)
+            gdd = comm.gather(self.dd, root=0)
+            gdr = comm.gather(self.dr, root=0)
+            grr = comm.gather(self.rr, root=0)
 
-    def compare(self):
-        pass
+
+            if rank==0:
+                ndshape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
+                nrshape = [self.nr.shape[i] for i in range(len(self.nr.shape))]
+                ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+                drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
+                rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+
+                ndshape.insert(1,1)
+                nrshape.insert(1,1)
+
+                ndshape[0] = self.njacktot
+                nrshape[0] = self.njacktot
+                ddshape[0] = self.njacktot
+                drshape[0] = self.njacktot
+                rrshape[0] = self.njacktot
+
+                self.nd = np.zeros(ndshape)
+                self.nr = np.zeros(nrshape)
+                self.dd = np.zeros(ddshape)
+                self.dr = np.zeros(drshape)
+                self.rr = np.zeros(rrshape)
+
+                jc = 0
+                for i, g in enumerate(gnd):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.nd[jc:jc+nj,0,0,:,:] = g
+                    self.nr[jc:jc+nj,0,0,:,:] = gnr[i]
+                    self.dd[jc:jc+nj,:,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:,:] = gdr[i]
+                    self.rr[jc:jc+nj,:,:,:,:] = grr[i]
+
+                    jc += nj
+
+                self.jwtheta = np.zeros(self.dd.shape)
+
+                self.jnd = self.jackknife(self.nd, reduce_jk=False)
+                self.jnr = self.jackknife(self.nr, reduce_jk=False)
+                self.jdd = self.jackknife(self.dd, reduce_jk=False)
+                self.jdr = self.jackknife(self.dr, reduce_jk=False)
+                self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+                fnorm = self.jnr / self.jnd
+
+                self.jwtheta = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
+
+                self.wprppi = np.sum(self.jwptheta, axis=0) / self.njacktot
+
+                self.varwtheta = np.sum((self.jwtheta - self.wtheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+        else:
+            self.jwprp = np.zeros(self.dd.shape)
+
+            self.jnd = self.jackknife(self.nd, reduce_jk=False)
+            self.jnr = self.jackknife(self.nr, reduce_jk=False)
+            self.jdd = self.jackknife(self.dd, reduce_jk=False)
+            self.jdr = self.jackknife(self.dr, reduce_jk=False)
+            self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+            fnorm = self.jnr / self.jnd
+
+            self.jwtheta = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
+
+            self.wprppi = np.sum(self.jwptheta, axis=0) / self.njacktot
+
+            self.varwtheta = np.sum((self.jwtheta - self.wtheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, usecolors=None, **kwargs):
+
+        if usecols is None:
+            usecols = range(self.nmbins)
+
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if usecolors is None:
+            usecolors = range(self.ncbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                for k, c in enumerate(usecolors):
+                    ye = np.sqrt(self.varwtheta[:,c,l,z])
+                    l1 = ax[j][i].plot(rmean, self.wtheta[:,c,l,z], **kwargs)
+                    ax[j][i].fill_between(rmean, self.wtheta[:,c,l,z]-ye, self.wtheta[:,c,l,z]+ye, alpha=0.5, **kwargs)
+
+                ax[j][i].set_xscale('log')
+                ax[j][i].set_yscale('log')
+
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_ylabel(r'$w_{p}(r_{p})/$', labelpad=20)
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$',labelpad=20)
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1[0]
+
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 usez=None, labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
 
 
 class WPrpLightcone(CorrelationFunction):
@@ -1279,7 +1560,7 @@ class XiofR(CorrelationFunction):
 
             if self.lightcone:
                 mu['redshift'] = mapunit['redshift']
-                
+
         else:
             mu = mapunit
 
@@ -1313,7 +1594,7 @@ class XiofR(CorrelationFunction):
                                                          mu['py'][zlidx:zhidx][lidx],
                                                          mu['pz'][zlidx:zhidx][lidx])
 
-                        
+
                     self.nd[self.jcount,j,i] = len(mu['pz'][zlidx:zhidx][lidx])
                     self.nr[self.jcount,j,i] = len(rands)
 
@@ -1324,7 +1605,7 @@ class XiofR(CorrelationFunction):
                     #data data
                     print('calculating data data pairs')
                     sys.stdout.flush()
-                    
+
                     ddout = DD(1,1,
                                  self.binfilename,
                                  mu['px'][zlidx:zhidx][lidx],
@@ -1341,7 +1622,7 @@ class XiofR(CorrelationFunction):
 
                     print('calculating data random pairs')
                     sys.stdout.flush()
-                    
+
                     drout = DD(0,1,
                                  self.binfilename,
                                  mu['px'][zlidx:zhidx][lidx],
@@ -1357,7 +1638,7 @@ class XiofR(CorrelationFunction):
 
                     print('calculating random random pairs')
                     sys.stdout.flush()
-                    
+
                     if (lj==0) | (not self.same_rand):
                         rrout = DD(1,1,
                                      self.binfilename,
@@ -1392,7 +1673,7 @@ class XiofR(CorrelationFunction):
                                                      mu['py'][lidx],
                                                      mu['pz'][lidx])
 
-                        
+
                 self.nd[self.jcount,j,i] = len(mu['pz'][lidx])
                 self.nr[self.jcount,j,i] = len(rands)
 
@@ -1403,7 +1684,7 @@ class XiofR(CorrelationFunction):
                 #data data
                 print('calculating data data pairs')
                 sys.stdout.flush()
-                    
+
                 ddout = DD(1,1,
                              self.binfilename,
                              mu['px'][lidx],
@@ -1419,7 +1700,7 @@ class XiofR(CorrelationFunction):
                 self.dd[self.jcount,:,j,i] = ddout['npairs']
                 print('calculating data random pairs')
                 sys.stdout.flush()
-                    
+
                 drout = DD(0,1,
                              self.binfilename,
                              mu['px'][lidx],
@@ -1435,7 +1716,7 @@ class XiofR(CorrelationFunction):
 
                 print('calculating random random pairs')
                 sys.stdout.flush()
-                
+
                 if (lj==0) | (not self.same_rand):
                     rrout = DD(1,1,
                                  self.binfilename,
