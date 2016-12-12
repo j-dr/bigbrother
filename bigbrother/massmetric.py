@@ -683,8 +683,6 @@ class Richness(MassMetric):
 
     @jackknifeMap
     def map(self, mapunit):
-        print('min z: ' + str(min(mapunit['redshift'])))
-        print('max z: ' + str(max(mapunit['redshift'])))
         # must convert mapunit dict to a recarray
 
         self.galaxy_counts         = np.zeros((self.njack, len(self.massbins) - 1, 1, len(self.zbins) - 1))
@@ -706,7 +704,6 @@ class Richness(MassMetric):
             previd = -1
             halo_ids = np.unique(mapunit['haloid'][zcut])
             if len(halo_ids)<2:
-                print('ziter: {0}'.format(ziter))
                 continue
             red_galaxy_counts = np.zeros(len(halo_ids)-1) # number of red galaxies in each unique halo
 
@@ -718,7 +715,6 @@ class Richness(MassMetric):
                 data_cut[key] = mapunit[key][cut_array]
 
             data_cut.sort(order='haloid')
-            print(len(data_cut))
             if len(data_cut)==0:
                 continue
             elif len(data_cut)==1:

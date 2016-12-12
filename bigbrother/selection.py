@@ -46,6 +46,8 @@ class Selector:
                 selections[label].extend(self.binned1dSelection(sel))
             elif self.selection_dict[label]['selection_type'] =='cut1d':
                 selections[label].extend(self.cut1dSelection(sel))
+            elif self.selection_dict[label]['selection_type']=='flag':
+                selections[label].extend(self.flagSelection(sel))
 
         return selections
 
@@ -73,6 +75,18 @@ class Selector:
         #Iterate over bins, creating functions that make indices
         for i in range(len(selection['bins'])-1):
             sfunctions.append(partial(self.bin1dhelper, selection['bins'][i], selection['bins'][i+1], mk, si[i]))
+
+        return sfunctions
+
+    def flagSelection(self, selection):
+        sfunctions = []
+        
+        mk        = selection['mapkeys']
+        flags      = selection['flags']
+        flag_true = selection['flag_true']
+
+        for i, flag in enumerate(flags):
+            sfunctions.append(partial(self.flaghelper, flag, flag_true[i], mk[i]))
 
         return sfunctions
 
@@ -106,6 +120,14 @@ class Selector:
             sfunctions.append(partial(self.cut1dhelper, selection['bins'][i], mk, si[i], lower[i]))
 
         return sfunctions
+
+    def flaghelper(self, flag, flag_true, key, data):
+
+        if flag_true:
+            return data[key]==flag
+        else:
+            return data[key]!=flag
+
 
     def bin1dhelper(self, lbound, hbound, key, index, data):
         if index is None:

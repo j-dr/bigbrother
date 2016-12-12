@@ -101,6 +101,16 @@ class DNDz(Metric):
                                     'bins':self.magbins,
                                     'selection_ind':self.cutband}}
 
+        nmkeys = []
+        for s in selection_dict:
+            if 'mapkeys' in selection_dict[s]:
+                ss = selection_dict[s]
+                for m in ss['mapkeys']:
+                    if m not in self.mapkeys:
+                        self.mapkeys.append(m)
+                    if m not in self.unitmap:
+                        self.unitmap[m] = self.defaultUnits(m)
+
         self.zcounts = None
         self.selector = Selector(selection_dict)
 
@@ -113,8 +123,6 @@ class DNDz(Metric):
         #if selector.mapArray()
         if self.zcounts is None:
             self.zcounts = np.zeros((self.njack, self.nzbins,self.nmagbins))
-
-        print(mapunit['appmag'])
 
         for idx, aidx in self.selector.generateSelections(mapunit):
             c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)

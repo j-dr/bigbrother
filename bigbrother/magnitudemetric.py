@@ -267,7 +267,6 @@ class MagCounts(MagnitudeMetric):
                     self.mc[self.jcount,:,j,i] += c
         else:
             for j in range(self.nbands):
-                print(mapunit['appmag'][np.isnan(mapunit['appmag'][:,j]),j])
                 c, e = np.histogram(mapunit['appmag'][:,j], bins=self.magbins)
                 self.mc[self.jcount,:,j,0] += c
 
@@ -407,8 +406,6 @@ class LcenMass(Metric):
 
         if self.lightcone:
             for i, z in enumerate(self.zbins[:-1]):
-                print(mu['redshift'].shape)
-                print(mapunit['redshift'].shape)
                 zlidx = mu['redshift'].searchsorted(self.zbins[i])
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
                 mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
@@ -454,10 +451,10 @@ class LcenMass(Metric):
                 self.jtotlum   = self.jackknife(self.totlum, reduce_jk=False)
                 self.jbincount = self.jackknife(self.bincount, reduce_jk=False)
                 self.jlcen_mass = self.jtotlum / self.jbincount
-                self.lcen_mass = (np.sum(self.jlcen_mass, axis=0) / 
+                self.lcen_mass = (np.sum(self.jlcen_mass, axis=0) /
                                     self.njacktot)
-                self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
-                                            axis=0) * (self.njacktot - 1) / 
+                self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2,
+                                            axis=0) * (self.njacktot - 1) /
                                             self.njacktot)
 
         else:
@@ -466,11 +463,8 @@ class LcenMass(Metric):
             self.jbincount  = self.jackknife(self.bincount, reduce_jk=False)
             self.jlcen_mass = self.jtotlum / self.jbincount
             self.lcen_mass  = np.sum(self.jlcen_mass, axis=0) / self.njacktot
-            print(self.jtotlum.shape)
-            print(self.jlcen_mass.shape)
-            print(self.lcen_mass.shape)
-            self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2, 
-                                          axis=0) * (self.njacktot - 1) / 
+            self.varlcen_mass = (np.sum((self.jlcen_mass - self.lcen_mass)**2,
+                                          axis=0) * (self.njacktot - 1) /
                                           self.njacktot)
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
@@ -510,9 +504,6 @@ class LcenMass(Metric):
         for i, b in enumerate(usebands):
             for j in range(self.nzbins):
                 ye = np.sqrt(self.varlcen_mass[:,b,j])
-                print(mmass.shape)
-                print(self.varlcen_mass[:,b,j].shape)
-                print(ye.shape)
 
                 ax[i][j].plot(mmass, self.lcen_mass[:,b,j],
                                 **kwargs)
@@ -830,7 +821,7 @@ class ColorColor(Metric):
 
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usecolors=None, colors=None, xlabel=None, 
+                  usecolors=None, colors=None, xlabel=None,
                   ylabel=None, nc=5, **kwargs):
 
         if hasattr(self, 'magmean'):
@@ -1184,7 +1175,8 @@ class ColorMagnitude(Metric):
 
 class FQuenched(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2],
+    def __init__(self, ministry, zbins=None,
+                  onezbin=False,
                   catalog_type=['galaxycatalog'],
                   tag=None, appmag=True, magind=None,
                   hcbins=None, **kwargs):
@@ -1192,8 +1184,13 @@ class FQuenched(Metric):
         Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag,**kwargs)
         self.zbins = zbins
 
-        if zbins is None:
+        if (zbins is None) & onezbin:
             self.nzbins = 1
+        elif zbins is None:
+            self.zbins = np.linspace(ministry.minz,
+                                     ministry.maxz,
+                                     50)
+            self.nzbins = len(zbins)-1
         else:
             self.nzbins = len(zbins)-1
             self.zbins = np.array(self.zbins)
@@ -1205,22 +1202,26 @@ class FQuenched(Metric):
         else:
             self.magind = magind
 
-        if hcbins is None:
-            self.hcbins = 100
-        else:
-            self.hcbins = hcbins
+        self.appmag = appmag
 
         if appmag:
             self.mkey = 'appmag'
         else:
             self.mkey = 'luminosity'
 
+        if hcbins is None:
+            self.hcbins = 100
+        else:
+            self.hcbins = hcbins
+
+
         self.mapkeys = [self.mkey, 'redshift']
         self.unitmap = {self.mkey:'mag'}
         self.aschema = 'galaxyonly'
 
         self.qscounts = None
-        self.tcounts = None
+        self.tcounts  = None
+
 
     @jackknifeMap
     def map(self, mapunit):
@@ -1236,9 +1237,16 @@ class FQuenched(Metric):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                if self.appmag:
+                    ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                    self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+                elif (self.splitcolor==0).all():
+                    czhidx = mapunit['redshift'].searchsorted(0.2)
+                    ccounts, cbins = np.histogram(clr[:czhidx], self.hcbins)
+                    self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+                else:
+                    self.splitcolor[i] = self.splitcolor[i-1]
 
-                self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
                 if self.splitcolor[i] is None:
                     continue
 
@@ -1292,6 +1300,9 @@ class FQuenched(Metric):
                 self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
 
         else:
+            self.jqscounts = self.jackknife(self.qscounts, reduce_jk=False)
+            self.jtcounts = self.jackknife(self.tcounts, reduce_jk=False)
+
             self.jfquenched = self.jqscounts / self.jtcounts
             self.fquenched = np.sum(self.jfquenched, axis=0) / self.njacktot
             self.varfquenched = np.sum((self.jfquenched - self.fquenched)**2, axis=0) * ( self.njacktot - 1) / self.njacktot
@@ -1307,11 +1318,16 @@ class FQuenched(Metric):
             newaxes = False
 
         zm = (self.zbins[:-1] + self.zbins[1:])/2
-
-        ax.plot(zm, self.fquenched)
+        ye = np.sqrt(self.varfquenched)
+        ax.plot(zm, self.fquenched, **kwargs)
+        ax.fill_between(zm, self.fquenched - ye, self.fquenched + ye, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -1319,8 +1335,8 @@ class FQuenched(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$z$')
-            sax.set_ylabel(r'$f_{red}$')
+            sax.set_xlabel(r'$z$', fontsize=16, labelpad=20)
+            sax.set_ylabel(r'$f_{red}$', fontsize=16, labelpad=20)
 
         #plt.tight_layout()
 
@@ -1335,19 +1351,33 @@ class FQuenched(Metric):
 
         for i, m in enumerate(tocompare):
             if i==0:
-                f, ax = m.visualize(compare=True, **kwargs)
+                f, ax = m.visualize(compare=True,
+                                    color=self._color_list[i],
+                                    **kwargs)
             else:
-                f, ax = m.visualize(f=f, ax=ax, compare=True, **kwargs)
+                f, ax = m.visualize(f=f, ax=ax,
+                                    color=self._color_list[i],
+                                    compare=True,
+                                    **kwargs)
 
         if plotname is not None:
             plt.savefig(plotname)
 
         return f, ax
 
+#class ColorRedshift(Metric):
+#
+#    def __init__(self, ministry, zbins=None,
+#                  catalog_type=['galaxycatalog'],
+#                  tag=None, appmag=True, magind=None,
+#                  **kwargs):
+
 class FRed(Metric):
 
-    def __init__(self, ministry, zbins=[0.0, 0.2], catalog_type=['galaxycatalog'], zeroind=True,
-                  tag=None, **kwargs):
+    def __init__(self, ministry, zbins=None,
+                  catalog_type=['galaxycatalog'],
+                  zeroind=True, tag=None,
+                  ctfile=None, **kwargs):
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
         self.zbins = zbins
 
@@ -1362,7 +1392,12 @@ class FRed(Metric):
         self.aschema = 'galaxyonly'
         self.zeroind = zeroind
 
-        self.ctcat = np.genfromtxt('/nfs/slac/g/ki/ki23/des/jderose/l-addgals/training/cooper/dr6_cooper_id_with_red.dat')
+        if ctfile is None:
+            self.ctfile = '/nfs/slac/g/ki/ki23/des/jderose/l-addgals/training/cooper/dr6_cooper_id_with_red.dat'
+        else:
+            self.ctfile = ctfile
+
+        self.ctcat = np.genfromtxt(self.ctfile)
 
         self.qscounts = None
         self.tcounts  = None
@@ -1370,31 +1405,41 @@ class FRed(Metric):
     @jackknifeMap
     def map(self, mapunit):
 
+        mu = {}
+        if self.zeroind:
+            idx = (mapunit['ctcatid']-1)<len(self.ctcat)
+        else:
+            idx = (mapunit['ctcatid'])<len(self.ctcat)
+
+        for k in mapunit.keys():
+            mu[k] = mapunit[k][idx]
+
+
         if self.qscounts is None:
             self.qscounts = np.zeros((self.njack,self.nzbins))
             self.tcounts = np.zeros((self.njack,self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
-                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+                zlidx = mu['redshift'].searchsorted(self.zbins[i])
+                zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
                 if self.zeroind:
-                    qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx]-1,3]==1)
+                    qidx, = np.where(self.ctcat[mu['ctcatid'][zlidx:zhidx]-1,3]==1)
                 else:
-                    qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx],3]==1)
+                    qidx, = np.where(self.ctcat[mu['ctcatid'][zlidx:zhidx],3]==1)
 
                 self.qscounts[self.jcount, i] = len(qidx)
                 self.tcounts[self.jcount, i] = zhidx-zlidx
 
         else:
             if self.zeroind:
-                qidx, = np.where(self.ctcat[mapunit['ctcatid']-1,3]==1)
+                qidx, = np.where(self.ctcat[mu['ctcatid']-1,3]==1)
             else:
-                qidx, = np.where(self.ctcat[mapunit['ctcatid'],3]==1)
+                qidx, = np.where(self.ctcat[mu['ctcatid'],3]==1)
 
             self.qscounts[self.jcount,0] = len(qidx)
-            self.tcounts[self.jcount,0] = len(mapunit['ctcatid'])
+            self.tcounts[self.jcount,0] = len(mu['ctcatid'])
 
 
     def reduce(self, rank=None, comm=None):
@@ -1446,10 +1491,16 @@ class FRed(Metric):
 
         zm = (self.zbins[:-1] + self.zbins[1:])/2
 
-        ax.plot(zm, self.fquenched)
+        ye = np.sqrt(self.varfquenched)
+        ax.plot(zm, self.fquenched, **kwargs)
+        ax.fill_between(zm, self.fquenched - ye, self.fquenched + ye, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -1457,8 +1508,8 @@ class FRed(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
-            sax.set_ylabel(r'$L_{cen}\, [mag]$')
+            sax.set_xlabel(r'$z$', fontsize=16, labelpad=20)
+            sax.set_ylabel(r'$f_{red}$', fontsize=16, labelpad=20)
 
         #plt.tight_layout()
 
