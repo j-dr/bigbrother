@@ -1406,31 +1406,41 @@ class FRed(Metric):
     @jackknifeMap
     def map(self, mapunit):
 
+        mu = {}
+        if self.zeroind:
+            idx = (mapunit['ctcatid']-1)<len(self.ctcat)
+        else:
+            idx = (mapunit['ctcatid'])<len(self.ctcat)
+
+        for k in mapunit.keys():
+            mu[k] = mapunit[k][idx]
+
+
         if self.qscounts is None:
             self.qscounts = np.zeros((self.njack,self.nzbins))
             self.tcounts = np.zeros((self.njack,self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
-                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+                zlidx = mu['redshift'].searchsorted(self.zbins[i])
+                zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
                 if self.zeroind:
-                    qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx]-1,3]==1)
+                    qidx, = np.where(self.ctcat[mu['ctcatid'][zlidx:zhidx]-1,3]==1)
                 else:
-                    qidx, = np.where(self.ctcat[mapunit['ctcatid'][zlidx:zhidx],3]==1)
+                    qidx, = np.where(self.ctcat[mu['ctcatid'][zlidx:zhidx],3]==1)
 
                 self.qscounts[self.jcount, i] = len(qidx)
                 self.tcounts[self.jcount, i] = zhidx-zlidx
 
         else:
             if self.zeroind:
-                qidx, = np.where(self.ctcat[mapunit['ctcatid']-1,3]==1)
+                qidx, = np.where(self.ctcat[mu['ctcatid']-1,3]==1)
             else:
-                qidx, = np.where(self.ctcat[mapunit['ctcatid'],3]==1)
+                qidx, = np.where(self.ctcat[mu['ctcatid'],3]==1)
 
             self.qscounts[self.jcount,0] = len(qidx)
-            self.tcounts[self.jcount,0] = len(mapunit['ctcatid'])
+            self.tcounts[self.jcount,0] = len(mu['ctcatid'])
 
 
     def reduce(self, rank=None, comm=None):

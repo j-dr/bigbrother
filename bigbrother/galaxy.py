@@ -7,7 +7,7 @@ import numpy as np
 import fitsio
 import time
 
-from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum, ColorDist
+from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum, ColorDist, FRed
 from .lineofsight     import DNDz
 from .massmetric      import Richness
 from .healpix_utils   import Area, PixMetric, HealpixMap
@@ -308,6 +308,7 @@ class BCCCatalog(GalaxyCatalog):
                         FQuenched(self.ministry,
                                     zbins=np.linspace(0,2.0,30),
                                     jtype=self.jtype,
+                                    appmag=False,
                                     tag='FQAmag'),
                         FQuenched(self.ministry,
                                     zbins=np.linspace(0,2.0,30),
@@ -317,6 +318,9 @@ class BCCCatalog(GalaxyCatalog):
                         FQuenchedLum(self.ministry,
                                       zbins=self.zbins,
                                       jtype=self.jtype),
+                        FRed(self.ministry,
+                             zbins=np.linspace(0,2.0,30),
+                             jtype=self.jtype),
                         GalaxyRadialProfileBCC(self.ministry,
                                                 zbins=self.zbins,
                                                 jtype=self.jtype),
