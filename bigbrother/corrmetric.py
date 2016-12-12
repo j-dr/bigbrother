@@ -264,38 +264,101 @@ class CorrelationFunction(Metric):
 
 class AngularCorrelationFunction(CorrelationFunction):
 
-    def __init__(self, ministry, zbins=None, mbins=None, mintheta=None,
-                 maxtheta=None, nabins=None, subjack=False,
-                 catalog_type=None, tag=None, mcutind=None, **kwargs):
+    def __init__(self, ministry, zbins=None, mbins=None,
+                  abins=None, mintheta=None, maxtheta=None,
+                  logbins=True, nabins=None, subjack=False,
+                  catalog_type=None, tag=None, mcutind=None,
+                  same_rand=False, inv_m=True, cosmology_flag=None,
+                  bimodal_ccut=False, percentile_ccut=None,
+                  precompute_color=False, upper_limit=False,
+                  centrals_only=False, rsd=False,
+                  randnside=None, **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
-        data. All angles should be specified in degrees.
+        data.
         """
         CorrelationFunction.__init__(self, ministry, zbins=zbins,
-                                      mbins=mbins, nrbins=nabins,
-                                      subjack=subjack, mcutind=mcutind,
-                                      catalog_type=catalog_type, tag=tag,
-                                      **kwargs)
+                                      lightcone=True, mbins=mbins,
+                                      nrbins=nabins, subjack=subjack,
+                                      mcutind=mcutind, same_rand=same_rand,
+                                      inv_m=inv_m,catalog_type=catalog_type,
+                                      tag=tag, upper_limit=upper_limit, **kwargs)
 
-        if mintheta is None:
+        self.bimodal_ccut = bimodal_ccut
+        self.percentile_ccut = percentile_ccut
+        self.splitcolor = None
+
+        if self.bimodal_ccut:
+            self.hcbins = 100
+            self.ncbins = 2
+        elif self.percentile_ccut is not None:
+            self.ncbins = 2
+        else:
+            self.ncbins = 1
+
+        self.pccolor = precompute_color
+        self.centrals_only = centrals_only
+
+        self.logbins = logbins
+        self.c = 299792.458
+
+        if (abins is None) & ((mintheta is None) | (maxtheta is None) | (nabins is None)):
             self.mintheta = 1e-2
-        else:
-            self.mintheta = mintheta
-
-        if maxtheta is None:
             self.maxtheta = 1
-        else:
+            self.nabins = 30
+            self.abins = self.genbins(self.mintheta, self.maxtheta, self.nabins)
+        elif ((mintheta is not None) & (maxtheta is not None) & (nabins is not None)):
+            self.mintheta = mintheta
             self.maxtheta = maxtheta
+            self.nabins = nabins
+            self.abins = self.genbins(mintheta, maxtheta, nabins)
+        else:
+            self.abins = abins
+            self.mintheta = abins[0]
+            self.maxtheta = abins[-1]
+            self.nabins = len(abins)-1
+
+        if randnside is None:
+            self.randnside = 128
+        else:
+            self.randnside = randnside
+
+        if cosmology_flag is None:
+            self.cosmology_flag = 2
+        else:
+            self.cosmology_flag = cosmology_flag
+
+        self.jcount = 0
+
+        self.writeCorrfuncBinFile(self.abins, binfilename='angular_bins')
+        #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
-        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
+
+        if self.catalog_type == ['galaxycatalog']:
+            self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
+        elif self.catalog_type == ['halocatalog']:
+            self.unitmap = {'halomass':'msunh', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
+
+        self.rsd = rsd
+
+        if self.rsd:
+            self.mapkeys.append('velocity')
+            self.unitmap['velocity'] = 'kms'
+
+        if self.centrals_only:
+            self.mapkeys.append('central')
+
+        if self.pccolor:
+            self.mapkeys.append('color')
+
+        self.rand_ind = 0
 
         self.nd = None
         self.nr = None
         self.dd = None
         self.dr = None
         self.rr = None
-
 
     @jackknifeMap
     def map(self, mapunit):
@@ -304,16 +367,16 @@ class AngularCorrelationFunction(CorrelationFunction):
 
         self.jsamples += 1
 
-        if not hasattr(self, 'wthetaj'):
+        if self.nd is None:
             self.nd = np.zeros((self.njack, self.ncbins, self.nmbins,
                                   self.nzbins))
             self.nr = np.zeros((self.njack, self.ncbins, self.nmbins,
                                   self.nzbins))
-            self.dd = np.zeros((self.njack, self.ncbins, self.nabins,
+            self.dd = np.zeros((self.njack, self.nabins, self.ncbins, 
                                   self.nmbins, self.nzbins))
-            self.dr = np.zeros((self.njack, self.ncbins, self.nabins,
+            self.dr = np.zeros((self.njack, self.nabins, self.ncbins, 
                                   self.nmbins, self.nzbins))
-            self.rr = np.zeros((self.njack, self.ncbins, self.nabins,
+            self.rr = np.zeros((self.njack, self.nabins, self.ncbins, 
                                   self.nmbins, self.nzbins))
 
         if (mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64):
@@ -411,8 +474,7 @@ class AngularCorrelationFunction(CorrelationFunction):
                                             mu['polar_ang'][zlidx:zhidx][cidx])
 
 
-                    ddresults = np.array(ddresults)
-                    self.dd[self.jcount,:,:,k,j,i] = ddresults[:,-2]
+                    self.dd[self.jcount,:,k,j,i] = ddresults['npairs']
 
                     #data randoms
                     print('calculating data random pairs')
@@ -423,8 +485,7 @@ class AngularCorrelationFunction(CorrelationFunction):
                                             rands['azim_ang'],
                                             rands['polar_ang'])
 
-                    drresults = np.array(drresults)
-                    self.dr[self.jcount,:,:,k,j,i] = drresults[:,-2]
+                    self.dr[self.jcount,:,k,j,i] = drresults['npairs']
 
                     #randoms randoms
                     print('calculating random random pairs')
@@ -432,12 +493,12 @@ class AngularCorrelationFunction(CorrelationFunction):
                     if (li==0) | (not self.same_rand):
                         rrresults = DDtheta_mocks(1, 1, self.binfilename,
                                                 rands['azim_ang'],
-                                                rands['polar_ang']
+                                                rands['polar_ang'],
                                                 rands['azim_ang'],
                                                 rands['polar_ang'])
 
 
-                    self.rr[self.jcount,:,:,k,j,i] = rrresults[:,-2]
+                    self.rr[self.jcount,:,k,j,i] = rrresults['npairs']
 
 
     def reduce(self, rank=None, comm=None):
@@ -476,11 +537,11 @@ class AngularCorrelationFunction(CorrelationFunction):
                 for i, g in enumerate(gnd):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.nd[jc:jc+nj,0,0,:,:] = g
-                    self.nr[jc:jc+nj,0,0,:,:] = gnr[i]
-                    self.dd[jc:jc+nj,:,:,:,:] = gdd[i]
-                    self.dr[jc:jc+nj,:,:,:,:] = gdr[i]
-                    self.rr[jc:jc+nj,:,:,:,:] = grr[i]
+                    self.nd[jc:jc+nj,0,:,:] = g
+                    self.nr[jc:jc+nj,0,:,:] = gnr[i]
+                    self.dd[jc:jc+nj,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:] = gdr[i]
+                    self.rr[jc:jc+nj,:,:,:] = grr[i]
 
                     jc += nj
 
@@ -496,7 +557,7 @@ class AngularCorrelationFunction(CorrelationFunction):
 
                 self.jwtheta = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
 
-                self.wprppi = np.sum(self.jwptheta, axis=0) / self.njacktot
+                self.wtheta = np.sum(self.jwtheta, axis=0) / self.njacktot
 
                 self.varwtheta = np.sum((self.jwtheta - self.wtheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
@@ -513,7 +574,7 @@ class AngularCorrelationFunction(CorrelationFunction):
 
             self.jwtheta = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
 
-            self.wprppi = np.sum(self.jwptheta, axis=0) / self.njacktot
+            self.wtheta = np.sum(self.jwtheta, axis=0) / self.njacktot
 
             self.varwtheta = np.sum((self.jwtheta - self.wtheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
@@ -542,7 +603,7 @@ class AngularCorrelationFunction(CorrelationFunction):
             if self.rmean is not None:
                 rmean = self.rmean
         else:
-            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
+            rmean = (self.abins[1:]+self.abins[:-1]) / 2
 
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
@@ -568,8 +629,8 @@ class AngularCorrelationFunction(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$w_{p}(r_{p})/$', labelpad=20)
-            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$',labelpad=20)
+            sax.set_ylabel(r'$w(\theta)$', labelpad=20, fontsize=16)
+            sax.set_xlabel(r'$\theta \, [ degrees ]$',labelpad=20, fontsize=16)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
