@@ -325,7 +325,7 @@ class BaseCatalog:
             filt = getattr(self, 'filter{0}'.format(key))
 
             if key.lower() not in mapunit.keys():
-                continue
+                raise(ValueError("Trying to filter on {}, but it is not in the mapunit!".format(key)))
 
             if i==0:
                 idx = filt(mapunit)
