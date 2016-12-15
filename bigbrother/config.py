@@ -13,7 +13,7 @@ import bigbrother.corrmetric      as crm
 import bigbrother.lineofsight     as lsm
 import bigbrother.healpix_utils   as hpm
 
-_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins']
+_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins']
 
 def readCfg(filename):
 
