@@ -226,6 +226,17 @@ class GalaxyCatalog(BaseCatalog):
 
         return mapunit['pstar']<0.2
 
+    def filterLssflag(self, mapunit):
+        print("Filtering LSS")
+        
+        return (mapunit['lssflag']==1) | (mapunit['lssflag']==3)
+
+    def filterWlflag(self, mapunit):
+        print("Filtering WL")
+        
+        return (mapunit['wlflag']==2) | (mapunit['wlflag']==3)
+
+
 
 class BCCCatalog(GalaxyCatalog):
     """
