@@ -232,9 +232,11 @@ class BCCCatalog(GalaxyCatalog):
     BCC style ADDGALS catalog
     """
 
-    def __init__(self, ministry, filestruct, **kwargs):
+    def __init__(self, ministry, filestruct, ctfile=None,**kwargs):
 
         GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
+
+        self.ctfile = ctfile
         self.metrics = [Area(self.ministry, jtype=self.jtype),
                         LuminosityFunction(self.ministry,
                                             zbins=self.zbins,
@@ -320,7 +322,8 @@ class BCCCatalog(GalaxyCatalog):
                                       jtype=self.jtype),
                         FRed(self.ministry,
                              zbins=np.linspace(0,2.0,30),
-                             jtype=self.jtype),
+                             jtype=self.jtype,
+                             ctfile=self.ctfile),
                         GalaxyRadialProfileBCC(self.ministry,
                                                 zbins=self.zbins,
                                                 jtype=self.jtype),
@@ -360,6 +363,7 @@ class BCCCatalog(GalaxyCatalog):
                 self.sortbyz = True
             else:
                 self.sortbyz = False
+
 
     def parseFileStruct(self, filestruct):
         """
