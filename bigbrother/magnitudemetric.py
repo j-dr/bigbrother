@@ -1397,13 +1397,17 @@ class FRed(Metric):
         else:
             self.ctfile = ctfile
 
-        self.ctcat = np.genfromtxt(self.ctfile)
+        self.ctcat = None
 
         self.qscounts = None
         self.tcounts  = None
 
     @jackknifeMap
     def map(self, mapunit):
+
+        #if haven't loaded training file, do so
+        if not self.ctcat:
+            self.ctcat = np.genfromtxt(self.ctfile)
 
         mu = {}
         if self.zeroind:
