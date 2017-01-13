@@ -69,6 +69,8 @@ class BaseCatalog:
         else:
             raise(ValueError("Invalid reader type {0} specified".format(reader)))
 
+        self.addFilterKeysToNecessaries()
+
     @abstractmethod
     def parseFileStruct(self, filestruct):
         """
@@ -84,6 +86,11 @@ class BaseCatalog:
         sorted correctly by parseFileStruct
         """
 
+    def addFilterKeysToNecessaries(self):
+
+        self.necessaries.extend([f.lower() for f in self.filters])
+        self.necessaries = np.unique(self.necessaries)
+        
     def groupFiles(self):
         """
         Group files together spatially. Healpix grouping implemented,
