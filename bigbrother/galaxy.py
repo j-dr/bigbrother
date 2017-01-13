@@ -245,7 +245,10 @@ class BCCCatalog(GalaxyCatalog):
 
     def __init__(self, ministry, filestruct, ctfile=None,**kwargs):
 
-        GalaxyCatalog.__init__(self, ministry, filestruct, **kwargs)
+        filters = kwargs.pop('filters', ['Appmag'])
+
+        GalaxyCatalog.__init__(self, ministry, filestruct, filters=filters,
+                               **kwargs)
 
         self.ctfile = ctfile
         self.metrics = [Area(self.ministry, jtype=self.jtype),
@@ -345,9 +348,6 @@ class BCCCatalog(GalaxyCatalog):
                               magbins=[20, 21, 22, 23],
                               jtype=self.jtype),
                         HealpixMap(self.ministry)]
-
-        if len(self.filters) == 0:
-            self.filters = ['Appmag']
 
         if self.unitmap is None:
             self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
@@ -471,10 +471,12 @@ class DESGoldCatalog(GalaxyCatalog):
 
     def __init__(self, ministry, filestruct, **kwargs):
 
+        filters = kwargs.pop('filters', ['Modest', 'Appmag', 'Photoz', 'Badregion'])
 
-        GalaxyCatalog.__init__(self, ministry, filestruct, goodpix=1, **kwargs)
+        GalaxyCatalog.__init__(self, ministry, filestruct, goodpix=1, filters=filters,
+                               **kwargs)
 
-        self.necessaries = ['modest', 'badregion']
+        self.necessaries.extend(['modest', 'badregion'])
         self.parseFileStruct(filestruct)
         self.metrics = [Area(self.ministry, jtype=self.jtype),
                         MagCounts(self.ministry, zbins=self.zbins, tag="BinZ",jtype=self.jtype),
@@ -507,8 +509,6 @@ class DESGoldCatalog(GalaxyCatalog):
         if self.unitmap is None:
             self.unitmap = {'appmag':'flux', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
-        if len(self.filters) == 0:
-            self.filters = ['Modest', 'Appmag', 'Photoz', 'Badregion']
 
     def parseFileStruct(self, filestruct):
 
