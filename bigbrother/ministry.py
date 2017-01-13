@@ -158,6 +158,7 @@ class Ministry:
 
             mk  = copy(metric.mapkeys)
             mk.extend(cat.necessaries)
+            mk = np.unique(mk)
 
             for mapkey in mk:
                 if mapkey not in valid.keys():
