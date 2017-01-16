@@ -1406,7 +1406,7 @@ class FRed(Metric):
     def map(self, mapunit):
 
         #if haven't loaded training file, do so
-        if not self.ctcat:
+        if self.ctcat is None:
             self.ctcat = np.genfromtxt(self.ctfile)
 
         mu = {}
