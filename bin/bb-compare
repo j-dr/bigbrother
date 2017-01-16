@@ -13,96 +13,33 @@ import bigbrother.config as config
 if __name__=="__main__":
 
     cfgs   = []
-    mstrys = {}
     ncfg = len(sys.argv)-1
+    mstrys = []
+    metric_tags = []
 
+    #load all the pickle files, get the tags for all
+    #the metrics 
     for i in range(ncfg):
-        cfg   = config.readCfg(sys.argv[i+1])
-        #only one config file should have
-        #a Compare field. This defines
-        #which catalogs should be compared
-        if 'Compare' in cfg.keys():
-            midx = i
+        with open(sys.argv[i+1], 'r') as fp:
+            mstrys.append(pickle.load(fp))
+            tags = []
 
-        #If there is a save file in the cfg
-        #use this instead of running validations
-        #over again.
+            for m in mstrys[i].metrics:
+                tags.append(m.tag)
+            
+            metric_tags.append(tags)
 
-        #look for pickle of ministry, otherwise rerun validations
-        try:
-            with open('{0}/{1}_ministry.pkl'.format(cfg['Validate']['outdir'], 
-                                                    cfg['Ministry']['ministry_name']), 'r') as fp:
-                mstry = pickle.load(fp)
-        except:
-            mstry = config.parseConfig(cfg)
-            mstry.validate()
-
-        cfgs.append( cfg )
-        mstrys[cfg['Ministry']['ministry_name']] = mstry
-
-    #Make comparisons specified by by the Compare field
-    #each tag under a key in compare corresponds to one plot
-
-    ccfg = cfgs[midx]['Compare']
+    #find tags common to all ministries
+    metric_tag_sets = [set(mt) for mt in metric_tags]
+    common_tags = metric_tags_sets[0].intersection(metric_tag_sets[1:])
+    common_tags.remove(None)
     
-    try:
-        os.makedirs(ccfg['outdir'])
-    except OSError:
-        pass
+    #compare metrics with common tags
+    common_tag_idx = []
+    for ct in common_tags:
+        metrics = []
+        for i, mt in enumerate(metric_tags):
+            metrics.append(mstrys[i].metrics[mt.index(ct)])
 
-    for comp in ccfg['metrics'].keys():
-        if 'tag' in ccfg['metrics'][comp]:
-            for i, tag in enumerate(ccfg['metrics'][comp]['tag']):
-                print('Comparing {0} with tag {1}'.format(comp, tag))
-                #set up comparison arguments
-                plotname = "{0}/{1}_{2}_{3}.png".format(ccfg['outdir'], 
-                                                          comp, tag, 
-                                                          ccfg['compare_version'])
+        metrics[0].compare(metrics[1:])
 
-                cmtrs = []
-                for mn in ccfg['metrics'][comp]['ministry_name']:
-                    mstry = mstrys[mn]
-                    for mtr in mstry.metrics:
-                        if ( (mtr.__class__.__name__ in comp) | 
-                             ( comp in mtr.__class__.__name__) ) & (mtr.tag == tag):
-                            cmtrs.append(mtr)
-
-                if 'keywords' in ccfg['metrics'][comp].keys():
-                    kw = ccfg['metrics'][comp]['keywords'][tag]
-                else:
-                    kw = {}
-
-                if 'labels' not in kw.keys():
-                    kw['labels'] = ccfg['metrics'][comp]['ministry_name']
-
-                if 'plotname' not in kw.keys():
-                    kw['plotname'] = plotname
-
-                mtr = cmtrs.pop(0)
-                plt.clf()
-                mtr.compare(cmtrs, **kw)
-        else:
-            print('Comparing {0}}'.format(comp, tag))            
-            plotname = "{0}/{1}_{2}.png".format(ccfg['outdir'], comp, ccfg['compare_version'])
-            cmtrs = []
-            for i, mn in enumerate(ccfg['metrics'][comp]['ministry_name']):
-                mstry = mstrys[mn]
-                for mtr in mstry.metrics:
-                    if ( (mtr.__class__.__name__ in comp) | 
-                         ( comp in mtr.__class__.__name__) ):
-                        cmtrs.append(mtr)
-
-            if 'keywords' in ccfg['metrics'][comp].keys():
-                kw = ccfg['metrics'][comp]['keywords']
-            else:
-                kw = {}
-
-            if 'labels' not in kw.keys():
-                kw['labels'] = ccfg['metrics'][comp]['ministry_name']
-
-            if 'plotname' not in kw.keys():
-                kw['plotname'] = plotname
-
-            mtr = cmtrs.pop(0)
-            plt.clf()
-            mtr.compare(cmtrs, **kw)
