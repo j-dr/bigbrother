@@ -398,6 +398,7 @@ class GalHOD(MassMetric):
         else:
             raise(NotImplementedError)
 
+
     def reduce(self, rank=None, comm=None):
         """
         Given counts in luminosity bins, generate a luminosity function.
@@ -414,6 +415,65 @@ class GalHOD(MassMetric):
 
         self.y = self.shod + self.chod
         self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
+
+        if rank is not None:
+            gsocc = comm.gather(self.socccounts, root=0)
+            gcocc = comm.gather(self.cocccounts, root=0)
+            gsqsocc = comm.gather(self.sqsocccounts, root=0)
+            gsqcocc = comm.gather(self.sqcocccounts, root=0)
+            ghcounts = comm.gather(self.halocounts, root=0)
+
+            if rank==0:
+                jc = 0
+                hshape = [self.halo_counts.shape[i] for i in range(len(self.halo_counts.shape))]
+
+                hshape[0] = self.njacktot
+
+                self.socccounts = np.zeros(hshape)
+                self.sqsocccounts = np.zeros(hshape)
+                self.cocccounts = np.zeros(hshape)
+                self.sqcocccounts = np.zeros(hshape)
+                self.halocounts = np.zeros(hshape)
+
+                for i, g in enumerate(gsocc):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.socccounts[jc:jc+nj,:,:,:] = g
+                    self.sqsocccounts[jc:jc+nj,:,:,:] = gsqsocc[i]
+                    self.cocccounts[jc:jc+nj,:,:,:] = gcocc[i]
+                    self.sqcocccounts[jc:jc+nj,:,:,:] = gsqcocc[i]
+                    self.halocounts[jc:jc+nj,:,:,:] = ghcounts[i]
+
+                    jc += nj
+
+                self.jsocccounts = self.jackknife(self.socccounts, reduce_jk=False)
+                self.jsqsocccounts = self.jackknife(self.sqsocccounts, reduce_jk=False)
+                self.jcocccounts = self.jackknife(self.cocccounts, reduce_jk=False)
+                self.jsqcocccounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
+                self.jhalocounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
+
+                self.jshod = self.jsocccounts/self.jhalocounts
+                self.jchod = self.jcocccounts/self.jhalocounts
+
+                self.shod = np.sum(self.jshod, axis=0)
+                self.chod = np.sum(self.jchod, axis=0)
+
+                self.shoderr = np.sqrt((self.sqsocccounts - self.shod**2)/self.halocounts)
+                self.choderr = np.sqrt((self.sqcocccounts - self.chod**2)/self.halocounts)
+
+                self.y = self.shod + self.chod
+                self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
+
+        else:
+            self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
+
+            if self.njacktot < 2:
+
+                _, self.varoccmass, _ = self.jackknife((self.count*self.occsq - self.occ**2)/(self.count*(self.count-1)))
+
+            self.y = self.occmass
+            self.ye = np.sqrt(self.varoccmass)
+
 
 
 class OccMass(MassMetric):
@@ -680,6 +740,8 @@ class Richness(MassMetric):
         self.halo_counts           = None
         self.galaxy_counts         = None
         self.galaxy_counts_squared = None
+
+        self.meanc = []
 
     @jackknifeMap
     def map(self, mapunit):
