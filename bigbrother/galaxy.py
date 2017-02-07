@@ -351,7 +351,8 @@ class BCCCatalog(GalaxyCatalog):
 
         if self.unitmap is None:
             self.unitmap = {'luminosity':'mag', 'appmag':'mag', 'halomass':'msunh',
-                            'azim_ang':'ra', 'polar_ang':'dec', 'redshift':'z'}
+                            'azim_ang':'ra', 'polar_ang':'dec', 'redshift':'z',
+                            'rhalo':'mpch', 'r200':'mpch'}
 
         if self.fieldmap is None:
             self.fieldmap = {'luminosity':OrderedDict([('AMAG',['gtruth'])]),
@@ -366,6 +367,7 @@ class BCCCatalog(GalaxyCatalog):
                              'central':OrderedDict([('CENTRAL', ['gtruth'])]),
                              'halomass':OrderedDict([('M200', ['gtruth'])]),
                              'rhalo':OrderedDict([('RHALO', ['gtruth'])]),
+                             'r200':OrderedDict([('R200', ['gtruth'])]),
                              'haloid':OrderedDict([('HALOID', ['gtruth'])]),
                              'density':OrderedDict([('SIGMA5', ['gtruth'])])}
             self.sortbyz = True
