@@ -103,7 +103,7 @@ class Metric(object):
             else:
                 idx = [j for j in range(self.njacktot) if i!=j]
 
-            #jackknife indices should always be last
+            #jackknife indices should always be first
             jl = len(arg.shape)
             jidx = [slice(0,arg.shape[j]) if j!=0 else idx for j in range(jl)]
             jdidx = [slice(0,arg.shape[j]) if j!=0 else i for j in range(jl)]
