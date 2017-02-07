@@ -281,7 +281,7 @@ class GalHOD(MassMetric):
 
         MassMetric.__init__(self, ministry, zbins=zbins, massbins=massbins,
                             catalog_type=catalog_type, tag=tag, **kwargs)
-
+        self.nomap = False
         self.magcuts = magcuts
 
         if self.magcuts is not None:
@@ -298,32 +298,33 @@ class GalHOD(MassMetric):
 
         if lightcone:
             if self.usemag:
-                self.mapkeys = ['halomass', 'central', 'redshift', 'haloid', 'rhalo', 'luminosity']
+                self.mapkeys = ['halomass', 'central', 'redshift', 'haloid', 'rhalo', 'r200', 'luminosity']
             else:
-                self.mapkeys = ['halomass', 'central', 'redshift', 'haloid', 'rhalo']
+                self.mapkeys = ['halomass', 'central', 'redshift', 'haloid', 'rhalo', 'r200']
 
             self.lightcone = True
 
         else:
             if self.usemag:
-                self.mapkeys = ['halomass', 'central', 'haloid', 'rhalo', 'luminosity']
+                self.mapkeys = ['halomass', 'central', 'haloid', 'rhalo', 'r200', 'luminosity']
             else:
-                self.mapkeys = ['halomass', 'central', 'haloid', 'rhalo']
+                self.mapkeys = ['halomass', 'central', 'haloid', 'rhalo', 'r200']
 
             self.lightcone = False
 
         if self.usemag:
-            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'luminosity':'mag'}
+            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'luminosity':'mag', 'r200':'mpch'}
         else:
-            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch'}
+            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'r200':'mpch'}
 
 
-        self.sqocccounts  = None
+        self.socccounts  = None
         self.cocccounts   = None
         self.sqsocccounts = None
         self.sqcocccounts = None
         self.halocounts   = None
 
+    @jackknifeMap
     def map(self, mapunit):
         #The number of mass definitions to measure mfcn for
         if len(mapunit['halomass'].shape)>1:
@@ -339,17 +340,17 @@ class GalHOD(MassMetric):
         #self.nbands different bands in self.nzbins
         #redshift bins
         if self.socccounts is None:
-            self.socccounts = np.zeros((len(self.massbins)-1, self.ndefs,
+            self.socccounts = np.zeros((self.njack, len(self.massbins)-1, self.ndefs,
                                        self.nmagcuts, self.nzbins))
-            self.cocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
+            self.cocccounts = np.zeros((self.njack, len(self.massbins)-1, self.ndefs,
                                        self.nmagcuts, self.nzbins))
 
-            self.sqsocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
+            self.sqsocccounts = np.zeros((self.njack,len(self.massbins)-1, self.ndefs,
                                          self.nmagcuts, self.nzbins))
-            self.sqcocccounts = np.zeros((len(self.massbins)-1, self.ndefs,
+            self.sqcocccounts = np.zeros((self.njack,len(self.massbins)-1, self.ndefs,
                                          self.nmagcuts, self.nzbins))
 
-            self.halocounts = np.zeros((len(self.massbins)-1, self.ndefs,
+            self.halocounts = np.zeros((self.njack,len(self.massbins)-1, self.ndefs,
                                         self.nmagcuts, self.nzbins))
 
         if self.lightcone:
@@ -358,12 +359,12 @@ class GalHOD(MassMetric):
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
                 #Count number of halos in mass bins before making mag counts
-                u, uidx = np.unique(mapunit['haloid'], return_index=True)
+                u, uidx = np.unique(mapunit['haloid'][zlidx:zhidx], return_index=True)
 
                 for j in range(self.ndefs):
                     c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][uidx],
                                           bins=self.massbins)
-                    self.halocounts[:,j,i] += c.reshape(self.halocounts[:,j,i].shape)
+                    self.halocounts[self.jcount,:,j,:,i] += c.reshape((self.massbins.shape[0]-1, 1))
 
                     for k in range(self.nmagcuts):
                         if self.usemag:
@@ -372,28 +373,27 @@ class GalHOD(MassMetric):
                             else:
                                 lidx = (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k])
                             cidx = mapunit['central'][zlidx:zhidx][lidx]==1
+                            sidx = mapunit['rhalo'][zlidx:zhidx][lidx] < mapunit['r200'][zlidx:zhidx][lidx]
 
                             c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][lidx][cidx], bins=self.massbins)
-                            c = c.reshape(self.cocccounts[:,j,k,i].shape)
-                            self.cocccounts[:,j,k,i] += c
-                            self.sqcocccounts[:,j,k,i] += c**2
+                            c = c.reshape(self.cocccounts[self.jcount,:,j,k,i].shape)
+                            self.cocccounts[self.jcount,:,j,k,i] += c
+                            self.sqcocccounts[self.jcount,:,j,k,i] += c**2
 
-                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][lidx][~cidx], bins=self.massbins)
-                            c = c.reshape(self.cocccounts[:,j,k,i].shape)
-                            self.socccounts[:,j,k,i] += c
-                            self.sqsocccounts[:,j,k,i] += c**2
+                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][lidx][(~cidx) & sidx], bins=self.massbins)
+                            c = c.reshape(self.cocccounts[self.jcount,:,j,k,i].shape)
+                            self.socccounts[self.jcount,:,j,k,i] += c
+                            self.sqsocccounts[self.jcount,:,j,k,i] += c**2
                         else:
                             cidx = mapunit['central'][zlidx:zhidx]==1
 
                             c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][cidx], bins=self.massbins)
-                            self.cocccounts[:,j,k,i] += c
-                            self.sqcocccounts[:,j,k,i] += c**2
+                            self.cocccounts[self.jcount,:,j,k,i] += c
+                            self.sqcocccounts[self.jcount,:,j,k,i] += c**2
 
-                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][~cidx], bins=self.massbins)
-                            self.socccounts[:,j,k,i] += c
-                            self.sqsocccounts[:,j,k,i] += c**2
-
-
+                            c, e = np.histogram(mapunit['halomass'][zlidx:zhidx,j][(~cidx) & sidx], bins=self.massbins)
+                            self.socccounts[self.jcount,:,j,k,i] += c
+                            self.sqsocccounts[self.jcount,:,j,k,i] += c**2
 
         else:
             raise(NotImplementedError)
@@ -455,25 +455,40 @@ class GalHOD(MassMetric):
                 self.jshod = self.jsocccounts/self.jhalocounts
                 self.jchod = self.jcocccounts/self.jhalocounts
 
-                self.shod = np.sum(self.jshod, axis=0)
-                self.chod = np.sum(self.jchod, axis=0)
+                self.shod = np.sum(self.jshod, axis=0) / self.njacktot
+                self.chod = np.sum(self.jchod, axis=0) / self.njacktot
 
-                self.shoderr = np.sqrt((self.sqsocccounts - self.shod**2)/self.halocounts)
-                self.choderr = np.sqrt((self.sqcocccounts - self.chod**2)/self.halocounts)
+                self.shoderr = np.sqrt(np.sum((self.jshod - self.shod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+                self.choderr = np.sqrt(np.sum((self.jchod - self.chod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
 
                 self.y = self.shod + self.chod
                 self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
 
         else:
-            self.joccmass, self.occmass, self.varoccmass = self.jackknife(self.occ/self.count)
+            self.jsocccounts = self.jackknife(self.socccounts, reduce_jk=False)
+            self.jsqsocccounts = self.jackknife(self.sqsocccounts, reduce_jk=False)
+            self.jcocccounts = self.jackknife(self.cocccounts, reduce_jk=False)
+            self.jsqcocccounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
+            self.jhalocounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
 
-            if self.njacktot < 2:
+            self.jshod = self.jsocccounts/self.jhalocounts
+            self.jchod = self.jcocccounts/self.jhalocounts
 
-                _, self.varoccmass, _ = self.jackknife((self.count*self.occsq - self.occ**2)/(self.count*(self.count-1)))
+            self.shod = np.sum(self.jshod, axis=0) / self.njacktot
+            self.chod = np.sum(self.jchod, axis=0) / self.njacktot
 
-            self.y = self.occmass
-            self.ye = np.sqrt(self.varoccmass)
+            self.shoderr = np.sqrt(np.sum((self.jshod - self.shod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+            self.choderr = np.sqrt(np.sum((self.jchod - self.chod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
 
+            self.y = self.shod + self.chod
+            self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
+
+
+#    def visualize(self, plotname=None, usecols=None, usez=None,fracdev=False,
+#                  ref_y=None, ref_x=[None], xlim=None, ylim=None, fylim=None,
+#                  f=None, ax=None, xlabel=None,ylabel=None,compare=False,**kwargs):
+
+                  
 
 
 class OccMass(MassMetric):
