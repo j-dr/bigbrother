@@ -9,7 +9,7 @@ import time
 
 from .magnitudemetric import LuminosityFunction, MagCounts, ColorColor, LcenMass, ColorMagnitude, FQuenched, FQuenchedLum, ColorDist, FRed
 from .lineofsight     import DNDz
-from .massmetric      import Richness
+from .massmetric      import Richness, GalHOD, GalCLF
 from .healpix_utils   import Area, PixMetric, HealpixMap
 from .corrmetric      import GalaxyRadialProfileBCC
 from .basecatalog     import BaseCatalog
@@ -344,6 +344,14 @@ class BCCCatalog(GalaxyCatalog):
                         Richness(self.ministry,
                                   zbins=self.zbins,
                                   jtype=self.jtype),
+                        GalCLF(self.ministry,
+                            zbins=self.zbins,
+                            jtype=self.jtype,
+                            tag='galclf'),
+                        GalHOD(self.ministry,
+                            zbins=self.zbins,
+                            jtype=self.jtype,
+                            tag='galhod'),
                         DNDz(self.ministry,
                               magbins=[20, 21, 22, 23],
                               jtype=self.jtype),
