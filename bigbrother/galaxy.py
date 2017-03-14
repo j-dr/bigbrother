@@ -352,6 +352,7 @@ class BCCCatalog(GalaxyCatalog):
                             zbins=self.zbins,
                             jtype=self.jtype,
                             magcuts=[-20,-19,-18],
+                            cutband=1,
                             tag='galhod'),
                         DNDz(self.ministry,
                               magbins=[20, 21, 22, 23],
