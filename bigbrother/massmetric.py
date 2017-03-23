@@ -425,7 +425,7 @@ class GalHOD(MassMetric):
 
             if rank==0:
                 jc = 0
-                hshape = [self.halo_counts.shape[i] for i in range(len(self.halo_counts.shape))]
+                hshape = [self.halocounts.shape[i] for i in range(len(self.halocounts.shape))]
 
                 hshape[0] = self.njacktot
 
@@ -536,13 +536,14 @@ class GalCLF(MassMetric):
             zidx = (self.zbins[i] < mapunit['redshift']) & (mapunit['redshift'] < self.zbins[i+1])
             
             for j, m in enumerate(self.massbins[:-1]):
-                midx = (self.massbins[j] < mapunit['halomass']) & (mapunit['halomass'] < self.massbins[j+1])
+                midx = ((self.massbins[j] < mapunit['halomass']) & (mapunit['halomass'] < self.massbins[j+1])).reshape(len(zidx))
+                midx = midx & zidx
                 
-                uids = np.unique(mapunit['haloid'][midx&zidx])
+                uids = np.unique(mapunit['haloid'][midx])
                 self.halocounts[self.jcount,j,i] = len(uids)
 
-                sc,e = np.histogram(mapunit['luminosity'][zidx&midx&sat,self.magband], bins=self.magbins)
-                cc,e = np.histogram(mapunit['luminosity'][zidx&midx&cen,self.magband], bins=self.magbins)                
+                sc,e = np.histogram(mapunit['luminosity'][midx&sat,self.magband], bins=self.magbins)
+                cc,e = np.histogram(mapunit['luminosity'][midx&cen,self.magband], bins=self.magbins)                
                 self.slumcounts[self.jcount,:,j,i] = sc
                 self.clumcounts[self.jcount,:,j,i] = cc
 
@@ -566,16 +567,16 @@ class GalCLF(MassMetric):
                 cshape[0] = self.njacktot
                 hshape[0] = self.njacktot
 
-                self.slumcounts = np.zeros(oshape)
-                self.clumcounts = np.zeros(osshape)
-                self.halocounts = np.zeros(cshape)
+                self.slumcounts = np.zeros(sshape)
+                self.clumcounts = np.zeros(cshape)
+                self.halocounts = np.zeros(hshape)
 
                 for i, g in enumerate(gslumcounts):
                     if g is None: continue
                     nj = g.shape[0]
                     self.slumcounts[jc:jc+nj,:,:,:] = g
                     self.clumcounts[jc:jc+nj,:,:,:] = gclumcounts[i]
-                    self.halocount[jc:jc+nj,:,:] = ghalocounts[i]
+                    self.halocounts[jc:jc+nj,:,:] = ghalocounts[i]
 
                     jc += nj
 
@@ -1044,7 +1045,7 @@ class Richness(MassMetric):
 
             uniquehalos = data_cut[newhalos[:-1]]
             red_counts = newhalos[1:]-newhalos[:-1]
-            mass_bin_indices = np.digitize(uniquehalos['halomass'], self.massbins)
+            mass_bin_indices = np.digitize(uniquehalos['halomass'], self.massbins).reshape(len(uniquehalos))
 
             self.halo_counts[self.jcount,:,0,ziter] += np.histogram(uniquehalos['halomass'], bins=self.massbins)[0]
 
