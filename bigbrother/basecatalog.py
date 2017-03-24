@@ -20,7 +20,7 @@ class BaseCatalog:
                  unitmap=None,  filters=None, goodpix=None,
                  reader=None, area=None, jtype=None, nbox=None,
                  filenside=None, groupnside=None, nest=True,
-                 maskfile=None):
+                 maskfile=None, maskcomp=None, maskval=None):
 
         self.ministry = ministry
         self.filestruct = filestruct
@@ -32,6 +32,8 @@ class BaseCatalog:
             self.filters = []
         self.parseFileStruct(filestruct)
         self.maskfile = maskfile
+        self.maskcomp = maskcomp
+        self.maskval  = maskval
         self.mask = None
 
         if area is None:
@@ -90,7 +92,7 @@ class BaseCatalog:
 
         self.necessaries.extend([f.lower() for f in self.filters])
         self.necessaries = np.unique(self.necessaries)
-        
+
     def groupFiles(self):
         """
         Group files together spatially. Healpix grouping implemented,
@@ -107,6 +109,10 @@ class BaseCatalog:
                 fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
 
             return upix, fgrps
+
+        elif self.jtype == 'angular-generic':
+
+            raise(NotImplementedError)
 
         elif self.jtype == 'subbox':
 
@@ -225,6 +231,70 @@ class BaseCatalog:
 
             pix = hp.ang2pix(self.groupnside, tp[:,1], tp[:,0], nest=self.nest)
             pidx = pix==mappable.grp
+
+            if self.maskfile is not None:
+                if self.mask is None:
+                    self.mask, self.mask_header = hp.read_map(self.maskfile)
+                    self.mask_header = dict(self.mask_header)
+
+                pix = hp.ang2pix(self.mask_header['NSIDE'], tp[:,1], tp[:,0],
+                                  nest=self.mask_header['ORDERING']=='NEST')
+
+                if self.maskcomp == 'lt':
+                    pidx &= self.mask[pix]<self.maskval
+                elif self.maskcomp == 'gt':
+                    pidx &= self.mask[pix]>self.maskval
+                elif self.maskcomp == 'gte':
+                    pidx &= self.mask[pix]>=self.maskval
+                elif self.maskcomp == 'lte':
+                    pidx &= self.mask[pix]<=self.maskval
+                elif self.maskcomp == 'eq':
+                    pidx &= self.mask[pix]==self.maskval
+                elif self.maskcomp == 'neq':
+                    pidx &= self.mask[pix]!=self.maskval
+                else:
+                    raise('Comparison {} not supported'.format(self.maskcomp))
+
+            mu = {}
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][pidx]
+
+            mapunit = mu
+            return mapunit
+
+        elif mappable.jtype == 'angular-generic':
+            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+
+            print('Masking {0} using angular-generic {1}'.format(mappable.name, mappable.grp))
+            for i, key in enumerate(['azim_ang', 'polar_ang']):
+                try:
+                    conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],'rad'))
+                except:
+                    conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],'rad'))
+
+                tp[:,i] = conversion(mapunit, key)
+
+            if self.mask is None:
+                self.mask, self.mask_header = hp.read_map(self.maskfile)
+                self.mask_header = dict(self.mask_header)
+
+            pix = hp.ang2pix(self.mask_header['NSIDE'], tp[:,1], tp[:,0],
+                              nest=self.mask_header['ORDERING']=='NEST')
+
+            if self.maskcomp == 'lt':
+                pidx = self.mask[pix]<self.maskval
+            elif self.maskcomp == 'gt':
+                pidx = self.mask[pix]>self.maskval
+            elif self.maskcomp == 'gte':
+                pidx = self.mask[pix]>=self.maskval
+            elif self.maskcomp == 'lte':
+                pidx = self.mask[pix]<=self.maskval
+            elif self.maskcomp == 'eq':
+                pidx = self.mask[pix]==self.maskval
+            elif self.maskcomp == 'neq':
+                pidx = self.mask[pix]!=self.maskval
+            else:
+                raise('Comparison {} not supported'.format(self.maskcomp))
 
             mu = {}
             for k in mapunit.keys():

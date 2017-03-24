@@ -785,12 +785,12 @@ class Ministry:
                     if 'azim_ang' in self.galaxycatalog.unitmap.keys():
                         um = self.galaxycatalog.unitmap
                         nest = self.galaxycatalog.nest
-                        
+
                 elif self.halocatalog is not None:
                     if 'azim_ang' in self.halocatalog.unitmap.keys():
                         um = self.halocatalog.unitmap
                         nest = self.halocatalog.nest
-                        
+
                 conversion = getattr(units, '{0}2{1}'.format(um[key],'rad'))
 
                 tp[:,i] = conversion(mapunit, key)
@@ -798,12 +798,75 @@ class Ministry:
             pix = hp.ang2pix(mappable.gnside, tp[:,1], tp[:,0], nest=nest)
             pidx = pix==mappable.grp
 
+            if self.maskfile is not None:
+                if self.mask is None:
+                    self.mask, self.mask_header = hp.read_map(self.maskfile)
+                    self.mask_header = dict(self.mask_header)
+
+                pix = hp.ang2pix(self.mask_header['NSIDE'], tp[:,1], tp[:,0],
+                                  nest=self.mask_header['ORDERING']=='NEST')
+
+                if self.maskcomp == 'lt':
+                    pidx &= self.mask[pix]<self.maskval
+                elif self.maskcomp == 'gt':
+                    pidx &= self.mask[pix]>self.maskval
+                elif self.maskcomp == 'gte':
+                    pidx &= self.mask[pix]>=self.maskval
+                elif self.maskcomp == 'lte':
+                    pidx &= self.mask[pix]<=self.maskval
+                elif self.maskcomp == 'eq':
+                    pidx &= self.mask[pix]==self.maskval
+                elif self.maskcomp == 'neq':
+                    pidx &= self.mask[pix]!=self.maskval
+                else:
+                    raise('Comparison {} not supported'.format(self.maskcomp))
+
             mu = {}
             for k in mapunit.keys():
                 mu[k] = mapunit[k][pidx]
 
             mapunit = mu
-            
+            return mapunit
+
+        elif mappable.jtype == 'angular-generic':
+            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+
+            print('Masking {0} using angular-generic {1}'.format(mappable.name, mappable.grp))
+            for i, key in enumerate(['azim_ang', 'polar_ang']):
+                try:
+                    conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],'rad'))
+                except:
+                    conversion = getattr(units, '{0}2{1}'.format(self.unitmap[key],'rad'))
+
+                tp[:,i] = conversion(mapunit, key)
+
+            if self.mask is None:
+                self.mask, self.mask_header = hp.read_map(self.maskfile)
+                self.mask_header = dict(self.mask_header)
+
+            pix = hp.ang2pix(self.mask_header['NSIDE'], tp[:,1], tp[:,0],
+                              nest=self.mask_header['ORDERING']=='NEST')
+
+            if self.maskcomp == 'lt':
+                pidx = self.mask[pix]<self.maskval
+            elif self.maskcomp == 'gt':
+                pidx = self.mask[pix]>self.maskval
+            elif self.maskcomp == 'gte':
+                pidx = self.mask[pix]>=self.maskval
+            elif self.maskcomp == 'lte':
+                pidx = self.mask[pix]<=self.maskval
+            elif self.maskcomp == 'eq':
+                pidx = self.mask[pix]==self.maskval
+            elif self.maskcomp == 'neq':
+                pidx = self.mask[pix]!=self.maskval
+            else:
+                raise('Comparison {} not supported'.format(self.maskcomp))
+
+            mu = {}
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][pidx]
+
+            mapunit = mu
             return mapunit
 
         elif mappable.jtype == 'subbox':
@@ -811,7 +874,7 @@ class Ministry:
             if hasattr(self, 'galaxycatalog'):
                 if 'px' in self.galaxycatalog.unitmap.keys():
                     um = self.galaxycatalog.unitmap
-                        
+
             elif hasattr(self, 'halocatalog'):
                 if 'px' in self.halocatalog.unitmap.keys():
                     um = self.halocatalog.unitmap
@@ -848,7 +911,7 @@ class Ministry:
             return mapunit
         else:
             raise NotImplementedError
-    
+
     def convert(self, mapunit, metrics):
 
         if (self.galaxycatalog is not None):
@@ -957,7 +1020,7 @@ class Ministry:
 
                 if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
                     mapunit = self.scListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)                    
+                    mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
@@ -965,7 +1028,7 @@ class Ministry:
 
                 elif 'only' in ms[0].aschema:
                     mapunit = self.scListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)                    
+                    mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
@@ -974,7 +1037,7 @@ class Ministry:
                 elif sbz & ((ms[0].aschema == 'galaxygalaxy')
                   | (ms[0].aschema == 'halohalo')):
                     mapunit = self.dcListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)                    
+                    mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
@@ -982,7 +1045,7 @@ class Ministry:
                 elif ((ms[0].aschema == 'galaxygalaxy')
                   | (ms[0].aschema == 'halohalo')):
                     mapunit = self.dcListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)                    
+                    mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
 
