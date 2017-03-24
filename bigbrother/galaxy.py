@@ -484,11 +484,11 @@ class DESGoldCatalog(GalaxyCatalog):
     def __init__(self, ministry, filestruct, **kwargs):
 
         filters = kwargs.pop('filters', ['Modest', 'Appmag', 'Photoz', 'Badregion'])
+        necessaries = kwargs.pop('necessaries', ['modest', 'badregion'])
 
         GalaxyCatalog.__init__(self, ministry, filestruct, goodpix=1, filters=filters,
-                               **kwargs)
+                               necessaries=necessaries, **kwargs)
 
-        self.necessaries.extend(['modest', 'badregion'])
         self.parseFileStruct(filestruct)
         self.metrics = [Area(self.ministry, jtype=self.jtype),
                         MagCounts(self.ministry, zbins=self.zbins, tag="BinZ",jtype=self.jtype),
@@ -581,8 +581,8 @@ class DESGoldCatalog(GalaxyCatalog):
 
         return mapunit['modest']==1
 
-    def filterPhotoz(self, mapunit):
-        print('Filtering photoz')
+    def filterRedshift(self, mapunit):
+        print('Filtering redshift >0')
 
         return mapunit['redshift']>0
 

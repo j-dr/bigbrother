@@ -20,7 +20,8 @@ class BaseCatalog:
                  unitmap=None,  filters=None, goodpix=None,
                  reader=None, area=None, jtype=None, nbox=None,
                  filenside=None, groupnside=None, nest=True,
-                 maskfile=None, maskcomp=None, maskval=None):
+                 maskfile=None, maskcomp=None, maskval=None,
+                 necessaries=None):
 
         self.ministry = ministry
         self.filestruct = filestruct
@@ -62,7 +63,10 @@ class BaseCatalog:
         else:
             self.goodpix = goodpix
 
-        self.necessaries = []
+        if necessaries is None:
+            self.necessaries = []
+        else:
+            self.necessaries = necessaries
 
         if reader in BaseCatalog._valid_reader_types:
             self.reader = reader

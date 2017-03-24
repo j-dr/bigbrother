@@ -54,7 +54,7 @@ class Ministry:
 
     def __init__(self, omega_m, omega_l, h, minz, maxz, area=None,
                  boxsize=None, one_metric_group=False, parallel=False,
-                 ministry_name=None):
+                 ministry_name=None, maskfile=None,maskcomp=None, maskval=None):
         """
         Initialize a ministry object
 
@@ -99,7 +99,11 @@ class Ministry:
             self.boxsize = boxsize
 
         self.volume = self.calculate_volume(self.area,self.minz,self.maxz)
-
+        self.maskfile = maskfile
+        self.maskcomp = maskcomp
+        self.maskval  = maskval
+        self.mask = None
+        
 
     def calculate_volume(self,area,minz,maxz):
         if self.lightcone:
