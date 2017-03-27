@@ -23,6 +23,9 @@ def magh2mag(mapunit, mapkey, h=0.7):
 def mag2magh(mapunit, mapkey, h=0.7):
     return mapunit[mapkey] - 5.0 * np.log10(h)
 
+def fluxerr2magerr(mapunit, mapkey):
+    return (2.5/np.log(10.)) * mapunit[mapkey] / mapunit['appmag']
+
 def bccmag2mag(mapunit, mapkey, Q=3.16):
     """
     Note, any catalog using this conversion should define

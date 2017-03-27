@@ -221,6 +221,23 @@ class GalaxyCatalog(BaseCatalog):
 
         return idx
 
+    def filter10sigma(self, mapunit, bands=None, badval=99.):
+        if bands is None:
+            if len(mapunit['appmag_err'].shape)>1:
+                bands = range(mapunit['appmag_err'].shape[1])
+            else:
+                bands = [0]
+                mapunit['appmag_err'] = np.atleast_2d(mapunit['appmag_err']).T
+
+        for i, b in enumerate(bands):
+            if i==0:
+                idx = (mapunit['appmag_err'][:,b]<0.1) & (np.isfinite(mapunit['appmag_err'][:,b])) & (~np.isnan(mapunit['appmag_err'][:,b]))
+            else:
+                idxi = (mapunit['appmag_err'][:,b]<0.1) & (np.isfinite(mapunit['appmag_err'][:,b])) & (~np.isnan(mapunit['appmag_err'][:,b]))
+                idx = idx&idxi
+
+        return idx
+
     def filterStar(self, mapunit):
         print('Filtering stars')
 
