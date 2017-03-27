@@ -684,7 +684,10 @@ class Ministry:
 
             for key in mapunit.data.keys():
                 if key in mu.keys():
-                    mu[key] = np.hstack([mu[key], mapunit.data[key]])
+                    if len(mu[key].shape) == 1:
+                        mu[key] = np.hstack([mu[key], mapunit.data[key]])
+                    else:
+                        mu[key] = np.vstack([mu[key], mapunit.data[key]])                    
                 else:
                     mu[key] = mapunit.data[key]
 
@@ -692,7 +695,10 @@ class Ministry:
 
         for key in mapunit.data.keys():
             if key in mu.keys():
-                mu[key] = np.hstack([mu[key], mapunit.data[key]])
+                if len(mu[key].shape) == 1:
+                    mu[key] = np.hstack([mu[key], mapunit.data[key]])
+                else:
+                    mu[key] = np.vstack([mu[key], mapunit.data[key]])                    
             else:
                 mu[key] = mapunit.data[key]
 
