@@ -551,7 +551,7 @@ class ColorDist(GMetric):
 
     def __init__(self, ministry, zbins=None, cbins=None,
                     catalog_type=['galaxycatalog'],
-                    usebands=None, appmag=False, amagcut=None,
+                    usebands=None, appmag=False, magcut=None,
                     pdf=False, cutind=None, **kwargs):
 
         self.pdf = pdf
@@ -576,15 +576,18 @@ class ColorDist(GMetric):
             self.mkey = 'appmag'
         else:
             self.mkey = 'luminosity'
-            if amagcut is None:
-                self.amagcut = -19
+        if magcut is None:
+            if appmag:
+                self.magcut = 22.5
             else:
-                self.amagcut = amagcut
+                self.magcut = -19
+        else:
+            self.magcut = magcut
 
-            if cutind is None:
-                self.cutind = 0
-            else:
-                self.cutind = cutind
+        if cutind is None:
+            self.cutind = 0
+        else:
+            self.cutind = cutind
 
         if usebands is None:
             self.usebands = [[0, 1]]
@@ -615,15 +618,11 @@ class ColorDist(GMetric):
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-            if self.mkey == 'luminosity':
-                lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind] < self.amagcut
-            else:
-                lidx = slice(0,zhidx-zlidx)
+            lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind] < self.magcut
 
-                for ci in range(self.ncolors):
-                    c, self.cbins = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
-
-                    self.cd[self.jcount,:,ci,i] += c
+            for ci in range(self.ncolors):
+                c, self.cbins = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
+                self.cd[self.jcount,:,ci,i] += c
 
     def reduce(self, rank=None, comm=None):
 
