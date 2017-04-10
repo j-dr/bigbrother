@@ -595,6 +595,13 @@ class GalCLF(MassMetric):
                                      (self.njacktot - 1) / self.njacktot)
                 self.clumfunction = (np.sum( self.jclumfunction, axis=0 ) * 
                                      (self.njacktot - 1) / self.njacktot)
+
+                self.varslumfunction = (np.sum((self.jslumfunction - self.slumfunction)**2, 
+                                               axis=0) * (self.njacktot - 1) / self.njacktot)
+
+                self.varclumfunction = (np.sum((self.jclumfunction - self.clumfunction)**2, 
+                                               axis=0) * (self.njacktot - 1) / self.njacktot)
+
         else:
             self.jslumcounts = self.jackknife(self.slumcounts, reduce_jk=False)
             self.jclumcounts = self.jackknife(self.clumcounts, reduce_jk=False)
