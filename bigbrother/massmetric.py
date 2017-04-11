@@ -659,18 +659,32 @@ class GalCLF(MassMetric):
                 sye = np.sqrt(self.varslumfunction[:,j,i])
                 cye = np.sqrt(self.varclumfunction[:,j,i])
 
-                ls = ax[j,i].errorbar(lmean, sy, yerr=sye, fmt='o' ,**kwargs)
+                ls = ax[j,i].errorbar(lmean, sy, yerr=sye, fmt='o', barsabove=True,
+                                      **kwargs)
                 #ax[j,i].fill_between(lmean, sy-sye, sy+sye, alpha=0.5,
                 #                     **kwargs)
-                lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='s', **kwargs)
+                lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='s', barsabove=True,
+                                      **kwargs)
                 #ax[j,i].fill_between(lmean, cy-cye, cy+cye, alpha=0.5,
                 #                     **kwargs)
-                
-                if logx:
-                    ax[j,i].set_xscale('log')
-                if logy:
-                    ax[j,i].set_yscale('log')
-                        
+#                if logx:
+#                    ax[j,i].set_xscale('log')
+#                if logy:
+#                    ax[j,i].set_yscale('log')
+
+
+        if not compare:
+            for i in range(self.nzbins):
+                for j, b in enumerate(usecols):
+                    if not (((self.slumfunction[:,j,i]==0).all()
+                            | ~np.isfinite(self.slumfunction[:,j,i]).any())
+                            & ((self.clumfunction[:,j,i]==0).all()
+                            | ~np.isfinite(self.clumfunction[:,j,i]).any())):
+                        if logx:
+                            ax[j,i].set_xscale('log')
+                        if logy:
+                            ax[j,i].set_yscale('log')
+
 #                if (i==0) & (j==0):
 #                    if xlim is not None:
 #                        ax[0][0].set_xlim(xlim)
@@ -681,7 +695,8 @@ class GalCLF(MassMetric):
         return f, ax, ls, lc
                         
     def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
-                xlim=None, ylim=None, labels=None, **kwargs):
+                xlim=None, ylim=None, labels=None, logx=False,
+                logy=True,**kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -728,6 +743,13 @@ class GalCLF(MassMetric):
 
         if labels[0] is not None:
             f.legend(lines, clflabels, 'best')
+
+        if logx:
+            ax[0,0].set_xscale('log')
+        if logy:
+            ax[0,0].set_yscale('log')
+
+
 
         if plotname is not None:
             plt.savefig(plotname)
