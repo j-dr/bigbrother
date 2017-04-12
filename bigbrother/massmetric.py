@@ -533,10 +533,10 @@ class GalHOD(MassMetric):
         if not compare:
             for i in range(self.nzbins):
                 for j, b in enumerate(usecols):
-                    if not (((self.shod[:,j,i]==0).all()
-                            | ~np.isfinite(self.shod[:,j,i]).any())
-                            & ((self.chod[:,j,i]==0).all()
-                            | ~np.isfinite(self.chod[:,j,i]).any())):
+                    if not (((self.shod[:,0,j,i]==0).all()
+                            | ~np.isfinite(self.shod[:,0,j,i]).any())
+                            & ((self.chod[:,0,j,i]==0).all()
+                            | ~np.isfinite(self.chod[:,0,j,i]).any())):
                         if logx:
                             ax[j,i].set_xscale('log')
                         if logy:
