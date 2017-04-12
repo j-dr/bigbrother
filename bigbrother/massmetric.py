@@ -483,6 +483,140 @@ class GalHOD(MassMetric):
             self.y = self.shod + self.chod
             self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
 
+    def visualize(self, plotname=None, usecols=None,
+                    usez=None,sharex=True, sharey=True, 
+                    xlim=None, ylim=None, f=None, ax=None, 
+                    label=None, xlabel=None, ylabel=None,
+                    compare=False, logx=False, logy=True, 
+                    **kwargs):
+
+
+        mmean = (self.massbins[:-1] + self.massbins[1:]) / 2
+        
+        if usecols is None:
+            usecols = range(self.nmagcuts)
+        
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usecols), self.nzbins,
+                                 sharex=True, sharey=False,
+                                 figsize=(10,10))
+            ax = np.array(ax).reshape((len(usecols), self.nzbins))
+
+            newaxes = True
+        else:
+            newaxes = False
+                                 
+        
+        for i in range(self.nzbins):
+            for j, b in enumerate(usecols):
+                sy = self.shod[:,j,i]
+                cy  = self.chod[:,j,i]
+                sye = self.shoderr[:,j,i]
+                cye = self.choderr[:,j,i]
+
+                ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
+                                      **kwargs)
+
+                lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
+                                      **kwargs)
+
+                lt = ax[j,i].errorbar(mmean, self.y[:,j,i],
+                                      yerr=self.ye[:,j,i],
+                                      fmt='.', barsabove=True,
+                                      **kwargs)
+                
+
+
+        if not compare:
+            for i in range(self.nzbins):
+                for j, b in enumerate(usecols):
+                    if not (((self.shod[:,j,i]==0).all()
+                            | ~np.isfinite(self.shod[:,j,i]).any())
+                            & ((self.chod[:,j,i]==0).all()
+                            | ~np.isfinite(self.chod[:,j,i]).any())):
+                        if logx:
+                            ax[j,i].set_xscale('log')
+                        if logy:
+                            ax[j,i].set_yscale('log')
+
+        if xlim is not None:
+            ax[0][0].set_xlim(xlim)
+        if ylim is not None:
+            ax[0][0].set_ylim(ylim)
+
+
+        return f, ax, ls, lc, lt
+                        
+    def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
+                xlim=None, ylim=None, labels=None, logx=False,
+                logy=True,**kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+        labels = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
+                                         compare=True,label=labels[i],usez=usez[i],
+                                         color=Metric._color_list[i], **kwargs)
+            else:
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
+                                        f=f, ax=ax, compare=True, label=labels[i], 
+                                        usez=usez[i], color=Metric._color_list[i], 
+                                        **kwargs)
+            lines.append(ls[0])
+            labels.append(labels[i] + '-sat')
+            lines.append(lc[0])
+            labels.append(labels[i] + '-cen')
+            lines.append(lt[0])
+            labels.append(labels[i] + '-tot')
+
+
+        if labels[0] is not None:
+            f.legend(lines, labels, 'best')
+
+        if logx:
+            ax[0,0].set_xscale('log')
+        if logy:
+            ax[0,0].set_yscale('log')
+
+
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        #plt.tight_layout()
+
+        return f, ax
+            
+
 
 class GalCLF(MassMetric):
 
