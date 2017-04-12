@@ -508,14 +508,14 @@ class GalHOD(MassMetric):
             newaxes = True
         else:
             newaxes = False
-                                 
+
         
         for i in range(self.nzbins):
             for j, b in enumerate(usecols):
-                sy = self.shod[:,j,i]
-                cy  = self.chod[:,j,i]
-                sye = self.shoderr[:,j,i]
-                cye = self.choderr[:,j,i]
+                sy = self.shod[:,0,j,i]
+                cy  = self.chod[:,0,j,i]
+                sye = self.shoderr[:,0,j,i]
+                cye = self.choderr[:,0,j,i]
 
                 ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
                                       **kwargs)
@@ -523,8 +523,8 @@ class GalHOD(MassMetric):
                 lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
                                       **kwargs)
 
-                lt = ax[j,i].errorbar(mmean, self.y[:,j,i],
-                                      yerr=self.ye[:,j,i],
+                lt = ax[j,i].errorbar(mmean, self.y[:,0,j,i],
+                                      yerr=self.ye[:,0,j,i],
                                       fmt='.', barsabove=True,
                                       **kwargs)
                 
