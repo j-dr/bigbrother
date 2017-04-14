@@ -143,11 +143,13 @@ class CorrelationFunction(Metric):
         catalog to allow for generation of randoms once for all z bins.
         """
 
+        dt = aza.dtype
+
         if z is not None:
-            rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64),
-                               ('redshift', np.float64)])
+            rdtype = np.dtype([('azim_ang', dt), ('polar_ang', dt),
+                               ('redshift', dt)])
         else:
-            rdtype = np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64)])
+            rdtype = np.dtype([('azim_ang', dt), ('polar_ang', dt)])
 
         rsize = len(aza)*urand_factor
         rlen = 0
@@ -272,7 +274,9 @@ class AngularCorrelationFunction(CorrelationFunction):
                   bimodal_ccut=False, percentile_ccut=None,
                   precompute_color=False, upper_limit=False,
                   centrals_only=False, rsd=False,
-                  randnside=None, **kwargs):
+                  randnside=None, homogenize_type=True,
+                  deevolve_mstar=False, Q=None, faber=False,
+                  **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data.
@@ -282,11 +286,20 @@ class AngularCorrelationFunction(CorrelationFunction):
                                       nrbins=nabins, subjack=subjack,
                                       mcutind=mcutind, same_rand=same_rand,
                                       inv_m=inv_m,catalog_type=catalog_type,
-                                      tag=tag, upper_limit=upper_limit, **kwargs)
+                                      tag=tag, upper_limit=upper_limit,
+                                      **kwargs)
 
         self.bimodal_ccut = bimodal_ccut
         self.percentile_ccut = percentile_ccut
         self.splitcolor = None
+        self.homogenize_type = homogenize_type
+        self.deevolve_mstar = deevolve_mstar
+        self.faber = faber
+        
+        if self.deevolve_mstar & (Q is None):
+            raise(ValueError("Must provide Q is deevolve_mstar == True"))
+        else:
+            self.Q = Q
 
         if self.bimodal_ccut:
             self.hcbins = 100
@@ -360,6 +373,15 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.dr = None
         self.rr = None
 
+    def deevolve_gal(self, mapunit, Q, faber=False):
+
+        if faber:
+            mag = mapunit[self.mkey] - Q * (np.log10(mapunit['redshift'].reshape(len(mapunit['redshift']),1)+1) + 1)
+        else:
+            mag = mapunit[self.mkey] - Q * (1/(mapunit['redshift'].reshape(len(mapunit['redshift']),1)+1) - 1./1.1)
+
+        return mag
+
     @jackknifeMap
     def map(self, mapunit):
         if not hastreecorr:
@@ -379,7 +401,7 @@ class AngularCorrelationFunction(CorrelationFunction):
             self.rr = np.zeros((self.njack, self.nabins, self.ncbins, 
                                   self.nmbins, self.nzbins))
 
-        if (mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64):
+        if ((mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64)) & self.homogenize_type :
             mu = {}
             mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
             mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
@@ -393,8 +415,16 @@ class AngularCorrelationFunction(CorrelationFunction):
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
                 mu['velocity'][:] = mapunit['velocity'][:]
+
+            if self.centrals_only:
+                mu['central'] = mapunit['central']
         else:
             mu = mapunit
+
+        if self.deevolve_mstar:
+            lum = self.deevolve_gal(mu, self.Q, faber=self.faber)
+        else:
+            lum = mu[self.mkey]
 
         if self.rsd:
             z = self.addRSD(mu) / self.c
@@ -423,14 +453,14 @@ class AngularCorrelationFunction(CorrelationFunction):
 
                 if self.mcutind is not None:
                     if self.upper_limit:
-                        lidx = mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j]
+                        lidx = lum[zlidx:zhidx,self.mcutind] < self.mbins[j]
                     else:
-                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
+                        lidx = (self.mbins[j] <= lum[zlidx:zhidx,self.mcutind]) & (lum[zlidx:zhidx,self.mcutind] < self.mbins[j+1])
                 else:
                     if self.upper_limit:
-                        lidx = mu[self.mkey][zlidx:zhidx] < self.mbins[j]
+                        lidx = lum[zlidx:zhidx] < self.mbins[j]
                     else:
-                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+                        lidx = (self.mbins[j] <= lum[zlidx:zhidx]) & (lum[zlidx:zhidx] < self.mbins[j+1])
 
                 if self.centrals_only:
                     lidx = lidx & (mu['central'][zlidx:zhidx]==1)
