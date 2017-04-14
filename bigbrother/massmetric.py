@@ -718,62 +718,30 @@ class GalCLF(MassMetric):
 
                     jc += nj
 
-                self.jslumcounts = self.jackknife(self.slumcounts, reduce_jk=False)
-                self.jclumcounts = self.jackknife(self.clumcounts, reduce_jk=False)
-                self.jhalocounts = self.jackknife(self.halocounts, reduce_jk=False)
-
-                self.jslumfunction = (self.jslumcounts / self.jhalocounts.reshape(self.njacktot, 
+                self.jslumfunction = (self.slumcounts / self.halocounts.reshape(self.njacktot, 
                                                                                  1,self.nmassbins,
                                                                                  self.nzbins) / dl)
-
-                self.jclumfunction = (self.jclumcounts / self.jhalocounts.reshape(self.njacktot, 
+                self.jclumfunction = (self.clumcounts / self.halocounts.reshape(self.njacktot, 
                                                                                  1,self.nmassbins,
                                                                                  self.nzbins) / dl)
+                self.jfsat = self.slumcounts / (self.sclumcounts + self.clumcounts)
 
-                self.jsatellite_frac = self.jslumfunction / (self.jslumfunction + self.jclumfunction)
-                
-                self.slumfunction = (np.sum( self.jslumfunction, axis=0 ) * 
-                                     (self.njacktot - 1) / self.njacktot)
-                self.clumfunction = (np.sum( self.jclumfunction, axis=0 ) * 
-                                     (self.njacktot - 1) / self.njacktot)
-                self.satellite_frac = (np.sum( self.jsatellite_frac, axis=0) *
-                                       (self.njacktot - 1) / self.njacktot)
-
-                self.varslumfunction = (np.sum((self.jslumfunction - self.slumfunction)**2, 
-                                               axis=0) * (self.njacktot - 1) / self.njacktot)
-
-                self.varclumfunction = (np.sum((self.jclumfunction - self.clumfunction)**2, 
-                                               axis=0) * (self.njacktot - 1) / self.njacktot)
-                self.varsatellite_frac = (np.sum((self.jsatellite_frac - self.satellite_frac)**2, 
-                                               axis=0) * (self.njacktot - 1) / self.njacktot)
+                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumcounts)
+                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumcounts)
+                self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
 
         else:
-            self.jslumcounts = self.jackknife(self.slumcounts, reduce_jk=False)
-            self.jclumcounts = self.jackknife(self.clumcounts, reduce_jk=False)
-            self.jhalocounts = self.jackknife(self.halocounts, reduce_jk=False)
+                self.jslumfunction = (self.slumcounts / self.halocounts.reshape(self.njacktot, 
+                                                                                 1,self.nmassbins,
+                                                                                 self.nzbins) / dl)
+                self.jclumfunction = (self.clumcounts / self.halocounts.reshape(self.njacktot, 
+                                                                                 1,self.nmassbins,
+                                                                                 self.nzbins) / dl)
+                self.jfsat = self.slumcounts / (self.sclumcounts + self.clumcounts)
 
-            self.jslumfunction = (self.jslumcounts / self.jhalocounts.reshape(self.njacktot, 
-                                                                             1,self.nmassbins,
-                                                                             self.nzbins) / dl)
-
-            self.jclumfunction = (self.jclumcounts / self.jhalocounts.reshape(self.njacktot, 
-                                                                             1,self.nmassbins,
-                                                                             self.nzbins) / dl)
-            self.slumfunction = (np.sum( self.jslumfunction, axis=0 ) 
-                                  / self.njacktot)
-            self.clumfunction = (np.sum( self.jclumfunction, axis=0 )  
-                                  / self.njacktot)
-            self.satellite_frac = (np.sum( self.jsatellite_frac, axis=0) *
-                                   (self.njacktot - 1) / self.njacktot)
-                                           
-
-            self.varslumfunction = (np.sum((self.jslumfunction - self.slumfunction)**2, 
-                                           axis=0) * (self.njacktot - 1) / self.njacktot)
-
-            self.varclumfunction = (np.sum((self.jclumfunction - self.clumfunction)**2, 
-                                           axis=0) * (self.njacktot - 1) / self.njacktot)
-            self.varsatellite_frac = (np.sum((self.jsatellite_frac - self.satellite_frac)**2, 
-                                           axis=0) * (self.njacktot - 1) / self.njacktot)
+                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumcounts)
+                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumcounts)
+                self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
                                            
 
     def visualize(self, plotname=None, usecols=None,
@@ -801,27 +769,29 @@ class GalCLF(MassMetric):
         else:
             newaxes = False
                                  
-        
-        for i in range(self.nzbins):
-            for j, b in enumerate(usecols):
-                sy = self.slumfunction[:,j,i]
-                cy  = self.clumfunction[:,j,i]
-                sye = np.sqrt(self.varslumfunction[:,j,i])
-                cye = np.sqrt(self.varclumfunction[:,j,i])
 
-                ls = ax[j,i].errorbar(lmean, sy, yerr=sye, barsabove=True,
-                                      **kwargs)
-                #ax[j,i].fill_between(lmean, sy-sye, sy+sye, alpha=0.5,
-                #                     **kwargs)
-                lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
-                                      **kwargs)
-                #ax[j,i].fill_between(lmean, cy-cye, cy+cye, alpha=0.5,
-                #                     **kwargs)
-#                if logx:
-#                    ax[j,i].set_xscale('log')
-#                if logy:
-#                    ax[j,i].set_yscale('log')
+        if not satellite_frac:
+            for i in range(self.nzbins):
+                for j, b in enumerate(usecols):
+                    sy = self.slumfunction[:,j,i]
+                    cy  = self.clumfunction[:,j,i]
+                    sye = np.sqrt(self.varslumfunction[:,j,i])
+                    cye = np.sqrt(self.varclumfunction[:,j,i])
+                    
+                    ls = ax[j,i].errorbar(lmean, sy, yerr=sye, barsabove=True,
+                                          **kwargs)
+                    lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                                          **kwargs)
 
+        else:
+            for i in range(self.nzbins):
+                for j, b in enumerate(usecols):
+                    ye = np.sqrt(self.varfsat[:,j,i])
+                    
+                    ls = ax[j,i].errorbar(lmean, self.fsat[:,j,i], 
+                                          yerr=ye, barsabove=True,
+                                          **kwargs)
+                    lc = None
 
         if not compare:
             for i in range(self.nzbins):
