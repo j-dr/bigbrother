@@ -729,15 +729,22 @@ class GalCLF(MassMetric):
                 self.jclumfunction = (self.jclumcounts / self.jhalocounts.reshape(self.njacktot, 
                                                                                  1,self.nmassbins,
                                                                                  self.nzbins) / dl)
+
+                self.jsatellite_frac = self.jslumfunction / (self.jslumfunction + self.jclumfunction)
+                
                 self.slumfunction = (np.sum( self.jslumfunction, axis=0 ) * 
                                      (self.njacktot - 1) / self.njacktot)
                 self.clumfunction = (np.sum( self.jclumfunction, axis=0 ) * 
                                      (self.njacktot - 1) / self.njacktot)
+                self.satellite_frac = (np.sum( self.jsatellite_frac, axis=0) *
+                                       (self.njacktot - 1) / self.njacktot)
 
                 self.varslumfunction = (np.sum((self.jslumfunction - self.slumfunction)**2, 
                                                axis=0) * (self.njacktot - 1) / self.njacktot)
 
                 self.varclumfunction = (np.sum((self.jclumfunction - self.clumfunction)**2, 
+                                               axis=0) * (self.njacktot - 1) / self.njacktot)
+                self.varsatellite_frac = (np.sum((self.jsatellite_frac - self.satellite_frac)**2, 
                                                axis=0) * (self.njacktot - 1) / self.njacktot)
 
         else:
@@ -756,20 +763,25 @@ class GalCLF(MassMetric):
                                   / self.njacktot)
             self.clumfunction = (np.sum( self.jclumfunction, axis=0 )  
                                   / self.njacktot)
+            self.satellite_frac = (np.sum( self.jsatellite_frac, axis=0) *
+                                   (self.njacktot - 1) / self.njacktot)
+                                           
 
             self.varslumfunction = (np.sum((self.jslumfunction - self.slumfunction)**2, 
                                            axis=0) * (self.njacktot - 1) / self.njacktot)
 
             self.varclumfunction = (np.sum((self.jclumfunction - self.clumfunction)**2, 
                                            axis=0) * (self.njacktot - 1) / self.njacktot)
+            self.varsatellite_frac = (np.sum((self.jsatellite_frac - self.satellite_frac)**2, 
+                                           axis=0) * (self.njacktot - 1) / self.njacktot)
+                                           
 
     def visualize(self, plotname=None, usecols=None,
                     usez=None,sharex=True, sharey=True, 
                     xlim=None, ylim=None, f=None, ax=None, 
                     label=None, xlabel=None, ylabel=None,
-                    compare=False, logx=False, logy=True, 
-                    **kwargs):
-
+                    compare=False, logx=False, logy=True,
+                    satellite_frac=False, **kwargs):
 
         lmean = (self.magbins[:-1] + self.magbins[1:]) / 2
         
@@ -896,9 +908,6 @@ class GalCLF(MassMetric):
 
         return f, ax
         
-                
-                
-
 class OccMass(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
