@@ -505,7 +505,7 @@ class GalHOD(MassMetric):
 
         if f is None:
             f, ax = plt.subplots(len(usecols), self.nzbins,
-                                 sharex=True, sharey=False,
+                                 sharex=True, sharey=True,
                                  figsize=(10,10))
             ax = np.array(ax).reshape((len(usecols), self.nzbins))
 

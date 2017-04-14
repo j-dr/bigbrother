@@ -2244,8 +2244,8 @@ class GalaxyRadialProfileBCC(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$r\, [Mpc \, h^{-1}]$')
-            sax.set_ylabel(r'$\rho_{g} \, [Mpc^{3} \, h^{-3}]$')
+            sax.set_xlabel(r'$r\, [Mpc \, h^{-1}]$', labelpad=40, fontsize=16)
+            sax.set_ylabel(r'$\rho_{g} \, [Mpc^{3} \, h^{-3}]$', labelpad=40, fontsize=16)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
