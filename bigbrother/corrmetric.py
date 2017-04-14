@@ -2067,7 +2067,8 @@ class TabulatedWPrpLightcone(WPrpLightcone):
 class GalaxyRadialProfileBCC(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
-                 massbins=None, subjack=False, catalog_type=['galaxycatalog'],
+                 massbins=None, subjack=False, mcutind=None,
+                 catalog_type=['galaxycatalog'],
                  tag=None, **kwargs):
         """
         Radial profile of galaxies around their nearest halos.
@@ -2092,6 +2093,18 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.nlumbins = len(self.lumbins)-1
 
+        if mcutind is None:
+            self.mcutind = 1
+        else:
+            self.mcutind = mcutind
+        
+        if massbins is None:
+            self.massbins = np.logspace(np.log10(5e12),15,5)
+        else:
+            self.massbins = massbins
+
+        self.nmassbins = len(self.massbins) - 1
+
         if rbins is None:
             self.rbins = np.logspace(-2, 1, 21)
         else:
@@ -2101,97 +2114,129 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.aschema = 'galaxyonly'
 
-        self.mapkeys = ['luminosity', 'redshift', 'rhalo']
-        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
+        self.mapkeys = ['luminosity', 'redshift', 'rhalo', 'halomass', 'haloid']
+        self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra',
+                        'redshift':'z', 'halomass':'msunh'}
 
         self.rcounts = None
+        self.hcounts = None
 
     @jackknifeMap
     def map(self, mapunit):
 
         if self.rcounts is None:
             self.rcounts = np.zeros((self.njack, self.nrbins,
-                                    self.nlumbins,
-                                    self.nzbins))
+                                     self.nlumbins,
+                                     self.nmassbins,                                      
+                                     self.nzbins))
+            self.hcounts = np.zeros((self.njack, self.nmassbins,
+                                     self.nzbins))
 
         for i, z in enumerate(self.zbins[:-1]):
             zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
             zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+            
+            for j, m in enumerate(self.massbins[:-1]):
+                midx = ((self.massbins[j] < mapunit['halomass'][zlidx:zhidx])
+                        & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1]))
+                self.hcounts[self.jcount,j,i] += len(np.unique(mapunit['haloid'][zlidx:zhidx]))
+                
+                for k, l in enumerate(self.lumbins[:-1]):
+                    lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,0])
+                             & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[k+1]))
 
-            for j, l in enumerate(self.lumbins[:-1]):
-                lidx = (self.lumbins[j]<mapunit['luminosity'][zlidx:zhidx,0]) & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[j+1])
-                c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][lidx], bins=self.rbins)
-                self.rcounts[self.jcount,:,j,i] += c
+                    c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][midx&lidx], bins=self.rbins)
+                    self.rcounts[self.jcount,:,k,j,i] += c
 
     def reduce(self, rank=None, comm=None):
 
         if rank is not None:
-            gdata = comm.gather(self.rcounts, root=0)
-
+            grcounts = comm.gather(self.rcounts, root=0)
+            ghcounts = comm.gather(self.hcounts, root=0)
             if rank==0:
                 dshape = self.rcounts.shape
+                hshape = self.hcounts.shape
                 dshape = [dshape[i] for i in range(len(dshape))]
+                hshape = [hshape[i] for i in range(len(hshape))]
                 dshape[0] = self.njacktot
+                hshape[0] = self.njacktot
                 self.rcounts = np.zeros(dshape)
+                self.hcounts = np.zeros(hshape)
 
                 jc = 0
                 #iterate over gathered arrays, filling in arrays of rank==0
                 #process
-                for g in gdata:
+                for i,g in enumerate(grcounts):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.rcounts[jc:jc+nj,:,:,:] = g
+                    self.rcounts[jc:jc+nj,:,:,:,:] = g
+                    self.hcounts[jc:jc+nj,:,:] = ghcounts[i]
 
                     jc += nj
 
-                self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
-                vol = 4*np.pi*(self.rmean**3)/3
+                self.rmean = (self.rbins[1:] + self.rbins[:-1]) / 2
+                vol = 4 * np.pi * (self.rmean**3) / 3
 
-                self.jrprof = np.zeros(self.rcounts.shape)
+                self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1))
 
-                for i in range(self.nzbins):
-                    for j in range(self.nlumbins):
-                        self.jrprof[:,:,j,i] /= self.rcounts[:,:,j,i] / vol
+                self.jurprof  = self.jackknife(self.jurprof, reduce_jk=False)
+                self.jhcounts = self.jackknife(self.hcounts, reduce_jk=False)
 
-                self.jrprof, self.rprof, self.varrprof = self.jackknife(self.jrprof)
+                self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,self.nmassbins,self.nzbins)
 
+                self.rprof    = np.sum(self.jrprof, axis=0) / self.njacktot
+                self.varrprof = (np.sum((self.jrprof - self.rprof)**2, axis=0) * (self.njacktot - 1)
+                                   / self.njacktot)
+                
         else:
-            self.rmean = (self.rbins[1:]+self.rbins[:-1])/2
-            vol = 4*np.pi*(self.rmean**3)/3
+            self.rmean = (self.rbins[1:] + self.rbins[:-1]) / 2
+            vol = 4 * np.pi * (self.rmean**3) / 3
 
-            self.jrprof = np.zeros(self.rcounts.shape)
+            self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1))
 
-            for i in range(self.nzbins):
-                for j in range(self.nlumbins):
-                    self.jrprof[:,:,j,i] /= self.rcounts[:,:,j,i] / vol
+            self.jurprof  = self.jackknife(self.jurprof, reduce_jk=False)
+            self.jhcounts = self.jackknife(self.hcounts, reduce_jk=False)
 
-            self.jrprof, self.rprof, self.varrprof = self.jackknife(self.jrprof)
+            self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,self.nmassbins,self.nzbins)
+            self.rprof    = np.sum(self.jrprof, axis=0) / self.njacktot
+            self.varrprof = (np.sum((self.jrprof - self.rprof)**2, axis=0) * (self.njacktot - 1)
+                               / self.njacktot)
 
 
-    def visualize(self, plotname=None, f=None, ax=None, compare=False, **kwargs):
-        if not hascorrfunc:
-            return
+    def visualize(self, plotname=None, f=None, ax=None,
+                  compare=False, usecols=None, usez=None,
+                  xlabel=None, ylabel=None, logx=True,
+                  logy=True, **kwargs):
+
+        if usez is None:
+            usez = range(self.nzbins)
+        if usecols is None:
+            usecols = range(self.nmassbins)
+            
         if f is None:
-            f, ax = plt.subplots(self.nlumbins, self.nzbins,
-                                 sharex=True, sharey=True,
-                                 figsize=(8,8))
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
             newaxes = True
         else:
             newaxes = False
 
-        if self.nzbins>1:
-            for i in range(self.nlumbins):
-                for j in range(self.nzbins):
-                    ax[i][j].semilogx(self.rmean, self.rprof[:,i,j],
-                                      **kwargs)
-        else:
-            for i in range(self.nlumbins):
-                for j in range(self.nzbins):
-                    ax[i].semilogx(self.rmean, self.rprof[:,i,j],
-                                   **kwargs)
+        for i in range(self.nzbins):
+            for j in range(self.nmassbins):
+                for k in range(self.nlumbins):
+                    ye = np.sqrt(self.varrprof[:,k,j,i])
+                    ax[i][j].plot(self.rmean, self.rprof[:,k,j,i],
+                                  **kwargs)
+                    ax[i][j].fill_between(self.rmean, self.rprof[:,k,j,i]-ye,
+                                          self.rprof[:,k,j,i]+ye,**kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -2200,7 +2245,7 @@ class GalaxyRadialProfileBCC(Metric):
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
             sax.set_xlabel(r'$r\, [Mpc \, h^{-1}]$')
-            sax.set_ylabel(r'$n \, [Mpc^{3} \, h^{-1}]$')
+            sax.set_ylabel(r'$\rho_{g} \, [Mpc^{3} \, h^{-3}]$')
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
