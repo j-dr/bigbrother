@@ -64,6 +64,7 @@ if __name__=="__main__":
         if m.novis or noplot: continue
 
         plt.clf()
+
         if m.__class__.__name__ in pnames.keys():
             pn = m.__class__.__name__ + "_{0}".format(pnames[m.__class__.__name__])
             pnames[m.__class__.__name__] += 1
@@ -78,3 +79,5 @@ if __name__=="__main__":
         m.visualize(plotname="{0}/{1}_{2}.png".format(cfg['Validate']['outdir'],
                                                       cfg['Ministry']['ministry_name'],
                                                       pn))
+
+        plt.close()
