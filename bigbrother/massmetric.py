@@ -809,11 +809,11 @@ class GalCLF(MassMetric):
                 sye = np.sqrt(self.varslumfunction[:,j,i])
                 cye = np.sqrt(self.varclumfunction[:,j,i])
 
-                ls = ax[j,i].errorbar(lmean, sy, yerr=sye, fmt='o', barsabove=True,
+                ls = ax[j,i].errorbar(lmean, sy, yerr=sye, barsabove=True,
                                       **kwargs)
                 #ax[j,i].fill_between(lmean, sy-sye, sy+sye, alpha=0.5,
                 #                     **kwargs)
-                lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='s', barsabove=True,
+                lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
                                       **kwargs)
                 #ax[j,i].fill_between(lmean, cy-cye, cy+cye, alpha=0.5,
                 #                     **kwargs)
@@ -840,6 +840,25 @@ class GalCLF(MassMetric):
 #                        ax[0][0].set_xlim(xlim)
 #                    if ylim is not None:
 #                        ax[0][0].set_ylim(ylim)
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['top'].set_alpha(0.0)
+            sax.spines['bottom'].set_color('none')
+            sax.spines['bottom'].set_alpha(0.0)
+            sax.spines['left'].set_color('none')
+            sax.spines['left'].set_alpha(0.0)
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_ylabel(r'%s' % ylabel, labelpad=40)
+            #plt.tight_layout()
 
 
         return f, ax, ls, lc
