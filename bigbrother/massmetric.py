@@ -274,7 +274,7 @@ class GalHOD(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
                  catalog_type=['galaxycatalog'], tag=None, magcuts=None,
-                 cutband=None, **kwargs):
+                 cutband=None, upper_limit=False, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
@@ -283,10 +283,14 @@ class GalHOD(MassMetric):
                             catalog_type=catalog_type, tag=tag, **kwargs)
         self.nomap = False
         self.magcuts = magcuts
-
+        self.upper_limit = upper_limit
+        
         if self.magcuts is not None:
             self.usemag = True
-            self.nmagcuts= len(self.magcuts)
+            if self.upper_limit:
+                self.nmagcuts = len(self.magcuts)
+            else:
+                self.nmagcuts = len(self.magcuts) - 1
 
         else:
             self.usemag = False
@@ -369,9 +373,18 @@ class GalHOD(MassMetric):
                     for k in range(self.nmagcuts):
                         if self.usemag:
                             if self.cutband is not None:
-                                lidx = (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k])
+                                if self.upper_limit:
+                                    lidx = (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k])
+                                else:
+                                    lidx = ((self.magcuts[k] < mapunit['luminosity'][zlidx:zhidx, self.cutband]) &
+                                            (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k+1]))
                             else:
-                                lidx = (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k])
+                                if self.upper_limit:
+                                    lidx = (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k])
+                                else:
+                                    lidx = ((self.magcuts[k] < mapunit['luminosity'][zlidx:zhidx]) &
+                                            (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k+1]))
+
                             cidx = mapunit['central'][zlidx:zhidx][lidx]==1
                             sidx = mapunit['rhalo'][zlidx:zhidx][lidx] < mapunit['r200'][zlidx:zhidx][lidx]
 
@@ -407,15 +420,6 @@ class GalHOD(MassMetric):
         for a luminosity function. The LF is then saved as an attribute of the
         LuminosityFunction object.
         """
-
-        self.shod = self.socccounts/self.halocounts
-        self.chod = self.cocccounts/self.halocounts
-        self.shoderr = np.sqrt((self.sqsocccounts - self.shod**2)/self.halocounts)
-        self.choderr = np.sqrt((self.sqcocccounts - self.chod**2)/self.halocounts)
-
-        self.y = self.shod + self.chod
-        self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
-
         if rank is not None:
             gsocc = comm.gather(self.socccounts, root=0)
             gcocc = comm.gather(self.cocccounts, root=0)
