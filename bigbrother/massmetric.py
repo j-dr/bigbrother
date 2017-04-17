@@ -657,10 +657,13 @@ class GalCLF(MassMetric):
             self.mapkeys = ['halomass', 'central', 'haloid', 'rhalo', 'r200', 'luminosity']
             self.lightcone = False
 
-        if self.lightcone:
-            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'luminosity':'mag', 'r200':'mpch', 'redshift':'z'}
+        if unitmap is None:
+            if self.lightcone:
+                self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'luminosity':'mag', 'r200':'mpch', 'redshift':'z'}
+            else:
+                self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'r200':'mpch', 'luminosity':'mag'}
         else:
-            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'r200':'mpch', 'luminosity':'mag'}
+            self.unitmap = unitmap
 
         self.slumcounts   = None
         self.clumcounts   = None
@@ -731,10 +734,10 @@ class GalCLF(MassMetric):
                 self.jclumfunction = (self.clumcounts / self.halocounts.reshape(self.njacktot, 
                                                                                  1,self.nmassbins,
                                                                                  self.nzbins) / dl)
-                self.jfsat = self.slumcounts / (self.sclumcounts + self.clumcounts)
+                self.jfsat = self.slumcounts / (self.slumcounts + self.clumcounts)
 
-                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumcounts)
-                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumcounts)
+                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
+                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
                 self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
 
         else:
@@ -744,10 +747,10 @@ class GalCLF(MassMetric):
                 self.jclumfunction = (self.clumcounts / self.halocounts.reshape(self.njacktot, 
                                                                                  1,self.nmassbins,
                                                                                  self.nzbins) / dl)
-                self.jfsat = self.slumcounts / (self.sclumcounts + self.clumcounts)
+                self.jfsat = self.slumcounts / (self.slumcounts + self.clumcounts)
 
-                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumcounts)
-                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumcounts)
+                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
+                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
                 self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
                                            
 
@@ -836,6 +839,10 @@ class GalCLF(MassMetric):
             sax.set_xlabel(r'%s' % xlabel, labelpad=40)
             sax.set_ylabel(r'%s' % ylabel, labelpad=40)
             #plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+            
 
 
         return f, ax, ls, lc
