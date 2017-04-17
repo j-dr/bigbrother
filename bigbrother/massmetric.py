@@ -454,7 +454,7 @@ class GalHOD(MassMetric):
                 self.jsqsocccounts = self.jackknife(self.sqsocccounts, reduce_jk=False)
                 self.jcocccounts = self.jackknife(self.cocccounts, reduce_jk=False)
                 self.jsqcocccounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
-                self.jhalocounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
+                self.jhalocounts = self.jackknife(self.halocounts, reduce_jk=False)
 
                 self.jshod = self.jsocccounts/self.jhalocounts
                 self.jchod = self.jcocccounts/self.jhalocounts
@@ -473,7 +473,7 @@ class GalHOD(MassMetric):
             self.jsqsocccounts = self.jackknife(self.sqsocccounts, reduce_jk=False)
             self.jcocccounts = self.jackknife(self.cocccounts, reduce_jk=False)
             self.jsqcocccounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
-            self.jhalocounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
+            self.jhalocounts = self.jackknife(self.halocounts, reduce_jk=False)
 
             self.jshod = self.jsocccounts/self.jhalocounts
             self.jchod = self.jcocccounts/self.jhalocounts
@@ -491,7 +491,7 @@ class GalHOD(MassMetric):
                     usez=None,sharex=True, sharey=True, 
                     xlim=None, ylim=None, f=None, ax=None, 
                     label=None, xlabel=None, ylabel=None,
-                    compare=False, logx=False, logy=True, 
+                    compare=False, logx=True, logy=True, 
                     **kwargs):
 
 
@@ -551,7 +551,9 @@ class GalHOD(MassMetric):
         if ylim is not None:
             ax[0][0].set_ylim(ylim)
 
-
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+            
         return f, ax, ls, lc, lt
                         
     def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
@@ -626,7 +628,7 @@ class GalCLF(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
                  catalog_type=['galaxycatalog'], tag=None, magbins=None,
-                 magband=None, **kwargs):
+                 magband=None, unitmap=None, **kwargs):
 
         if massbins is None:
             massbins = np.logspace(13, 16, 5)
@@ -636,7 +638,12 @@ class GalCLF(MassMetric):
 
         if magbins is None:
             self.magbins = np.linspace(-24,-18,30)
-            self.nmagbins = len(self.magbins) - 1
+
+        else:
+            self.magbins = magbins
+
+        self.nmagbins = len(self.magbins) - 1
+        
         if magband is None:
             self.magband = 1
 
