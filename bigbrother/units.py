@@ -40,6 +40,10 @@ def fabermag2mag(mapunit, mapkey, Q=0.866):
     """
     return mapunit[mapkey] - Q * (np.log10(mapunit['redshift']) + 1)
 
+def mag2luminosity(mapunit, mapkey, msun=4.679):
+    return 10 ** ((mapunit[mapkey] - msun) / -2.5)
+    
+
 def mpchra2ra(mapunit, mapkey):
     theta, phi = hp.vec2ang(mapunit[mapkey])
 
