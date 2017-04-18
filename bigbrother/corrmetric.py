@@ -2152,12 +2152,12 @@ class GalaxyRadialProfileBCC(Metric):
             
             for j, m in enumerate(self.massbins[:-1]):
                 midx = ((self.massbins[j] < mapunit['halomass'][zlidx:zhidx])
-                        & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1]))
+                        & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1])).reshape(zhidx-zlidx)
                 self.hcounts[self.jcount,j,i] += len(np.unique(mapunit['haloid'][zlidx:zhidx]))
                 
                 for k, l in enumerate(self.lumbins[:-1]):
-                    lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,0])
-                             & (mapunit['luminosity'][zlidx:zhidx,0]<self.lumbins[k+1]))
+                    lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,1])
+                             & (mapunit['luminosity'][zlidx:zhidx,1]<self.lumbins[k+1])).reshape(zhidx-zlidx)
 
                     c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][midx&lidx], bins=self.rbins)
                     self.rcounts[self.jcount,:,k,j,i] += c

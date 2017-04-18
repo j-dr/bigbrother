@@ -750,12 +750,12 @@ class ColorColor(Metric):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                if (self.amagcut is not None):
+                if (self.magcut is not None):
                     for e, j in enumerate(self.usebands):
                         if e==0:
-                            lidx = mapunit[self.mkey][zlidx:zhidx,j]<self.amagcut
+                            lidx = mapunit[self.mkey][zlidx:zhidx,j]<self.magcut
                         else:
-                            lix = mapunit[self.mkey][zlidx:zhidx,j]<self.amagcut
+                            lix = mapunit[self.mkey][zlidx:zhidx,j]<self.magcut
                             lidx = lidx & lix
                 else:
                     lidx = slice(0,zhidx-zlidx)
