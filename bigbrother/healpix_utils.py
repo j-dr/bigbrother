@@ -116,7 +116,7 @@ class SubBoxMetric(Metric):
 
 class Area(Metric):
 
-    def __init__(self, ministry, nside=256, tag=None, **kwargs):
+    def __init__(self, ministry, nside=2048, tag=None, **kwargs):
 
         Metric.__init__(self, ministry, tag=tag, novis=True, **kwargs)
 

@@ -183,7 +183,7 @@ class GMetric(Metric):
                     fylim=None, f=None, ax=None, label=None,
                     xlabel=None, ylabel=None,compare=False,
                     logx=False, logy=True, rusecols=None,
-                    **kwargs):
+                    rusez=None, **kwargs):
         """
         Plot the calculated metric.
 
@@ -234,6 +234,10 @@ class GMetric(Metric):
 
         if usez is None:
             usez = range(self.nzbins)
+
+        if (rusez is None) and (ref_y is not None):
+            rusez = range(ref_y.shape[2])
+
         nzbins = len(usez)
 
         l1 = None
@@ -285,27 +289,27 @@ class GMetric(Metric):
                 iref_ye = np.zeros(rxs)
 
             for i, c in enumerate(usecols):
-                for j in usez:
-                    xi  = mxs[:,usecols[i],j]
-                    rxi = ref_x[:,rusecols[i],j]
+                for j in range(len(usez)):
+                    xi  = mxs[:,usecols[i],usez[j]]
+                    rxi = ref_x[:,rusecols[i],rusez[j]]
 
                     if fracdev & ((rxs[0]!=xs[0]) | ((rxi[0]!=xi[0])  | (rxi[-1]!=xi[-1]))):
                         lidx[i,j] = xi.searchsorted(rxi[0])
                         hidx[i,j] = xi.searchsorted(rxi[-1])
-                        nanidx = np.isnan(ref_y[:,rusecols[i],j]) | np.isnan(ref_x[:,rusecols[i],j])
-                        sply = InterpolatedUnivariateSpline(ref_x[~nanidx,rusecols[i],j], ref_y[~nanidx,rusecols[i],j])
-                        iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = sply(mxs[lidx[i,j]:hidx[i,j],c,j])
+                        nanidx = np.isnan(ref_y[:,rusecols[i],rusez[j]]) | np.isnan(ref_x[:,rusecols[i],rusez[j]])
+                        sply = InterpolatedUnivariateSpline(ref_x[~nanidx,rusecols[i],rusez[j]], ref_y[~nanidx,rusecols[i],rusez[j]])
+                        iref_y[lidx[i,j]:hidx[i,j],rusecols[i],rusez[j]] = sply(mxs[lidx[i,j]:hidx[i,j],c,usez[j]])
 
                         if ref_ye is not None:
-                            nanidx = np.isnan(ref_ye[:,rusecols[i],j]) | np.isnan(ref_x[:,rusecols[i],j])
-                            splye = InterpolatedUnivariateSpline(ref_x[~nanidx,rusecols[i],j], ref_ye[~nanidx,rusecols[i],j])
-                            iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = splye(mxs[lidx[i,j]:hidx[i,j],c,j])
+                            nanidx = np.isnan(ref_ye[:,rusecols[i],rusez[j]]) | np.isnan(ref_x[:,rusecols[i],rusez[j]])
+                            splye = InterpolatedUnivariateSpline(ref_x[~nanidx,rusecols[i],rusez[j]], ref_ye[~nanidx,rusecols[i],rusez[j]])
+                            iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],rusez[j]] = splye(mxs[lidx[i,j]:hidx[i,j],c,usez[j]])
                     else:
                         lidx[i,j] = 0
                         hidx[i,j] = len(mxs)
-                        iref_y[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_y[:,rusecols[i],j]
+                        iref_y[lidx[i,j]:hidx[i,j],rusecols[i],rusez[j]] = ref_y[:,rusecols[i],rusez[j]]
                         if ref_ye is not None:
-                            iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],j] = ref_ye[:,rusecols[i],j]
+                            iref_ye[lidx[i,j]:hidx[i,j],rusecols[i],rusez[j]] = ref_ye[:,rusecols[i],rusez[j]]
 
             ref_y = iref_y
             if ref_ye is not None:
@@ -351,11 +355,11 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 for j in range(nzbins):
                     if fracdev==False:
-                        if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
-                        l1 = ax[i][j].plot(mxs[:,b,j], self.y[:,b,j], **kwargs)
+                        if (self.y[:,b,usez[j]]==0).all() | (np.isnan(self.y[:,b,usez[j]]).all()): continue
+                        l1 = ax[i][j].plot(mxs[:,b,usez[j]], self.y[:,b,usez[j]], **kwargs)
                         if self.ye is not None:
-                            ax[i][j].fill_between(mxs[:,b,j], self.y[:,b,j]-self.ye[:,b,j],
-                              self.y[:,b,j]+self.ye[:,b,j],
+                            ax[i][j].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
+                              self.y[:,b,usez[j]]+self.ye[:,b,usez[j]],
                               alpha=0.5, **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
@@ -369,23 +373,23 @@ class GMetric(Metric):
                         #calculate error on fractional
                         #difference
                         if (ref_ye is not None) & (self.ye is not None):
-                            vye = self.ye[li:hi,b,j]**2
-                            vrye = ref_ye[li:hi,rb,j]**2
-                            fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
-                            dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) ** 2 + ref_ye[li:hi,rb,j] ** 2 / ref_y[li:hi,rb,j]**2 )
+                            vye = self.ye[li:hi,b,usez[j]]**2
+                            vrye = ref_ye[li:hi,rb,rusez[j]]**2
+                            fye = (self.y[li:hi,b,usez[j]] - ref_y[li:hi,rb,rusez[j]]) / ref_y[li:hi,rb,rusez[j]]
+                            dye = fye * np.sqrt( (vye + vrye) / (self.y[li:hi,b,usez[j]] - ref_y[li:hi,rb,rusez[j]]) ** 2 + ref_ye[li:hi,rb,rusez[j]] ** 2 / ref_y[li:hi,rb,rusez[j]]**2 )
                         else:
-                            fye = (self.y[li:hi,b,j] - ref_y[li:hi,rb,j]) / ref_y[li:hi,rb,j]
+                            fye = (self.y[li:hi,b,usez[j]] - ref_y[li:hi,rb,rusez[j]]) / ref_y[li:hi,rb,rusez[j]]
                             dye = None
 
-                        if (self.y[:,b,j]==0).all() | (np.isnan(self.y[:,b,j]).all()): continue
-                        l1 = ax[2*i][j].plot(mxs[:,b,j], self.y[:,b,j], **kwargs)
-                        ax[2*i+1][j].plot(mxs[li:hi,b,j], fye, **kwargs)
+                        if (self.y[:,b,usez[j]]==0).all() | (np.isnan(self.y[:,b,usez[j]]).all()): continue
+                        l1 = ax[2*i][j].plot(mxs[:,b,usez[j]], self.y[:,b,usez[j]], **kwargs)
+                        ax[2*i+1][j].plot(mxs[li:hi,b,usez[j]], fye, **kwargs)
                         if self.ye is not None:
-                            ax[2*i][j].fill_between(mxs[:,b,j], self.y[:,b,j]-self.ye[:,b,j],
-                              self.y[:,b,j]+self.ye[:,b,j],
+                            ax[2*i][j].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
+                              self.y[:,b,usez[j]]+self.ye[:,b,usez[j]],
                               alpha=0.5, **kwargs)
                         if dye is not None:
-                            ax[2*i+1][j].fill_between(mxs[li:hi,b,j], fye-dye,
+                            ax[2*i+1][j].fill_between(mxs[li:hi,b,usez[j]], fye-dye,
                               fye+dye,
                               alpha=0.5, **kwargs)
 
@@ -549,7 +553,7 @@ class GMetric(Metric):
                                              ref_y=self.y, xlim=xlim, compare=True,
                                              ylim=ylim, fylim=fylim, label=labels[i],
                                              usez=usez[i],color=Metric._color_list[i],
-                                             **kwargs)
+                                             rusez=usez[0],**kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, compare=True,
                                              fracdev=False, fylim=fylim,label=labels[i],usez=usez[i],
@@ -560,7 +564,8 @@ class GMetric(Metric):
                                              rusecols=usecols[0], ref_y=tocompare[0].y,
                                              ref_ye=tocompare[0].ye, compare=True, xlim=xlim,
                                              ylim=ylim, fylim=fylim, f=f, ax=ax, label=labels[i],
-                                             usez=usez[i], color=Metric._color_list[i], **kwargs)
+                                             usez=usez[i], rusez=usez[0], color=Metric._color_list[i], 
+                                             **kwargs)
                 else:
                     f, ax, l = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                              fylim=fylim, f=f, ax=ax, fracdev=False,
