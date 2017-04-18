@@ -578,7 +578,7 @@ class ColorDist(GMetric):
             self.mkey = 'luminosity'
         if magcut is None:
             if appmag:
-                self.magcut = 22.5
+                self.magcut = 23
             else:
                 self.magcut = -19
         else:
@@ -683,7 +683,7 @@ class ColorColor(Metric):
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'],
-                 usebands=None, amagcut=None,
+                 usebands=None, magcut=None,
                  tag=None, appmag=False,
                  pdf=False, **kwargs):
 
@@ -711,15 +711,18 @@ class ColorColor(Metric):
         else:
             self.mapkeys = [self.mkey]
 
+        if magcut is None:
+            if appmag:
+                self.magcut = 23
+            else:
+                self.magcut = -19
+        else:
+            self.magcut = magcut
+
         self.pdf = pdf
-        self.amagcut = amagcut
         self.usebands = usebands
         self.aschema = 'galaxyonly'
-        if (self.amagcut is not None) & (self.mkey != 'luminosity'):
-            self.unitmap = {self.mkey:'mag','luminosity':'mag'}
-            self.mapkeys.append('luminosity')
-        else:
-            self.unitmap = {self.mkey:'mag'}
+        self.unitmap = {self.mkey:'mag'}
 
         self.cc = None
 

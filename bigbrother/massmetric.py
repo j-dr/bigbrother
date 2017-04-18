@@ -11,7 +11,7 @@ from scipy.integrate import quad
 
 class MassMetric(GMetric):
     """
-    Restruct GMetric to magnitudes
+    Restruct GMetric to mass
     """
 
     def __init__(self, ministry, zbins=None, massbins=None,
