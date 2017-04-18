@@ -264,6 +264,16 @@ class CorrelationFunction(Metric):
         np.savetxt(binfilename, binarray, fmt='%.12f', delimiter='\t')
         self.binfilename = binfilename
 
+    def deevolve_gal(self, mapunit, Q, faber=False):
+
+        if faber:
+            mag = mapunit[self.mkey] - Q * (np.log10(mapunit['redshift'].reshape(len(mapunit['redshift']),1)+1) + 1)
+        else:
+            mag = mapunit[self.mkey] - Q * (1/(mapunit['redshift'].reshape(len(mapunit['redshift']),1)+1) - 1./1.1)
+
+        return mag
+        
+
 class AngularCorrelationFunction(CorrelationFunction):
 
     def __init__(self, ministry, zbins=None, mbins=None,
@@ -372,15 +382,6 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.dd = None
         self.dr = None
         self.rr = None
-
-    def deevolve_gal(self, mapunit, Q, faber=False):
-
-        if faber:
-            mag = mapunit[self.mkey] - Q * (np.log10(mapunit['redshift'].reshape(len(mapunit['redshift']),1)+1) + 1)
-        else:
-            mag = mapunit[self.mkey] - Q * (1/(mapunit['redshift'].reshape(len(mapunit['redshift']),1)+1) - 1./1.1)
-
-        return mag
 
     @jackknifeMap
     def map(self, mapunit):
@@ -728,8 +729,8 @@ class WPrpLightcone(CorrelationFunction):
                   bimodal_ccut=False, percentile_ccut=None,
                   precompute_color=False, upper_limit=False,
                   centrals_only=False, rsd=False,
-                  randnside=None,
-                  **kwargs):
+                  randnside=None, deevolve_mstar=False,
+                  faber=False, Q=None, **kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
         data.
@@ -740,6 +741,14 @@ class WPrpLightcone(CorrelationFunction):
                                       mcutind=mcutind, same_rand=same_rand,
                                       inv_m=inv_m,catalog_type=catalog_type,
                                       tag=tag, upper_limit=upper_limit, **kwargs)
+
+        self.deevolve_mstar = deevolve_mstar
+        self.faber = faber
+        
+        if self.deevolve_mstar & (Q is None):
+            raise(ValueError("Must provide Q is deevolve_mstar == True"))
+        else:
+            self.Q = Q
 
         self.bimodal_ccut = bimodal_ccut
         self.percentile_ccut = percentile_ccut
@@ -867,6 +876,11 @@ class WPrpLightcone(CorrelationFunction):
                 mu['velocity'][:] = mapunit['velocity'][:]
         else:
             mu = mapunit
+
+        if self.deevolve_mstar:
+            lum = self.deevolve_gal(mu, self.Q, faber=self.faber)
+        else:
+            lum = mu[self.mkey]
 
         if self.rsd:
             cz = self.addRSD(mu)

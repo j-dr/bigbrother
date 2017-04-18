@@ -19,12 +19,13 @@ class GalaxyCatalog(BaseCatalog):
     Base class for galaxy catalogs
     """
 
-    def __init__(self, ministry, filestruct, zbins=None, zp=None, **kwargs):
+    def __init__(self, ministry, filestruct, zbins=None, zp=None, Q=None,**kwargs):
 
 
         self.ctype = 'galaxycatalog'
         self.zbins = zbins
         self.zp = zp
+        self.Q  = Q
         BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
 
 

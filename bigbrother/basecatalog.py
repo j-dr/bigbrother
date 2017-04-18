@@ -391,6 +391,9 @@ class BaseCatalog:
                         mapunit[key] = conversion(mapunit, key)
                 elif ('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'magh2mag') | ('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'mag2magh'):
                    mapunit[key] = conversion(mapunit, key, h=self.ministry.h)
+                elif (('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'bccmag2mag')
+                      | ('{0}2{1}'.format(self.unitmap[key], m.unitmap[key]) == 'fabermag2mag')):
+                    mapunit[key] = conversion(mapunit, key, Q=self.Q)
                 else:
                     mapunit[key] = conversion(mapunit, key)
 
