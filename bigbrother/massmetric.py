@@ -514,12 +514,12 @@ class GalHOD(MassMetric):
             newaxes = False
 
         
-        for i in range(self.nzbins):
+        for i, zi in enumerate(usez):
             for j, b in enumerate(usecols):
-                sy = self.shod[:,0,j,i]
-                cy  = self.chod[:,0,j,i]
-                sye = self.shoderr[:,0,j,i]
-                cye = self.choderr[:,0,j,i]
+                sy = self.shod[:,0,j,zi]
+                cy  = self.chod[:,0,j,zi]
+                sye = self.shoderr[:,0,j,zi]
+                cye = self.choderr[:,0,j,zi]
 
                 ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
                                       **kwargs)
@@ -527,20 +527,20 @@ class GalHOD(MassMetric):
                 lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
                                       **kwargs)
 
-                lt = ax[j,i].errorbar(mmean, self.y[:,0,j,i],
-                                      yerr=self.ye[:,0,j,i],
+                lt = ax[j,i].errorbar(mmean, self.y[:,0,j,zi],
+                                      yerr=self.ye[:,0,j,zi],
                                       fmt='.', barsabove=True,
                                       **kwargs)
                 
 
 
         if not compare:
-            for i in range(self.nzbins):
+            for i, zi in range(len(usez)):
                 for j, b in enumerate(usecols):
-                    if not (((self.shod[:,0,j,i]==0).all()
-                            | ~np.isfinite(self.shod[:,0,j,i]).any())
-                            & ((self.chod[:,0,j,i]==0).all()
-                            | ~np.isfinite(self.chod[:,0,j,i]).any())):
+                    if not (((self.shod[:,0,j,zi]==0).all()
+                            | ~np.isfinite(self.shod[:,0,j,zi]).any())
+                            & ((self.chod[:,0,j,zi]==0).all()
+                            | ~np.isfinite(self.chod[:,0,j,zi]).any())):
                         if logx:
                             ax[j,i].set_xscale('log')
                         if logy:
@@ -557,7 +557,7 @@ class GalHOD(MassMetric):
         return f, ax, ls, lc, lt
                         
     def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
-                xlim=None, ylim=None, labels=None, logx=False,
+                xlim=None, ylim=None, labels=None, logx=True,
                 logy=True,**kwargs):
 
         tocompare = [self]
@@ -583,7 +583,7 @@ class GalHOD(MassMetric):
             labels = [None]*len(tocompare)
 
         lines = []
-        labels = []
+        lab   = []
 
         for i, m in enumerate(tocompare):
             if usecols[i] is not None:
@@ -598,15 +598,15 @@ class GalHOD(MassMetric):
                                         usez=usez[i], color=Metric._color_list[i], 
                                         **kwargs)
             lines.append(ls[0])
-            labels.append(labels[i] + '-sat')
+            lab.append(labels[i] + '-sat')
             lines.append(lc[0])
-            labels.append(labels[i] + '-cen')
+            lab.append(labels[i] + '-cen')
             lines.append(lt[0])
-            labels.append(labels[i] + '-tot')
+            lab.append(labels[i] + '-tot')
 
 
         if labels[0] is not None:
-            f.legend(lines, labels, 'best')
+            f.legend(lines, lab, 'best')
 
         if logx:
             ax[0,0].set_xscale('log')
