@@ -55,6 +55,8 @@ class Metric(object):
             return 'msunh'
         if key == 'central':
             return 'unitless'
+        if key == 'appmag':
+            return 'mag'
 
     def splitBimodal(self, x, y, largepoly=30):
         p = np.polyfit(x, y, largepoly) # polynomial coefficients for fit

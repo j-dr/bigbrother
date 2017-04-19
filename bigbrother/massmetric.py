@@ -374,10 +374,10 @@ class GalHOD(MassMetric):
                         if self.usemag:
                             if self.cutband is not None:
                                 if self.upper_limit:
-                                    lidx = (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k])
+                                    lidx = (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k]).reshape(zhidx-zlidx)
                                 else:
                                     lidx = ((self.magcuts[k] < mapunit['luminosity'][zlidx:zhidx, self.cutband]) &
-                                            (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k+1]))
+                                            (mapunit['luminosity'][zlidx:zhidx, self.cutband]<self.magcuts[k+1])).reshape(zhidx-zlidx)
                             else:
                                 if self.upper_limit:
                                     lidx = (mapunit['luminosity'][zlidx:zhidx]<self.magcuts[k])
