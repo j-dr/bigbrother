@@ -12,7 +12,8 @@ class DNDz(Metric):
     def __init__(self, ministry, zbins=None, magbins=None,
                   catalog_type=['galaxycatalog'], tag=None,
                   appmag=True, lower_limit=True, cutband=None,
-                  normed=True, selection_dict=None, **kwargs):
+                  normed=True, selection_dict=None, CMASS=False,
+                  **kwargs):
         """
         Angular Number density of objects as a function of redshift.
 
@@ -78,6 +79,8 @@ class DNDz(Metric):
             else:
                 self.nmagbins = len(self.magbins) - 1
 
+        self.CMASS = CMASS
+
         self.normed = normed
         self.aschema = 'galaxyonly'
 
@@ -111,6 +114,11 @@ class DNDz(Metric):
                     if m not in self.unitmap:
                         self.unitmap[m] = self.defaultUnits(m)
 
+        if self.CMASS:
+            if 'appmag' not in self.mapkeys:
+                self.mapkeys.append('appmag')
+                self.unitmap['appmag'] = 'mag'
+
         self.zcounts = None
         self.selector = Selector(selection_dict)
 
@@ -124,12 +132,17 @@ class DNDz(Metric):
         if self.zcounts is None:
             self.zcounts = np.zeros((self.njack, self.nzbins,self.nmagbins))
 
-        for idx, aidx in self.selector.generateSelections(mapunit):
+        if not self.CMASS:
+            for idx, aidx in self.selector.generateSelections(mapunit):
+                c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
+                shp = [1 for i in range(len(aidx)+1)]
+                shp[1] = len(c)
+                self.zcounts[self.jcount,:,aidx] += c.reshape(shp)
+        else:
+            idx = self.selectCMASS(mapunit['appmag'])
             c, e = np.histogram(mapunit['redshift'][idx], bins=self.zbins)
-            shp = [1 for i in range(len(aidx)+1)]
-            shp[1] = len(c)
-            self.zcounts[self.jcount,:,aidx] += c.reshape(shp)
-
+            self.zcounts[self.jcount,:,0] = c
+            
     def reduce(self, rank=None, comm=None):
         """
         Converts extracted redshift information into a (normalized) dn/dz output and stores it as an attribute of the metric.

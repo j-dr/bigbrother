@@ -48,7 +48,8 @@ class LuminosityFunction(MagnitudeMetric):
     """
 
     def __init__(self, ministry, central_only=False, zbins=None, magbins=None,
-                 catalog_type=['galaxycatalog'], tag=None, **kwargs):
+                 catalog_type=['galaxycatalog'], tag=None, CMASS=False,
+                 **kwargs):
 
         """
         Initialize a LuminosityFunction object. Note, all metrics should define
@@ -80,10 +81,15 @@ class LuminosityFunction(MagnitudeMetric):
                                  catalog_type=catalog_type, tag=tag, **kwargs)
 
         self.central_only = central_only
+        self.CMASS = CMASS
+        
         if central_only:
             self.mapkeys = ['luminosity', 'redshift', 'central']
         else:
             self.mapkeys = ['luminosity', 'redshift']
+
+        if self.CMASS:
+            self.mapkeys.append('appmag')
 
         self.aschema = 'galaxyonly'
 
@@ -128,8 +134,14 @@ class LuminosityFunction(MagnitudeMetric):
 
             #Count galaxies in bins of luminosity
             for j in range(self.nbands):
-                c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j],
-                                    bins=self.magbins)
+                if not self.CMASS:
+                    c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j],
+                                        bins=self.magbins)
+                else:
+                    cidx = self.selectCMASS(mu['appmag'][zlidx:zhidx])
+                    c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j][cidx],
+                                        bins=self.magbins)
+                    
                 self.lumcounts[self.jcount,:,j,i] += c
 
 

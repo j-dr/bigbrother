@@ -730,7 +730,7 @@ class WPrpLightcone(CorrelationFunction):
                   precompute_color=False, upper_limit=False,
                   centrals_only=False, rsd=False,
                   randnside=None, deevolve_mstar=False,
-                  faber=False, Q=None, **kwargs):
+                  faber=False, Q=None, CMASS=False, **kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
         data.
@@ -764,6 +764,7 @@ class WPrpLightcone(CorrelationFunction):
 
         self.pccolor = precompute_color
         self.centrals_only = centrals_only
+        self.CMASS = CMASS
 
         self.logbins = logbins
         self.c = 299792.458
@@ -823,6 +824,10 @@ class WPrpLightcone(CorrelationFunction):
         if self.pccolor:
             self.mapkeys.append('color')
 
+        if self.CMASS:
+            self.mapkeys.append('appmag')
+            self.unitmap['appmag'] = 'mag'
+
         self.rand_ind = 0
 
         self.nd = None
@@ -874,6 +879,10 @@ class WPrpLightcone(CorrelationFunction):
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
                 mu['velocity'][:] = mapunit['velocity'][:]
+
+            if (self.CMASS) & (self.mkey is not 'appmag'):
+                mu['appmag'] = mapunit['appmag']
+                
         else:
             mu = mapunit
 
@@ -905,10 +914,15 @@ class WPrpLightcone(CorrelationFunction):
                 ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
                 self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
 
+            if self.CMASS:
+                lidx = self.selectCMASS(mu['appmag'][zlidx:zhidx])
+
             for li, j in enumerate(self.minds):
                 print('Finding luminosity indices')
 
-                if self.mcutind is not None:
+                if self.CMASS:
+                    pass
+                elif self.mcutind is not None:
                     if self.upper_limit:
                         lidx = mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j]
                     else:
@@ -932,7 +946,6 @@ class WPrpLightcone(CorrelationFunction):
 
                 if (self.percentile_ccut is not None):
                     self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
-
 
                 for k in range(self.ncbins):
                     if self.ncbins == 1:

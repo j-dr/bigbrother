@@ -92,6 +92,20 @@ class Metric(object):
         
         return x[xidx[pi]]
 
+    def selectCMASS(self, mags):
+        cpar  = (0.7 * (mags[:,0] - mags[:,1])
+                 + 1.2 * (mags[:,1] - mags[:,2] - 0.18))
+        cperp = ((mags[:,1] - mags[:,2])
+                 - (mags[:,1] - mags[:,1]) / 4  - 0.18)
+        dperp = ((mags[:,1] - mags[:,2])
+                 - (mags[:,0] - mags[:,1]) / 8)
+
+        cidx = ((dperp > 0.55) & (mags[:,2] < (19.86 + 1.6 * (dperp-0.8)))
+                 & (17.5 < mags[:,2]) & (mags[:,2]<19.9))
+
+        return cidx
+        
+
     def jackknife(self, arg, reduce_jk=True):
 
         jdata = np.zeros(arg.shape)
