@@ -492,9 +492,10 @@ class GalHOD(MassMetric):
                     xlim=None, ylim=None, f=None, ax=None, 
                     label=None, xlabel=None, ylabel=None,
                     compare=False, logx=True, logy=True, 
-                    **kwargs):
+                    noerr=False, **kwargs):
 
-
+        print(usez)
+        print(usecols)
         mmean = (self.massbins[:-1] + self.massbins[1:]) / 2
         
         if usecols is None:
@@ -504,10 +505,10 @@ class GalHOD(MassMetric):
             usez = range(self.nzbins)
 
         if f is None:
-            f, ax = plt.subplots(len(usecols), self.nzbins,
+            f, ax = plt.subplots(len(usecols), len(usez),
                                  sharex=True, sharey=True,
                                  figsize=(10,10))
-            ax = np.array(ax).reshape((len(usecols), self.nzbins))
+            ax = np.array(ax).reshape((len(usecols), len(usez)))
 
             newaxes = True
         else:
@@ -521,16 +522,26 @@ class GalHOD(MassMetric):
                 sye = self.shoderr[:,0,j,zi]
                 cye = self.choderr[:,0,j,zi]
 
-                ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
+                if not noerr:
+                    ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
+                                          **kwargs)
+                    
+                    lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
+                                          **kwargs)
+                    
+                    lt = ax[j,i].errorbar(mmean, self.y[:,0,j,zi],
+                                          yerr=self.ye[:,0,j,zi],
+                                          fmt='.', barsabove=True,
+                                          **kwargs)
+                else:
+                    ls = ax[j,i].plot(mmean, sy, marker='^',
                                       **kwargs)
-
-                lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
+                    
+                    lc = ax[j,i].plot(mmean, cy, marker='s',
                                       **kwargs)
-
-                lt = ax[j,i].errorbar(mmean, self.y[:,0,j,zi],
-                                      yerr=self.ye[:,0,j,zi],
-                                      fmt='.', barsabove=True,
-                                      **kwargs)
+                    
+                    lt = ax[j,i].plot(mmean, self.y[:,0,j,zi],
+                                      marker='.',**kwargs)
                 
 
 
@@ -584,6 +595,9 @@ class GalHOD(MassMetric):
 
         lines = []
         lab   = []
+
+        print(usez)
+        print(usecols)
 
         for i, m in enumerate(tocompare):
             if usecols[i] is not None:

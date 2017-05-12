@@ -206,7 +206,7 @@ class ConditionalDensityPDF(Metric):
             self.magcuts = magcuts
 
         if densbins is None:
-            self.densbins = np.logspace(-1, 1, 61)
+            self.densbins = np.logspace(-3., np.log10(15.), 50)
         else:
             self.densbins = densbins
 
@@ -219,7 +219,7 @@ class ConditionalDensityPDF(Metric):
         self.normed    = normed
 
 
-        self.nmagcuts  = len(self.magcuts)
+        self.nmagcuts  = len(self.magcuts) - 1
         self.nzbins    = len(self.zbins) - 1
         self.ndensbins = len(self.densbins) - 1
 
@@ -256,27 +256,18 @@ class ConditionalDensityPDF(Metric):
             zlidx = mu['redshift'].searchsorted(self.zbins[i])
             zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
-            for j in range(self.nmagcuts):
-                if self.magcutind is None:
-                    lidx = mu['luminosity'][zlidx:zhidx]<self.magcuts[j]
-                else:
-                    lidx = mu['luminosity'][zlidx:zhidx,self.magcutind]<self.magcuts[j]
+            jrmdist, e0, e1        = np.histogram2d(mu['density'][zlidx:zhidx].reshape(-1),
+                                                    mu['luminosity'][zlidx:zhidx].reshape(-1),
+                                                    bins=[self.densbins, self.magcuts])
+            self.cdcounts[:,:,i]   += jrmdist
 
-                c, e = np.histogram(mu['density'][zlidx:zhidx][lidx],
-                                bins=self.densbins)
-
-                self.cdcounts[:,j,i] += c
 
     def reduce(self, rank=None, comm=None):
-        area = self.ministry.galaxycatalog.getArea()
-
-        if self.normed:
-            #reshape to allow broadcasting
-            dd = (self.densbins[1:] - self.densbins[:-1]).reshape((self.ndensbins, 1, 1))
-            self.cdenspdf = self.cdcounts / dd / np.sum(self.cdcounts, axis=0)
-        else:
-            self.cdenspdf = self.cdcounts / area
-
+        dr                = (self.densbins[1:] - self.densbins[:-1]).reshape(-1,1,1)
+        crmcounts         = np.cumsum(self.cdcounts, axis=1)
+        self.rmcounts     = np.sum(crmcounts, axis=0).reshape(1,self.nmagcuts,1)
+        self.cdenspdf     = crmcounts / self.rmcounts / dr
+        #rmerr      = np.sqrt(rmdist)
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
                   usez=None, usecuts=None, **kwargs):
@@ -294,7 +285,7 @@ class ConditionalDensityPDF(Metric):
 
         if f is None:
             f, ax = plt.subplots(ncuts, nz,
-                                   sharex=True, sharey=True, figsize=(8,8))
+                                   sharex=True, sharey=False, figsize=(8,8))
             ax = np.array(ax)
             ax = ax.reshape((ncuts,nz))
             newaxes = True
@@ -303,7 +294,7 @@ class ConditionalDensityPDF(Metric):
 
         for i in range(nz):
             for j in range(ncuts):
-                l1 = ax[j,i].plot(mdens, self.cdenspdf[:,j,i],
+                l1 = ax[j,i].semilogx(mdens, self.cdenspdf[:,j,i],
                                   **kwargs)
 
         if newaxes:

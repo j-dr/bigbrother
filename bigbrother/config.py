@@ -12,6 +12,7 @@ import bigbrother.massmetric      as msm
 import bigbrother.corrmetric      as crm
 import bigbrother.lineofsight     as lsm
 import bigbrother.healpix_utils   as hpm
+import bigbrother.densitymetric   as dnm
 
 _eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins']
 
@@ -150,6 +151,8 @@ def parseConfig(cfg):
                 mtr = getattr(lsm, m)
             elif hasattr(hpm, m):
                 mtr = getattr(hpm, m)
+            elif hasattr(dnm, m):
+                mtr = getattr(dnm, m)
 
             for k in cmetrics[m]:
                 if cmetrics[m][k] == 'None':

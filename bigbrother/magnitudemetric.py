@@ -186,7 +186,11 @@ class LuminosityFunction(MagnitudeMetric):
                 self.y = self.luminosity_function
                 self.ye = np.sqrt(self.varluminosity_function)
         else:
-            area = self.ministry.galaxycatalog.getArea(jackknife=True)
+            if self.jtype is not None:
+                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+            else:
+                area = self.ministry.galaxycatalog.getArea(jackknife=False)
+
             vol = np.zeros((self.njacktot, self.nzbins))
             for i in range(self.nzbins):
                 vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
@@ -480,7 +484,7 @@ class LcenMass(Metric):
                                           self.njacktot)
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usebands=None, **kwargs):
+                  usebands=None, usez=None, **kwargs):
 
         if hasattr(self, 'massmean'):
             mmass = self.massmean
@@ -491,18 +495,26 @@ class LcenMass(Metric):
         if usebands is None:
             usebands = range(self.nbands)
 
+        if usez is None:
+            usez = range(self.nzbins)
+
+
         if f is None:
-            f, ax = plt.subplots(len(usebands), self.nzbins,
+            f, ax = plt.subplots(len(usebands), len(usez),
                                  sharex=True, sharey=True,
                                  figsize=(8,8))
-            ax = np.array(ax).reshape(len(usebands), self.nzbins)
+            ax = np.array(ax).reshape(len(usebands), len(usez))
             newaxes = True
         else:
             newaxes = False
-            ax = np.array(ax).reshape(len(usebands), self.nzbins)
+            ax = np.array(ax).reshape(len(usebands), len(usez))
 
         if newaxes:
             sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
             sax.patch.set_alpha(0.0)
             sax.patch.set_facecolor('none')
             sax.spines['top'].set_color('none')
@@ -510,17 +522,17 @@ class LcenMass(Metric):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$')
-            sax.set_ylabel(r'$L_{cen}\, [mag]$')
+            sax.set_xlabel(r'$M_{halo}\, [M_{sun} h^{-1}]$', fontsize=16, labelpad=40)
+            sax.set_ylabel(r'$L_{cen}\, [mag]$', fontsize=16, labelpad=40)
 
         for i, b in enumerate(usebands):
-            for j in range(self.nzbins):
-                ye = np.sqrt(self.varlcen_mass[:,b,j])
+            for j, z in enumerate(usez):
+                ye = np.sqrt(self.varlcen_mass[:,b,z])
 
-                ax[i][j].plot(mmass, self.lcen_mass[:,b,j],
+                l = ax[i][j].plot(mmass, self.lcen_mass[:,b,z],
                                 **kwargs)
-                ax[i][j].fill_between(mmass, self.lcen_mass[:,b,j] - ye,
-                                self.lcen_mass[:,b,j] + ye)
+                ax[i][j].fill_between(mmass, self.lcen_mass[:,b,z] - ye,
+                                self.lcen_mass[:,b,z] + ye)
                 ax[i][j].set_xscale('log')
 
         #plt.tight_layout()
@@ -528,10 +540,11 @@ class LcenMass(Metric):
         if (plotname is not None) and (not compare):
             plt.savefig(plotname)
 
-        return f, ax
+        return f, ax, l
 
 
-    def compare(self, othermetrics, plotname=None, usebands=None, **kwargs):
+    def compare(self, othermetrics, plotname=None, usebands=None, 
+                 usez=None, labels=None, **kwargs):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
@@ -543,16 +556,37 @@ class LcenMass(Metric):
         else:
             usebands = [None]*len(tocompare)
 
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+        if labels is None:
+            labels = [None] * len(tocompare)
+
+        lines = []
+
         for i, m in enumerate(tocompare):
             if usebands[i] is not None:
                 assert(len(usebands[0])==len(usebands[i]))
+            if usez[i] is not None:
+                assert(len(usez[0])==len(usez[i]))
+
             if i==0:
-                f, ax = m.visualize(usebands=usebands[i], compare=True,
-                                    color=Metric._color_list[i],**kwargs)
+                f, ax, l = m.visualize(usebands=usebands[i], compare=True,
+                                    color=Metric._color_list[i], usez=usez[i],
+                                    label=labels[i],**kwargs)
             else:
-                f, ax = m.visualize(usebands=usebands[i], compare=True,
+                f, ax, l = m.visualize(usebands=usebands[i], compare=True,
                                     f=f, ax=ax, color=Metric._color_list[i],
-                                    **kwargs)
+                                    usez=usez[i],label=labels[i],**kwargs)
+            lines.append(l[0])
+
+        if labels[0] is not None:
+            f.legend(lines, labels, 'best')
 
         if plotname is not None:
             plt.savefig(plotname)
