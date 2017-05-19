@@ -546,7 +546,7 @@ class GalHOD(MassMetric):
 
 
         if not compare:
-            for i, zi in range(len(usez)):
+            for i, zi in enumerate(usez):
                 for j, b in enumerate(usecols):
                     if not (((self.shod[:,0,j,zi]==0).all()
                             | ~np.isfinite(self.shod[:,0,j,zi]).any())
