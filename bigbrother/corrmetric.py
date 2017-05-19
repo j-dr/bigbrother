@@ -1535,8 +1535,8 @@ class WPrpSnapshot(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=20, fontsize=16)
-            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$', labelpad=20, fontsize=16)
+            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=40, fontsize=20)
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$', labelpad=40, fontsize=20)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -1788,8 +1788,8 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=20, fontsize=16)
-            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$', labelpad=20, fontsize=16)
+            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=40, fontsize=20)
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$', labelpad=40, fontsize=20)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
