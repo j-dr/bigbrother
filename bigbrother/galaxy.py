@@ -159,7 +159,7 @@ class GalaxyCatalog(BaseCatalog):
 
         if not jackknife:
             if (self.mask is None) & (not am):
-                return self.ministry.area
+                return np.array([self.ministry.area])
             elif am:
                 return self.ministry.metrics[idx].area
             else:
