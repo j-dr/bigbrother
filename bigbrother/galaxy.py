@@ -351,7 +351,7 @@ class BCCCatalog(GalaxyCatalog):
                         ColorColor(self.ministry,
                                     zbins=np.linspace(0.0, 0.2, 5),
                                     usebands=[0,1,2],
-                                    magcut=21.5,
+                                    magcuts=[21.5],
                                     tag="CCSDSSZ",
                                     jtype=self.jtype,
                                     appmag=True),

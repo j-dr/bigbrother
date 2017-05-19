@@ -582,7 +582,8 @@ class LcenMass(Metric):
             else:
                 f, ax, l = m.visualize(usebands=usebands[i], compare=True,
                                     f=f, ax=ax, color=Metric._color_list[i],
-                                    usez=usez[i],label=labels[i],**kwargs)
+                                    usez=usez[i],label=labels[i],
+                                    **kwargs)
             lines.append(l[0])
 
         if labels[0] is not None:
@@ -593,12 +594,14 @@ class LcenMass(Metric):
 
         return f, ax
 
-class ColorDist(GMetric):
+class ColorDist(Metric):
 
     def __init__(self, ministry, zbins=None, cbins=None,
                     catalog_type=['galaxycatalog'],
-                    usebands=None, appmag=False, magcut=None,
-                    pdf=False, cutind=None, **kwargs):
+                    usebands=None, appmag=False, magcuts=None,
+                    pdf=False, cutind=None, binnedz=True,
+                    **kwargs):
+
 
         self.pdf = pdf
 
@@ -613,22 +616,31 @@ class ColorDist(GMetric):
             self.cbins = cbins
         self.ncbins = len(self.cbins) - 1
 
-        GMetric.__init__(self, ministry,
-                            catalog_type=catalog_type,
-                            xbins=self.cbins,zbins=zbins,
-                            **kwargs)
+        Metric.__init__(self, ministry,
+                          catalog_type=catalog_type,
+                          **kwargs)
+        
+        self.zbins = zbins
+        self.binnedz = binnedz
+        if self.binnedz:
+            self.nzbins = len(zbins)-1
+        else:
+            self.nzbins = len(zbins)
 
         if appmag:
             self.mkey = 'appmag'
         else:
             self.mkey = 'luminosity'
-        if magcut is None:
+
+        if magcuts is None:
             if appmag:
-                self.magcut = 23
+                self.magcuts = np.array([23])
             else:
-                self.magcut = -19
+                self.magcuts = np.array([-19])
         else:
-            self.magcut = magcut
+            self.magcuts = magcuts
+
+        self.nmagcuts = len(self.magcuts)
 
         if cutind is None:
             self.cutind = 0
@@ -654,21 +666,33 @@ class ColorDist(GMetric):
 
         if self.cd is None:
             self.cd = np.zeros((self.njack, self.ncbins,
-                                self.ncolors, self.nzbins))
+                                self.ncolors, self.nmagcuts,
+                                self.nzbins))
 
         clr = np.zeros((len(mapunit[self.mkey]),
                         self.ncolors))
+
         for c in range(self.ncolors):
             clr[:,c] = mapunit[self.mkey][:,self.usebands[c][0]] - mapunit[self.mkey][:,self.usebands[c][1]]
 
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-            lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind] < self.magcut
+        for i, z in enumerate(self.zbins):
+            if self.binnedz & (i==self.nzbins): continue
 
-            for ci in range(self.ncolors):
-                c, self.cbins = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
-                self.cd[self.jcount,:,ci,i] += c
+            if self.binnedz:
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+            else:
+                zlidx = 0
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i])
+
+
+
+            for j, m in enumerate(self.magcuts):
+                lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind] < self.magcuts[j]
+
+                for ci in range(self.ncolors):
+                    c, self.cbins = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
+                    self.cd[self.jcount,:,ci,j,i] += c
 
     def reduce(self, rank=None, comm=None):
 
@@ -688,13 +712,17 @@ class ColorDist(GMetric):
 
                     jc += nj
                 if self.pdf:
-                    self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolors, self.nzbins)
+                    self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolors, self.nmagcuts, self.nzbins)
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
                     self.jtc = self.jackknife(self.tc, reduce_jk=False)
                     dc = self.cbins[1:] - self.cbins[:-1]
-                    self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1,self.ncbins,1,1)
+                    self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1,self.ncbins,1,1,1)
                 else:
-                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    if self.jtype is not None:
+                        area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    else:
+                        area = self.ministry.galaxycatalog.getArea()
+
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
                     self.jcolor_dist = self.jcd / area.reshape(self.njacktot, 1, 1, 1)
 
@@ -705,14 +733,18 @@ class ColorDist(GMetric):
                 self.ye = np.sqrt(self.varcolor_dist)
         else:
             if self.pdf:
-                self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolors, self.nzbins)
+                self.tc = np.sum(self.cd, axis=1).reshape(self.njacktot, 1, self.ncolors, self.nmagcuts, self.nzbins)
                 self.jcd = self.jackknife(self.cd, reduce_jk=False)
                 self.jtc = self.jackknife(self.tc, reduce_jk=False)
                 dc = self.cbins[1:] - self.cbins[:-1]
-                self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1, self.ncbins, 1, 1)
+                self.jcolor_dist = self.jcd / self.jtc / dc.reshape(1, self.ncbins, 1, 1,1)
 
             else:
-                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                if self.jtype is not None:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                else:
+                    area = self.ministry.galaxycatalog.getArea()
+
                 self.jcd = self.jackknife(self.cd, reduce_jk=False)
                 self.jcolor_dist = self.jcd / area.reshape(self.njacktot, 1, 1, 1)
 
@@ -723,23 +755,151 @@ class ColorDist(GMetric):
             self.ye = np.sqrt(self.varcolor_dist)
 
 
+    def visualize(self, compare=False, plotname=None, f=None, ax=None,
+                  usecolors=None, usezm=None,
+                  colors=None, xlabel=None,
+                  ylabel=None, **kwargs):
+
+        if hasattr(self, 'magmean'):
+            mclr = self.mclr
+        else:
+            mclr = np.array([(self.cbins[i]+self.cbins[i+1])/2
+                              for i in range(len(self.cbins)-1)])
+
+        if usecolors is None:
+            usecolors = range(self.color_dist.shape[1])
+
+        if usezm is None:
+            usezm = range(self.color_dist.shape[3] * self.color_dist.shape[2])
+
+        if f is None:
+            f, ax = plt.subplots(len(usezm), len(usecolors),
+                                 sharex=True, sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usezm), len(usecolors))
+            newaxes = True
+        else:
+            newaxes = False
+
+        for i in usecolors:
+            for j, z in enumerate(usezm):
+                zi = z / self.nmagcuts
+                mi = z % self.nmagcuts
+                l1 = ax[j][i].plot(mclr, self.color_dist[:,i,mi,zi],
+                                  c=colors, **kwargs)
+
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            if xlabel is None:
+                sax.set_xlabel(r'$Color$', labelpad=40)
+            else:
+                sax.set_xlabel(xlabel, labelpad=40)
+            if ylabel is None:
+                sax.set_ylabel(r'$p(color)$', labelpad=40)
+            else:
+                sax.set_ylabel(ylabel, labelpad=40)
+
+        #plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+
+        return f, ax, l1
+
+    def compare(self, othermetrics, plotname=None, usecolors=None,
+                  usezm=None, labels=None, colors=None, 
+                  **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecolors!=None:
+            if not hasattr(usecolors[0], '__iter__'):
+                usecolors = [usecolors]*len(tocompare)
+            else:
+                assert(len(usecolors)==len(tocompare))
+        else:
+            usecolors = [None]*len(tocompare)
+
+        if usezm!=None:
+            if not hasattr(usezm[0], '__iter__'):
+                usezm = [usezm]*len(tocompare)
+            else:
+                assert(len(usezm)==len(tocompare))
+        else:
+            usezm = [None]*len(tocompare)
+
+        if colors is None:
+            colors = [None]*len(tocompare)
+        else:
+            assert(len(colors)==len(tocompare))
+
+        if labels is None:
+            labels = [None] * len(tocompare)
+
+
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if i==0:
+                f, ax, l = m.visualize(usecolors=usecolors[i], usezm=usezm[i],
+                                       compare=True,
+                                       colors=colors[i], **kwargs)
+            else:
+                f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
+                                        usezm=usezm[i], 
+                                        ax=ax, f=f, colors=colors[i],**kwargs)
+
+            lines.append(l)
+
+
+        if labels[0]!=None:
+            f.legend(lines, labels, 'best')
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
+
 class ColorColor(Metric):
     """
     Color-color diagram.
     """
     def __init__(self, ministry, zbins=[0.0, 0.2], cbins=None,
                  catalog_type=['galaxycatalog'],
-                 usebands=None, magcut=None,
+                 usebands=None, magcuts=None,
                  tag=None, appmag=False,
-                 pdf=False, **kwargs):
+                 pdf=False, cutind=None, 
+                 binnedz=True,**kwargs):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
+        self.binnedz = binnedz
         self.zbins = zbins
         if zbins is None:
             self.nzbins = 1
         else:
-            self.nzbins = len(zbins)-1
+            if self.binnedz:
+                self.nzbins = len(zbins)-1
+            else:
+                self.nzbins = len(zbins)
+
             self.zbins = np.array(self.zbins)
 
         if cbins is None:
@@ -757,13 +917,17 @@ class ColorColor(Metric):
         else:
             self.mapkeys = [self.mkey]
 
-        if magcut is None:
+        if magcuts is None:
             if appmag:
-                self.magcut = 23
+                self.magcuts = np.array([23])
             else:
-                self.magcut = -19
+                self.magcuts = np.array([-19])
         else:
-            self.magcut = magcut
+            self.magcuts = magcuts
+
+        self.cutind = cutind
+
+        self.nmagcuts = len(self.magcuts)
 
         self.pdf = pdf
         self.usebands = usebands
@@ -789,34 +953,43 @@ class ColorColor(Metric):
 
         if self.cc is None:
             self.cc = np.zeros((self.njack,len(self.cbins)-1, len(self.cbins)-1,
-                                self.nbands-2, self.nzbins))
+                                self.nbands-2, self.nmagcuts, self.nzbins))
 
         if self.zbins is not None:
-            for i, z in enumerate(self.zbins[:-1]):
-                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-
-                if (self.magcut is not None):
-                    for e, j in enumerate(self.usebands):
-                        if e==0:
-                            lidx = mapunit[self.mkey][zlidx:zhidx,j]<self.magcut
-                        else:
-                            lix = mapunit[self.mkey][zlidx:zhidx,j]<self.magcut
-                            lidx = lidx & lix
+            for i, z in enumerate(self.zbins):
+                if self.binnedz & (i==self.nzbins):continue
+                
+                if self.binnedz:
+                    zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                    zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
                 else:
-                    lidx = slice(0,zhidx-zlidx)
+                    zlidx = 0
+                    zhidx = mapunit['redshift'].searchsorted(self.zbins[i])
 
-                for j in range(self.nclr-1):
-                    c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,j+1][lidx],
-                                               clr[zlidx:zhidx,j][lidx],
-                                               bins=self.cbins)
-                    self.cc[self.jcount,:,:,j,i] += c
+                
+                for j, m in enumerate(self.magcuts):
+                    if self.cutind is None:
+                        lidx = mapunit[self.mkey][zlidx:zhidx]<m
+                    else:
+                        lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind]<m
+
+                        for k in range(self.nclr-1):
+                            c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,k+1][lidx],
+                                                       clr[zlidx:zhidx,k][lidx],
+                                                       bins=self.cbins)
+                            self.cc[self.jcount,:,:,k,j,i] += c
         else:
-            for i in range(self.nclr-1):
-                c, e0, e1 = np.histogram2d(clr[:,i],
-                                           clr[:,i+1],
-                                           bins=self.cbins)
-                self.cc[self.jcount,:,:,i,0] += c
+            for j, m in enumerate(self.magcuts):
+                if self.cutind is None:
+                    lidx = mapunit[self.mkey][zlidx:zhidx]<m
+                else:
+                    lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind]<m
+
+                    for k in range(self.nclr-1):
+                        c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,k+1][lidx],
+                                                   clr[zlidx:zhidx,k][lidx],
+                                                   bins=self.cbins)
+                        self.cc[self.jcount,:,:,k,j,0] += c
 
 
     def reduce(self, rank=None, comm=None):
@@ -838,38 +1011,45 @@ class ColorColor(Metric):
                     jc += nj
 
                 if self.pdf:
-                    self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,self.nbands-2,self.nzbins)
+                    self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,self.nbands-2,self.nmagcuts,self.nzbins)
                     self.jcc = self.jackknife(self.cc, reduce_jk=False)
                     self.jtc = self.jackknife(self.tc, reduce_jk=False)
                     dc = self.cbins[1:] - self.cbins[:-1]
                     dc = np.outer(dc, dc)
-                    self.jcolor_color = self.jcc / self.jtc / dc.reshape(-1,self.ncbins,self.ncbins, 1, 1)
+                    self.jcolor_color = self.jcc / self.jtc / dc.reshape(-1,self.ncbins,self.ncbins, 1, 1, 1)
                 else:
-                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    if self.jtype is not None:
+                        area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    else:
+                        area = self.ministry.galaxycatalog.getArea()
                     self.jcc = self.jackknife(self.cc, reduce_jk=False)
-                    self.jcolor_color = self.jcc / area.reshape(self.njacktot,1,1,1,1)
+                    self.jcolor_color = self.jcc / area.reshape(self.njacktot,1,1,1,1,1)
 
                 self.color_color = np.sum(self.jcolor_color, axis=0) / self.njacktot
                 self.varcolor_color = np.sum((self.jcolor_color - self.color_color) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
         else:
             if self.pdf:
-                self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,self.nbands-2,self.nzbins)
+                self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,self.nbands-2,self.nmagcuts,self.nzbins)
                 self.jcc = self.jackknife(self.cc, reduce_jk=False)
                 self.jtc = self.jackknife(self.tc, reduce_jk=False)
                 dc = self.cbins[1:] - self.cbins[:-1]
                 dc = np.outer(dc, dc)
-                self.jcolor_color = self.jcc / self.jtc / dc.reshape(1,self.ncbins,self.ncbins,1,1)
+                self.jcolor_color = self.jcc / self.jtc / dc.reshape(1,self.ncbins,self.ncbins,1,1,1)
             else:
-                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                if self.jtype is not None:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                else:
+                    area = self.ministry.galaxycatalog.getArea()
                 self.jcc = self.jackknife(self.cc, reduce_jk=False)
-                self.jcolor_color = self.jcc / area.reshape(self.njacktot,1,1,1,1)
+                self.jcolor_color = self.jcc / area.reshape(self.njacktot,1,1,1,1,1)
 
             self.color_color = np.sum(self.jcolor_color, axis=0) / self.njacktot
             self.varcolor_color = np.sum((self.jcolor_color - self.color_color) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, compare=False, plotname=None, f=None, ax=None,
-                  usecolors=None, colors=None, xlabel=None,
+                  usecolors=None, usezm=None, 
+                  colors=None, xlabel=None,
                   ylabel=None, nc=5, **kwargs):
 
         if hasattr(self, 'magmean'):
@@ -881,11 +1061,14 @@ class ColorColor(Metric):
         if usecolors is None:
             usecolors = range(self.color_color.shape[2])
 
+        if usezm is None:
+            usezm = range(self.color_color.shape[4] * self.color_color.shape[3])
+
         if f is None:
-            f, ax = plt.subplots(self.nzbins, len(usecolors),
+            f, ax = plt.subplots(len(usezm), len(usecolors),
                                  sharex=True, sharey=True, figsize=(8,8))
             ax = np.array(ax)
-            ax = ax.reshape(self.nzbins, len(usecolors))
+            ax = ax.reshape(len(usezm), len(usecolors))
             newaxes = True
         else:
             newaxes = False
@@ -893,9 +1076,15 @@ class ColorColor(Metric):
         X, Y = np.meshgrid(mclr, mclr)
 
         for i in usecolors:
-            for j in range(self.nzbins):
-                l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,j].T, nc,
-                                        colors=colors, **kwargs)
+            for j, z in enumerate(usezm):
+                zi = z / self.nmagcuts
+                mi = z % self.nmagcuts
+                try:
+                    l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,mi,zi].T, nc,
+                                     colors=colors, **kwargs)
+                except:
+                    pass
+                    l1 = 'k'
                 l1 = plt.Rectangle((0,0),1,1,fc = l1.collections[0].get_color()[0])
 
 
@@ -930,7 +1119,8 @@ class ColorColor(Metric):
         return f, ax, l1
 
     def compare(self, othermetrics, plotname=None, usecolors=None,
-                  labels=None, colors=None, **kwargs):
+                  usezm=None, labels=None, colors=None,
+                  **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -943,6 +1133,14 @@ class ColorColor(Metric):
         else:
             usecolors = [None]*len(tocompare)
 
+        if usezm!=None:
+            if not hasattr(usezm[0], '__iter__'):
+                usezm = [usezm]*len(tocompare)
+            else:
+                assert(len(usezm)==len(tocompare))
+        else:
+            usezm = [None]*len(tocompare)
+
         if colors is None:
             colors = [None]*len(tocompare)
         else:
@@ -951,17 +1149,16 @@ class ColorColor(Metric):
         if labels is None:
             labels = [None] * len(tocompare)
 
-
-
         lines = []
 
         for i, m in enumerate(tocompare):
             if i==0:
                 f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
-                                    colors=colors[i], **kwargs)
+                                    colors=colors[i], usezm=usezm[i],**kwargs)
             else:
                 f, ax, l = m.visualize(usecolors=usecolors[i], compare=True,
-                                        ax=ax, f=f, colors=colors[i],**kwargs)
+                                        ax=ax, f=f, colors=colors[i], usezm=usezm[i],
+                                        **kwargs)
 
             lines.append(l)
 
