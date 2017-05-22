@@ -981,13 +981,13 @@ class ColorColor(Metric):
         else:
             for j, m in enumerate(self.magcuts):
                 if self.cutind is None:
-                    lidx = mapunit[self.mkey][zlidx:zhidx]<m
+                    lidx = mapunit[self.mkey]<m
                 else:
-                    lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind]<m
+                    lidx = mapunit[self.mkey][:,self.cutind]<m
 
                     for k in range(self.nclr-1):
-                        c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,k+1][lidx],
-                                                   clr[zlidx:zhidx,k][lidx],
+                        c, e0, e1 = np.histogram2d(clr[:,k+1][lidx],
+                                                   clr[:,k][lidx],
                                                    bins=self.cbins)
                         self.cc[self.jcount,:,:,k,j,0] += c
 
@@ -1082,12 +1082,10 @@ class ColorColor(Metric):
                 try:
                     l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,mi,zi].T, nc,
                                      colors=colors, **kwargs)
+                    l1 = plt.Rectangle((0,0),1,1,fc = l1.collections[0].get_color()[0]) 
                 except:
-                    pass
-                    l1 = 'k'
-                l1 = plt.Rectangle((0,0),1,1,fc = l1.collections[0].get_color()[0])
-
-
+                    l1 = plt.Rectangle((0,0),1,1,fc = 'k')
+                
         if newaxes:
             sax = f.add_subplot(111)
             plt.setp(sax.get_xticklines(), visible=False)
