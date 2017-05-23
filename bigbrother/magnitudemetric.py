@@ -75,7 +75,7 @@ class LuminosityFunction(MagnitudeMetric):
             zbins = np.linspace(ministry.minz, ministry.maxz, 5)
 
         if magbins is None:
-            magbins = np.linspace(-25, -11, 30)
+            magbins = np.linspace(-25, -11, 300)
 
         MagnitudeMetric.__init__(self, ministry, zbins=zbins, magbins=magbins,
                                  catalog_type=catalog_type, tag=tag, **kwargs)
@@ -175,11 +175,12 @@ class LuminosityFunction(MagnitudeMetric):
 
                 area = self.ministry.galaxycatalog.getArea(jackknife=True)
                 vol = np.zeros((self.njacktot, self.nzbins))
+                dl  = (self.xbins[1:] - self.xbins[:-1]).reshape(1,-1,1,1)
                 for i in range(self.nzbins):
                     vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
 
                 self.jlumcounts  = self.jackknife(self.lumcounts, reduce_jk=False)
-                self.jluminosity_function = self.jlumcounts / vol.reshape(self.njacktot, 1, 1, -1)
+                self.jluminosity_function = self.jlumcounts / vol.reshape(self.njacktot, 1, 1, -1) / dl
 
                 self.luminosity_function = np.sum(self.jluminosity_function, axis=0) / self.njacktot
                 self.varluminosity_function = np.sum((self.jluminosity_function - self.luminosity_function) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot

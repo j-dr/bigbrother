@@ -2511,6 +2511,11 @@ class GalaxyRadialProfileBCC(Metric):
                     ax[i][j].fill_between(self.rmean, self.rprof[:,k,j,i]-ye,
                                           self.rprof[:,k,j,i]+ye,**kwargs)
 
+        if logx:
+            ax[0][0].set_xscale('log')
+        if logy:
+            ax[0][0].set_yscale('log')
+
         if newaxes:
             sax = f.add_subplot(111)
             plt.setp(sax.get_xticklines(), visible=False)
@@ -2531,7 +2536,6 @@ class GalaxyRadialProfileBCC(Metric):
             plt.savefig(plotname)
 
         return f, ax
-
 
     def compare(self):
         pass
