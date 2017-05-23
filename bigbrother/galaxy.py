@@ -372,7 +372,7 @@ class BCCCatalog(GalaxyCatalog):
                                     appmag=True,
                                     tag='FQAppmag'),
                         FQuenchedLum(self.ministry,
-                                      zbins=self.zbins,
+                                      zbins=np.linspace(0.0,1.0,6),
                                       jtype=self.jtype),
                         FRed(self.ministry,
                              zbins=np.linspace(0,2.0,30),
