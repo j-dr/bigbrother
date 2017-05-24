@@ -1489,40 +1489,27 @@ class FQuenched(Metric):
 
         clr = mapunit[self.mkey][:,self.cinds[0]] - mapunit[self.mkey][:,self.cinds[1]]
 
-        if self.zbins is not None:
-            for i, z in enumerate(self.zbins[:-1]):
-                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+        for i, z in enumerate(self.zbins[:-1]):
+            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
-                if self.appmag:
-                    ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
-                    self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
-                elif self.splitcolor is None:
-                    czhidx = mapunit['redshift'].searchsorted(0.2)
-                    ccounts, cbins = np.histogram(clr[:czhidx], self.cbins)
-                    self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
-
-                if self.splitcolor[i] is None:
-                    continue
-                
-                lidx = mapunit[self.mkey] < self.magcuts[i]
-
-                qidx, = np.where(clr[zlidx:zhidx]>self.splitcolor[i])
-
-                self.qscounts[self.jcount,i] = len(qidx)
-                self.tcounts[self.jcount,i] = zhidx-zlidx
-
-        else:
-            ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
-
-            self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+            if self.appmag:
+                ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
+                self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+            elif self.splitcolor is None:
+                czhidx = mapunit['redshift'].searchsorted(0.2)
+                ccounts, cbins = np.histogram(clr[:czhidx], self.cbins)
+                self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
+ 
             if self.splitcolor[i] is None:
-                return
+                continue
+            
+            print(self.magcuts)
+            lidx = mapunit[self.mkey][zlidx:zhidx][:,self.cinds[0]] < self.magcuts[i]
+            qidx, = np.where(clr[zlidx:zhidx][lidx]>self.splitcolor[i])
 
-            qidx, = np.where(clr[zlidx:zhidx]>self.splitcolor[i])
-
-            self.qscounts[self.jcount,0] = len(qidx)
-            self.tcounts[self.jcount,0] = len(mapunit[self.mkey])
+            self.qscounts[self.jcount,i] = len(qidx)
+            self.tcounts[self.jcount,i] = np.sum(lidx)
 
 
     def reduce(self, rank=None, comm=None):
