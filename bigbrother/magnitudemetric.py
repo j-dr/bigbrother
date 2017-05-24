@@ -1422,8 +1422,9 @@ class FQuenched(Metric):
     def __init__(self, ministry, zbins=None,
                   onezbin=False,
                   catalog_type=['galaxycatalog'],
-                  tag=None, appmag=True, magind=None,
-                  hcbins=None, **kwargs):
+                  tag=None, appmag=True, 
+                  cbins=None, splitcolor=None,
+                  cinds=None, magcuts=None,**kwargs):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag,**kwargs)
         self.zbins = zbins
@@ -1439,12 +1440,24 @@ class FQuenched(Metric):
             self.nzbins = len(zbins)-1
             self.zbins = np.array(self.zbins)
 
-        self.splitcolor = np.zeros(self.nzbins)
-
-        if magind is None:
-            self.magind = [0,1]
+        if magcuts is None:
+            self.magcuts = np.zeros(self.nzbins) -18
         else:
-            self.magind = magind
+            if hasattr(magcuts, '__iter__'):
+                self.magcuts = magcuts
+            else:
+                self.magcuts = np.zeros(self.nzbins)  + self.magcuts
+            
+
+        if splitcolor is None:
+            self.splitcolor = np.zeros(self.nzbins)
+        else:
+            self.splitcolor = np.zeros(self.nzbins) + splitcolor
+
+        if cinds is None:
+            self.cinds = [0,1]
+        else:
+            self.cinds = cinds
 
         self.appmag = appmag
 
@@ -1453,10 +1466,10 @@ class FQuenched(Metric):
         else:
             self.mkey = 'luminosity'
 
-        if hcbins is None:
-            self.hcbins = 100
+        if cbins is None:
+            self.cbins = 100
         else:
-            self.hcbins = hcbins
+            self.cbins = cbins
 
 
         self.mapkeys = [self.mkey, 'redshift']
@@ -1474,7 +1487,7 @@ class FQuenched(Metric):
             self.qscounts = np.zeros((self.njack, self.nzbins))
             self.tcounts = np.zeros((self.njack,self.nzbins))
 
-        clr = mapunit[self.mkey][:,self.magind[0]] - mapunit[self.mkey][:,self.magind[1]]
+        clr = mapunit[self.mkey][:,self.cinds[0]] - mapunit[self.mkey][:,self.cinds[1]]
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
@@ -1482,17 +1495,17 @@ class FQuenched(Metric):
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
                 if self.appmag:
-                    ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                    ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
                     self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
-                elif (self.splitcolor==0).all():
+                elif self.splitcolor is None:
                     czhidx = mapunit['redshift'].searchsorted(0.2)
-                    ccounts, cbins = np.histogram(clr[:czhidx], self.hcbins)
+                    ccounts, cbins = np.histogram(clr[:czhidx], self.cbins)
                     self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
-                else:
-                    self.splitcolor[i] = self.splitcolor[i-1]
 
                 if self.splitcolor[i] is None:
                     continue
+                
+                lidx = mapunit[self.mkey] < self.magcuts[i]
 
                 qidx, = np.where(clr[zlidx:zhidx]>self.splitcolor[i])
 
@@ -1500,7 +1513,7 @@ class FQuenched(Metric):
                 self.tcounts[self.jcount,i] = zhidx-zlidx
 
         else:
-            ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+            ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
 
             self.splitcolor[i] = self.splitBimodal(cbins[:-1], ccounts)
             if self.splitcolor[i] is None:
@@ -1608,13 +1621,6 @@ class FQuenched(Metric):
             plt.savefig(plotname)
 
         return f, ax
-
-#class ColorRedshift(Metric):
-#
-#    def __init__(self, ministry, zbins=None,
-#                  catalog_type=['galaxycatalog'],
-#                  tag=None, appmag=True, magind=None,
-#                  **kwargs):
 
 class FRed(Metric):
 
@@ -1786,10 +1792,18 @@ class FQuenchedLum(Metric):
 
     def __init__(self, ministry, zbins=[0.0, 0.2], magbins=None,
                  catalog_type=['galaxycatalog'], tag=None,
-                 cbins=None, cinds=None, varerr=False, **kwargs):
+                 cbins=None, cinds=None, varerr=False, 
+                 watershed=False, wszbins=None, splitcolor=None,
+                 **kwargs):
         Metric.__init__(self, ministry, catalog_type=catalog_type,tag=tag, **kwargs)
         self.zbins = zbins
 
+        self.watershed = watershed
+        self.wszbins   = wszbins
+        
+        if self.watershed and (self.wszbins is None):
+            self.wszbins = [self.zbins[0], self.zbins[-1]]
+        
         if zbins is None:
             self.nzbins = 1
         else:
@@ -1801,7 +1815,7 @@ class FQuenchedLum(Metric):
         else:
             self.magbins = magbins
 
-        self.splitcolor = None
+        self.splitcolor = splitcolor
 
         if cbins is None:
             self.cbins = 50
@@ -1842,15 +1856,27 @@ class FQuenchedLum(Metric):
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
 
                 if (self.splitcolor is None):
-                    ccounts, self.cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
-                    self.splitcolor = self.splitBimodal(self.cbins[:-1], ccounts)
+                    if self.watershed:
+                        tzlidx = mapunit['redshift'].searchsorted(self.wszbins[0])
+                        tzhidx = mapunit['redshift'].searchsorted(self.wszbins[1])
+
+                        ccounts, e0, e1 = np.histogram2d(mapunit['luminosity'][tzlidx:tzhidx,
+                                                                               self.cinds[0]],
+                                                         clr[tzlidx:tzhidx], 
+                                                         bins=[np.linspace(-23,-16,60), self.cbins])
+                        self.splitcolor = self.splitWatershed(ccounts.T, e1)
+                        print(self.splitcolor)
+                    else:
+                        ccounts, self.cbins = np.histogram(clr[zlidx:zhidx], self.cbins)
+                        self.splitcolor = self.splitBimodal(self.cbins[:-1], ccounts)
+
                     if self.splitcolor is None:
                         continue
 
 
                 for j, lum in enumerate(self.magbins[:-1]):
-                    lidx, = np.where((self.magbins[j]<mapunit['luminosity'][zlidx:zhidx,0])
-                                    & (mapunit['luminosity'][zlidx:zhidx,0]<self.magbins[j+1]))
+                    lidx, = np.where((self.magbins[j]<mapunit['luminosity'][zlidx:zhidx,self.cinds[0]])
+                                    & (mapunit['luminosity'][zlidx:zhidx,self.cinds[0]]<self.magbins[j+1]))
                     qidx, = np.where(clr[zlidx:zhidx][lidx]>self.splitcolor)
 
                     self.qscounts[self.jcount,j,i] = len(qidx)

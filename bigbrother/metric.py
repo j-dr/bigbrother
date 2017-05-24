@@ -1,6 +1,9 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from scipy.interpolate import InterpolatedUnivariateSpline
+from skimage.morphology import watershed
+from skimage.feature import peak_local_max
+from scipy import ndimage as ndi
 #if __name__=='__main__':
 import matplotlib as mpl
 mpl.use('Agg')
@@ -93,6 +96,31 @@ class Metric(object):
         xidx = x.argsort()
         
         return x[xidx[pi]]
+
+    def splitWatershed(self, image, yloc):
+        
+        nsmooth = len(yloc)
+        
+        while nsmooth>0:
+            local_maxi = peak_local_max(image, indices=False, footprint=np.ones((nsmooth,nsmooth)))
+            if np.sum(local_maxi)==2:
+                print('nsmooth: {}'.format(nsmooth))
+                break
+
+            nsmooth-=1
+
+        if nsmooth<=0:
+            return None
+
+        markers = ndi.label(local_maxi)[0]
+        labels  = watershed(-image, markers)
+
+        mask    = labels==2
+        mask1d  = np.sum(mask, axis=1)
+        ybound  = mask1d.searchsorted(1)
+
+        return yloc[-ybound]
+
 
     def selectCMASS(self, mags):
         cpar  = (0.7 * (mags[:,0] - mags[:,1])
