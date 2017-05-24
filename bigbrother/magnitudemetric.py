@@ -1938,13 +1938,13 @@ class FQuenchedLum(Metric):
     def visualize(self, f=None, ax=None, plotname=None,
                   compare=False, label=None, xlabel=None,
                   ylabel=None, onepanel=False, **kwargs):
+        linestyles = ['-', '--','-.']
 
         if f is None:
             if onepanel:
                 f, ax = plt.subplots(1,figsize=(8,8), sharex=True, sharey=True)
                 ax = np.atleast_2d(ax)
-                linestyles = ['-', '--','-.']
-                
+                newaxes = True
             else:
                 f, ax = plt.subplots(1,self.nzbins, figsize=(8,8), sharex=True, sharey=True)
                 ax = np.atleast_2d(ax)

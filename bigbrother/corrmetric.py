@@ -1218,7 +1218,8 @@ class WPrpSnapshot(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   pimax=None, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  rsd=False, upper_limit=False, **kwargs):
+                  rsd=False, upper_limit=False, splitcolor=None,
+                  cinds=None, cbins=None, **kwargs):
 
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -1249,6 +1250,22 @@ class WPrpSnapshot(CorrelationFunction):
             self.minr = rbins[0]
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
+
+        self.splitcolor = splitcolor
+
+        if self.splitcolor is not None:
+            self.ncbins = 2
+            if cinds is None:
+                self.cinds = [0,1]
+            else:
+                self.cinds = cinds
+
+            if cbins is None:
+                self.cbins = np.linspace(-0.2,1.2,60)
+            else:
+                self.cbins = cbins
+        else:
+            self.ncbins = 1
 
         if pimax is None:
             self.pimax = 80.0
@@ -1291,11 +1308,11 @@ class WPrpSnapshot(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if self.dd is None:
-            self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
-            self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
-            self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.nmbins))
-            self.nd = np.zeros((self.njack, self.nmbins))
-            self.nr = np.zeros((self.njack, self.nmbins))
+            self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins))
+            self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins))
+            self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins))
+            self.nd = np.zeros((self.njack, self.ncbins, self.nmbins))
+            self.nr = np.zeros((self.njack, self.ncbins, self.nmbins))
 
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
             mu = {}
