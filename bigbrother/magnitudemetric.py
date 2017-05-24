@@ -1937,22 +1937,36 @@ class FQuenchedLum(Metric):
 
     def visualize(self, f=None, ax=None, plotname=None,
                   compare=False, label=None, xlabel=None,
-                  ylabel=None, **kwargs):
+                  ylabel=None, onepanel=False, **kwargs):
 
         if f is None:
-            f, ax = plt.subplots(1,self.nzbins, figsize=(8,8), sharex=True, sharey=True)
-            ax = np.atleast_2d(ax)
-            newaxes = True
+            if onepanel:
+                f, ax = plt.subplots(1,figsize=(8,8), sharex=True, sharey=True)
+                ax = np.atleast_2d(ax)
+                linestyles = ['-', '--','-.']
+                
+            else:
+                f, ax = plt.subplots(1,self.nzbins, figsize=(8,8), sharex=True, sharey=True)
+                ax = np.atleast_2d(ax)
+                newaxes = True
         else:
             newaxes = False
 
         lm = (self.magbins[:-1]+self.magbins[1:])/2
         for i in range(self.nzbins):
             ye = np.sqrt(self.varfquenched[:,i])
-            l1 = ax[0][i].plot(lm, self.fquenched[:,i], label=label, **kwargs)
-            ax[0][i].fill_between(lm , self.fquenched[:,i]-ye,
-                                    self.fquenched[:,i]+ye,
-                                    alpha=0.5, **kwargs)
+            if onepanel:
+                l1 = ax[0][0].plot(lm, self.fquenched[:,i], label=label,
+                                   linestyle=linestyles[i%3],**kwargs)
+                ax[0][0].fill_between(lm , self.fquenched[:,i]-ye,
+                                      self.fquenched[:,i]+ye,
+                                      linestyle=linestyles[i%3],
+                                      alpha=0.5, **kwargs)
+            else:
+                l1 = ax[0][i].plot(lm, self.fquenched[:,i], label=label, **kwargs)
+                ax[0][i].fill_between(lm , self.fquenched[:,i]-ye,
+                                      self.fquenched[:,i]+ye,
+                                      alpha=0.5, **kwargs)
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -1984,7 +1998,7 @@ class FQuenchedLum(Metric):
         return f, ax, l1[0]
 
     def compare(self, othermetrics, plotname=None, labels=None,
-                  **kwargs):
+                 onepanel=False, **kwargs):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
@@ -1997,11 +2011,13 @@ class FQuenchedLum(Metric):
             if i==0:
                 f, ax, l1 = m.visualize(compare=True,label=labels[i],
                                           color=Metric._color_list[i],
+                                          onepanel=onepanel,
                                           **kwargs)
             else:
                 f, ax, l1 = m.visualize(f=f, ax=ax, compare=True,
                                           label=labels[i],
                                           color=Metric._color_list[i],
+                                          onepanel=onepanel,
                                           **kwargs)
             lines.append(l1)
 

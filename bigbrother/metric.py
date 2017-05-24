@@ -1,8 +1,13 @@
 from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from scipy.interpolate import InterpolatedUnivariateSpline
-from skimage.morphology import watershed
-from skimage.feature import peak_local_max
+try:
+    from skimage.morphology import watershed
+    from skimage.feature import peak_local_max
+    has_skimage = True
+except:
+    has_skimage = False
+    
 from scipy import ndimage as ndi
 #if __name__=='__main__':
 import matplotlib as mpl
@@ -98,6 +103,9 @@ class Metric(object):
         return x[xidx[pi]]
 
     def splitWatershed(self, image, yloc):
+
+        if not has_skimage:
+            raise ImportError('No skimage package found. This is necessary in order to use the watershed method')
         
         nsmooth = len(yloc)
         
