@@ -730,7 +730,8 @@ class WPrpLightcone(CorrelationFunction):
                   precompute_color=False, upper_limit=False,
                   centrals_only=False, rsd=False,
                   randnside=None, deevolve_mstar=False,
-                  faber=False, Q=None, CMASS=False, **kwargs):
+                  faber=False, Q=None, CMASS=False, splitcolor=None,
+                  cinds=None, cbins=None, **kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
         data.
@@ -752,19 +753,32 @@ class WPrpLightcone(CorrelationFunction):
 
         self.bimodal_ccut = bimodal_ccut
         self.percentile_ccut = percentile_ccut
-        self.splitcolor = None
+        self.splitcolor = splitcolor
 
         if self.bimodal_ccut:
             self.hcbins = 100
             self.ncbins = 2
         elif self.percentile_ccut is not None:
             self.ncbins = 2
+        elif self.splitcolor is not None:
+            self.ncbins = 2
+            if cbins is None:
+                self.cbins = np.linspace(-0.2,1.2,60)
+            else:
+                self.cbins = cbins
         else:
             self.ncbins = 1
 
+        if self.ncbins > 1:
+            if cinds is None:
+                self.cinds = [0,1]
+            else:
+                self.cinds = cinds
+            
         self.pccolor = precompute_color
         self.centrals_only = centrals_only
         self.CMASS = CMASS
+
 
         self.logbins = logbins
         self.c = 299792.458
@@ -853,7 +867,7 @@ class WPrpLightcone(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if (self.ncbins > 1) & (~self.pccolor):
-            clr = mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1]
+            clr = mapunit['luminosity'][:,self.cinds[0]] - mapunit['luminosity'][:,self.cinds[1]]
         elif self.pccolor:
             clr = mapunit['color']
 
@@ -1336,6 +1350,9 @@ class WPrpSnapshot(CorrelationFunction):
         else:
             cz = mu['pz']
 
+        if self.splitcolor is not None:
+            clr = mu[self.mkey][:,self.cinds[0]] - mu[self.mkey][:,self.cinds[1]]
+
         for li, i in enumerate(self.minds):
             print('Finding luminosity indices')
             if self.mcutind is not None:
@@ -1357,66 +1374,76 @@ class WPrpSnapshot(CorrelationFunction):
 
                 rands = self.getCartesianRandoms(mu['px'][lidx], mu['py'][lidx], cz[lidx])
 
-            self.nd[self.jcount,i] = len(cz[lidx])
-            self.nr[self.jcount,i] = len(rands)
+            for j in self.ncbins:
+                
+                if self.splitcolor is not None:
+                    if j==0:
+                        cidx = lidx & (clr>self.splitcolor)
+                    else:
+                        cidx = lidx & (clr<=self.splitcolor)
+                else:
+                    cidx = lidx
+                                  
+                self.nd[self.jcount,j,i] = len(cz[cidx])
+                self.nr[self.jcount,j,i] = len(rands)
 
-            print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,i]))
-            print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,i]))
+                print("Number of galaxies in this z/lum/color bin: {0}".format(self.nd[self.jcount,j,i]))
+                print("Number of randoms in this z/lum/color bin: {0}".format(self.nr[self.jcount,j,i]))
 
-            if self.nd[self.jcount,i]<2: continue
-            #data data
-            print('calculating data data pairs')
-            sys.stdout.flush()
+                if self.nd[self.jcount,j,i]<2: continue
+               #data data
+                print('calculating data data pairs')
 
-            ddout = DDrppi(1,1,self.pimax,
-                              self.binfilename,
-                              mu['px'][lidx],
-                              mu['py'][lidx],
-                              mu['pz'][lidx],
-                              False,
-                              mu['px'][lidx],
-                              mu['py'][lidx],
-                              mu['pz'][lidx])
-
-            ddout = np.array(ddout)
-            ddout = ddout.reshape(-1,int(self.pimax))
-            self.dd[self.jcount,:,:,i] = ddout['npairs']
-
-            print('calculating data random pairs')
-            sys.stdout.flush()
-
-            drout = DDrppi(0,1,self.pimax,
-                              self.binfilename,
-                              mu['px'][lidx],
-                              mu['py'][lidx],
-                              mu['pz'][lidx],
-                              False,
-                              rands['px'],
-                              rands['py'],
-                              rands['pz'])
-
-            drout = np.array(drout)
-            drout = drout.reshape(-1,int(self.pimax))
-            self.dr[self.jcount,:,:,i] = drout['npairs']
-
-            print('calculating random random pairs')
-            sys.stdout.flush()
-
-            if (li==0) | (not self.same_rand):
-                rrout = DDrppi(1,1,self.pimax,
+                sys.stdout.flush()
+                ddout = DDrppi(1,1,self.pimax,
                                self.binfilename,
-                               rands['px'],
-                               rands['py'],
-                               rands['pz'],
+                               mu['px'][cidx],
+                               mu['py'][cidx],
+                               mu['pz'][cidx],
+                               False,
+                               mu['px'][cidx],
+                               mu['py'][cidx],
+                               mu['pz'][cidx])
+
+                ddout = np.array(ddout)
+                ddout = ddout.reshape(-1,int(self.pimax))
+                self.dd[self.jcount,:,:,j,i] = ddout['npairs']
+
+                print('calculating data random pairs')
+                sys.stdout.flush()
+
+                drout = DDrppi(0,1,self.pimax,
+                               self.binfilename,
+                               mu['px'][cidx],
+                               mu['py'][cidx],
+                               mu['pz'][cidx],
                                False,
                                rands['px'],
                                rands['py'],
                                rands['pz'])
 
-                rrout = np.array(rrout)
-                rrout = rrout.reshape(-1,int(self.pimax))
+                drout = np.array(drout)
+                drout = drout.reshape(-1,int(self.pimax))
+                self.dr[self.jcount,:,:,j,i] = drout['npairs']
 
-            self.rr[self.jcount,:,:,i] = rrout['npairs']
+                print('calculating random random pairs')
+                sys.stdout.flush()
+
+                if (li==0) | (not self.same_rand):
+                    rrout = DDrppi(1,1,self.pimax,
+                                   self.binfilename,
+                                   rands['px'],
+                                   rands['py'],
+                                   rands['pz'],
+                                   False,
+                                   rands['px'],
+                                   rands['py'],
+                                   rands['pz'])
+
+                    rrout = np.array(rrout)
+                    rrout = rrout.reshape(-1,int(self.pimax))
+
+                self.rr[self.jcount,:,:,j,i] = rrout['npairs']
 
 
     def reduce(self, rank=None, comm=None):
@@ -1436,8 +1463,11 @@ class WPrpSnapshot(CorrelationFunction):
                 drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
                 rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
 
+                #make shapes of counts match pairs so don't need to reshape later
                 ndshape.insert(1,1)
                 ndshape.insert(1,1)
+                ndshape.insert(1,1)
+                nrshape.insert(1,1)
                 nrshape.insert(1,1)
                 nrshape.insert(1,1)
 
@@ -1457,11 +1487,11 @@ class WPrpSnapshot(CorrelationFunction):
                 for i, g in enumerate(gnd):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.nd[jc:jc+nj,0,0,:] = g
-                    self.nr[jc:jc+nj,0,0,:] = gnr[i]
-                    self.dd[jc:jc+nj,:,:,:] = gdd[i]
-                    self.dr[jc:jc+nj,:,:,:] = gdr[i]
-                    self.rr[jc:jc+nj,:,:,:] = grr[i]
+                    self.nd[jc:jc+nj,0,0,0,:] = g
+                    self.nr[jc:jc+nj,0,0,0,:] = gnr[i]
+                    self.dd[jc:jc+nj,:,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:,:] = gdr[i]
+                    self.rr[jc:jc+nj,:,:,:,:] = grr[i]
 
                     jc += nj
 
@@ -1506,8 +1536,8 @@ class WPrpSnapshot(CorrelationFunction):
             self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
-        self.wprp = self.wprp.reshape(-1, 1, self.nmbins, 1)
-        self.varwprp = self.varwprp.reshape(-1, 1, self.nmbins, 1)
+        self.wprp = self.wprp.reshape(-1, self.ncbins, self.nmbins, 1)
+        self.varwprp = self.varwprp.reshape(-1, self.ncbins, self.nmbins, 1)
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
@@ -1532,12 +1562,13 @@ class WPrpSnapshot(CorrelationFunction):
             rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
 
         for i, l in enumerate(usecols):
-            ye = np.sqrt(self.varwprp[:,0,l,0])
-            l1 = ax[0][i].plot(rmean, self.wprp[:,0,l,0], **kwargs)
-            ax[0][i].fill_between(rmean, self.wprp[:,0,l,0]-ye, self.wprp[:,0,l,0]+ye, alpha=0.5, **kwargs)
+            for j in range(self.ncbins):
+                ye = np.sqrt(self.varwprp[:,j,l,0])
+                l1 = ax[0][i].plot(rmean, self.wprp[:,j,l,0], **kwargs)
+                ax[0][i].fill_between(rmean, self.wprp[:,j,l,0]-ye, self.wprp[:,j,l,0]+ye, alpha=0.5, **kwargs)
 
-            ax[0][i].set_xscale('log')
-            ax[0][i].set_yscale('log')
+                ax[0][i].set_xscale('log')
+                ax[0][i].set_yscale('log')
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -1560,6 +1591,21 @@ class WPrpSnapshot(CorrelationFunction):
 
         return f, ax, l1[0]
 
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
 
     def compare(self, othermetrics, plotname=None, usecols=None,
                  usez=None, labels=None, **kwargs):
@@ -1582,7 +1628,6 @@ class WPrpSnapshot(CorrelationFunction):
                 assert(len(usez)==len(tocompare))
         else:
             usez = [None]*len(tocompare)
-
 
         if labels is None:
             labels = [None]*len(tocompare)
@@ -1620,8 +1665,6 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                   mcutind=None, same_rand=False, inv_m=True,
                   rsd=False, upper_limit=False, splitcolor=None,
                   cinds=None, cbins=None, **kwargs):
-
-
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -1738,6 +1781,9 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
         else:
             cz = mu['pz']
 
+        if self.splitcolor is not None:
+            clr = mu[self.mkey][:,self.cinds[0]] - mu[self.mkey][:,self.cinds[1]]
+
         for li, i in enumerate(self.minds):
             print('Finding luminosity indices')
             if self.mcutind is not None:
@@ -1750,24 +1796,33 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                     lidx = mu[self.mkey] < self.mbins[i]
                 else:
                     lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
+                    
+            for j in range(self.ncbins):
+                
+                if self.splitcolor is not None:
+                    if j==0:
+                        cidx = lidx & (clr>self.splitcolor)
+                    else:
+                        cidx = lidx & (clr<=self.splitcolor)
+                else:
+                    cidx = lidx
+                    print("Number of galaxies in this z/lum bin: {0}".format(len(cz[cidx])))
 
-            print("Number of galaxies in this z/lum bin: {0}".format(len(cz[lidx])))
+                if len(cz[cidx])<2: continue
+                #data data
+                print('calculating wp pairs')
+                sys.stdout.flush()
 
-            if len(cz[lidx])<2: continue
-            #data data
-            print('calculating wp pairs')
-            sys.stdout.flush()
+                results = wp(self.ministry.boxsize,
+                             self.pimax,
+                             1,
+                             self.binfilename,
+                             mu['px'][cidx],
+                             mu['py'][cidx],
+                             mu['pz'][cidx])
 
-            results = wp(self.ministry.boxsize,
-                       self.pimax,
-                       1,
-                       self.binfilename,
-                       mu['px'][lidx],
-                       mu['py'][lidx],
-                       mu['pz'][lidx])
-
-            self.wprp[:,0,i,0] = results['wp']
-            self.npairs[:,0,i,0] = results['npairs']
+                self.wprp[:,j,i,0] = results['wp']
+                self.npairs[:,j,i,0] = results['npairs']
 
     def reduce(self, rank=None, comm=None):
         """
@@ -1775,7 +1830,6 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
         """
         self.varwprp = np.zeros_like(self.wprp)
         pass
-
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
                     usez=None, compare=False, **kwargs):
@@ -1799,12 +1853,13 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
 
         for i, l in enumerate(usecols):
-            ye = np.sqrt(self.varwprp[:,0,l,0])
-            l1 = ax[0][i].plot(rmean, self.wprp[:,0,l,0], **kwargs)
-            ax[0][i].fill_between(rmean, self.wprp[:,0,l,0]-ye, self.wprp[:,0,l,0]+ye, alpha=0.5, **kwargs)
+            for j in range(self.ncbins):
+                ye = np.sqrt(self.varwprp[:,j,l,0])
+                l1 = ax[0][i].plot(rmean, self.wprp[:,j,l,0], **kwargs)
+                ax[0][i].fill_between(rmean, self.wprp[:,j,l,0]-ye, self.wprp[:,j,l,0]+ye, alpha=0.5, **kwargs)
 
-            ax[0][i].set_xscale('log')
-            ax[0][i].set_yscale('log')
+                ax[0][i].set_xscale('log')
+                ax[0][i].set_yscale('log')
 
         if newaxes:
             sax = f.add_subplot(111)
