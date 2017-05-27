@@ -1618,7 +1618,9 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                   bimodal_ccut=False, percentile_ccut=None,
                   precompute_color=False,
                   mcutind=None, same_rand=False, inv_m=True,
-                  rsd=False, upper_limit=False, **kwargs):
+                  rsd=False, upper_limit=False, splitcolor=None,
+                  cinds=None, cbins=None, **kwargs):
+
 
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -1655,6 +1657,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
         else:
             self.pimax = pimax
 
+        self.splitcolor = splitcolor
         self.bimodal_ccut = bimodal_ccut
         self.percentile_ccut = percentile_ccut
 
@@ -1663,6 +1666,17 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             self.ncbins = 2
         elif self.percentile_ccut is not None:
             self.ncbins = 2
+        elif self.splitcolor is not None:
+            self.ncbins = 2
+            if cinds is None:
+                self.cinds = [0,1]
+            else:
+                self.cinds = cinds
+
+            if cbins is None:
+                self.cbins = np.linspace(-0.2,1.2,60)
+            else:
+                self.cbins = cbins
         else:
             self.ncbins = 1
 
