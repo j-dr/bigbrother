@@ -427,17 +427,17 @@ class LcenMass(Metric):
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
                 mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
 
-                for j in range(len(self.massbins)-1):
+                for j in xrange(1, len(self.massbins)):
                     blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
-                    self.bincount[self.jcount,j,:,i] += len(blum)
-                    self.totlum[self.jcount,j,:,i] += np.sum(blum, axis=0)
+                    self.bincount[self.jcount,j-1,:,i] += len(blum)
+                    self.totlum[self.jcount,j-1,:,i] += np.sum(blum, axis=0)
         else:
             mb = np.digitize(mu['halomass'], bins=self.massbins)
 
-            for j in range(len(self.massbins)-1):
+            for j in range(1,len(self.massbins)):
                 blum = mu['luminosity'][mb==j]
-                self.bincount[self.jcount,j,:,0] += len(blum)
-                self.totlum[self.jcount,j,:,0] += np.sum(blum, axis=0)
+                self.bincount[self.jcount,j-1,:,0] += len(blum)
+                self.totlum[self.jcount,j-1,:,0] += np.sum(blum, axis=0)
 
 
     def reduce(self, rank=None, comm=None):
@@ -1877,8 +1877,8 @@ class FQuenchedLum(Metric):
                     return
 
             for i, lum in enumerate(self.magbins[:-1]):
-                lidx, = np.where((self.magbins[i]<mapunit['luminosity'][:,0])
-                                & (mapunit['luminosity'][:,0]<self.magbins[i+1]))
+                lidx, = np.where((self.magbins[i]<mapunit['luminosity'][:,self.cinds[0]])
+                                & (mapunit['luminosity'][:,self.cinds[0]]<self.magbins[i+1]))
 
                 qidx, = np.where(clr[lidx]>self.splitcolor)
 
@@ -1937,9 +1937,13 @@ class FQuenchedLum(Metric):
 
     def visualize(self, f=None, ax=None, plotname=None,
                   compare=False, label=None, xlabel=None,
-                  ylabel=None, onepanel=False, **kwargs):
+                  ylabel=None, onepanel=False, usez=None,
+                  **kwargs):
         linestyles = ['-', '--','-.']
 
+        if usez is None:
+            usez = np.arange(self.nzbins)
+        
         if f is None:
             if onepanel:
                 f, ax = plt.subplots(1,figsize=(8,8), sharex=True, sharey=True)
@@ -1953,7 +1957,7 @@ class FQuenchedLum(Metric):
             newaxes = False
 
         lm = (self.magbins[:-1]+self.magbins[1:])/2
-        for i in range(self.nzbins):
+        for iz, i in enumerate(usez):
             ye = np.sqrt(self.varfquenched[:,i])
             if onepanel:
                 l1 = ax[0][0].plot(lm, self.fquenched[:,i], label=label,
@@ -1963,8 +1967,8 @@ class FQuenchedLum(Metric):
                                       linestyle=linestyles[i%3],
                                       alpha=0.5, **kwargs)
             else:
-                l1 = ax[0][i].plot(lm, self.fquenched[:,i], label=label, **kwargs)
-                ax[0][i].fill_between(lm , self.fquenched[:,i]-ye,
+                l1 = ax[0][iz].plot(lm, self.fquenched[:,i], label=label, **kwargs)
+                ax[0][iz].fill_between(lm , self.fquenched[:,i]-ye,
                                       self.fquenched[:,i]+ye,
                                       alpha=0.5, **kwargs)
 
@@ -1998,9 +2002,17 @@ class FQuenchedLum(Metric):
         return f, ax, l1[0]
 
     def compare(self, othermetrics, plotname=None, labels=None,
-                 onepanel=False, **kwargs):
+                 onepanel=False, usez=None, **kwargs):
         tocompare = [self]
         tocompare.extend(othermetrics)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
 
         if labels is None:
             labels = [None] * len(tocompare)
@@ -2011,13 +2023,13 @@ class FQuenchedLum(Metric):
             if i==0:
                 f, ax, l1 = m.visualize(compare=True,label=labels[i],
                                           color=Metric._color_list[i],
-                                          onepanel=onepanel,
+                                          onepanel=onepanel, usez=usez[i],
                                           **kwargs)
             else:
                 f, ax, l1 = m.visualize(f=f, ax=ax, compare=True,
                                           label=labels[i],
                                           color=Metric._color_list[i],
-                                          onepanel=onepanel,
+                                          onepanel=onepanel, usez=usez[i],
                                           **kwargs)
             lines.append(l1)
 

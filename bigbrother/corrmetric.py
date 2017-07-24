@@ -15,7 +15,7 @@ except:
 
 try:
     import Corrfunc._countpairs_mocks as countpairs_mocks
-    from Corrfunc.theory import DDrppi, DD, wp
+    from Corrfunc.theory import DDrppi, DD, wp, xi
     from Corrfunc.mocks import DDtheta_mocks
     from Corrfunc.utils import convert_3d_counts_to_cf
     hascorrfunc = True
@@ -63,6 +63,8 @@ class CorrelationFunction(Metric):
             self.mbins = np.array([-30, 0])
         elif (mbins is None) & (self.catalog_type == ['halocatalog']):
             self.mbins = np.array([10**7, 10**17])
+        elif self.catalog_type == ['particlecatalog']:
+            self.mbins = [0,1]
         else:
             self.mbins = mbins
 
@@ -92,9 +94,12 @@ class CorrelationFunction(Metric):
         if 'galaxycatalog' in self.catalog_type:
             self.aschema = 'galaxygalaxy'
             self.mkey = 'luminosity'
-        else:
+        elif 'halohalo' in self.catalog_type:
             self.mkey = 'halomass'
             self.aschema = 'halohalo'
+        else:
+            self.mkey = None
+            self.aschema = 'particleparticle'
 
         self.mcutind = mcutind
 
@@ -108,7 +113,7 @@ class CorrelationFunction(Metric):
         if self.randname is None:
             rand = self.generateAngularRandoms(aza, pla, z=z, nside=self.randnside)
         else:
-            rand = self.readAngularRandoms(self.randname, len(aza), z=z)
+            rand = self.readAngularRandoms(self.randname, len(aza), z=z, dt=aza.dtype)
 
         return rand
 
@@ -192,7 +197,7 @@ class CorrelationFunction(Metric):
 
         return gr
 
-    def readAngularRandoms(self, fname, ngal, z=None, rand_factor=10):
+    def readAngularRandoms(self, fname, ngal, z=None, rand_factor=10, dt='>f8'):
         """
         Use randoms from a file
         """
@@ -206,26 +211,27 @@ class CorrelationFunction(Metric):
             elif r.shape[1]>2:
                 warnings.warn("More than 2 columns in {0}, assuming first two are ra and dec respectively.")
 
-            rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', np.float64), ('polar_ang', np.float64), ('redshift', np.float64)]))
-            rand['azim_ang'] = np.random.choice(r[:,0], size=ngal*rand_factor)
-            rand['polar_ang'] = np.random.choice(r[:,1], size=ngal*rand_factor)
+            rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', dt), ('polar_ang', dt), ('redshift', dt)]))
+            idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
+            rand['azim_ang'] = r[idx,0][idx]
+            rand['polar_ang'] = r[idx,1][idx]
 
         except Exception as e:
-            print(e)
             try:
                 r = fitsio.read(fname, columns=['RA', 'DEC'])
 
-                rand = np.array(ngal*rand_factor, dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
-                rand['azim_ang'] = np.random.choice(r['RA'], size=ngal*rand_factor)
-                rand['polar_ang'] = np.random.choice(r['DEC'], size=ngal*rand_factor)
+                rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', dt), ('polar_ang', dt), ("redshift", dt)]))
+                idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
+                rand['azim_ang'] = r['RA'][idx]
+                rand['polar_ang'] = r['DEC'][idx]
 
             except ValueError as e:
-                print(e)
                 r = fitsio.read(fname, columns=['azim_ang', 'polar_ang'])
 
-                rand = np.array(ngal*rand_factor, dtype=np.array([('azim_ang', np.float64), ('polar_ang', np.float64), ("redshift")]))
-                rand['azim_ang'] = np.random.choice(r['azim_ang'], size=ngal*rand_factor)
-                rand['polar_ang'] = np.random.choice(r['polar_ang'], size=ngal*rand_factor)
+                rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', dt), ('polar_ang', dt), ("redshift", dt)]))
+                idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
+                rand['azim_ang'] = r['azim_ang'][idx]
+                rand['polar_ang'] = r['polar_ang'][idx]
 
         if z is not None:
             rand['redshift'] = np.random.choice(z, size=ngal*rand_factor)
@@ -982,6 +988,10 @@ class WPrpLightcone(CorrelationFunction):
                     if (self.nd[self.jcount,k,j,i]<2) | (self.nr[self.jcount,k,j,i]<2):
                         continue
 
+                    print('test')
+                    print(mu['azim_ang'][zlidx:zhidx][cidx])
+                    print(cz[zlidx:zhidx][cidx])
+
                     ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1,
                                             self.cosmology_flag, 1,
                                             self.pimax,
@@ -1692,7 +1702,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
         else:
             self.rbins = rbins
             self.minr = rbins[0]
-            self.maxr = rbins[1]
+            self.maxr = rbins[-1]
             self.nrbins = len(rbins)-1
 
         if pimax is None:
@@ -1727,11 +1737,17 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
 
         self.rsd = rsd
 
-        self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        if self.mkey is not None:
+            self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        else:
+            self.mapkeys = ['px', 'py', 'pz']
+
         self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+
         if self.mkey == 'luminosity':
             self.unitmap[self.mkey] = 'mag'
-        else:
+
+        elif self.mkey == 'halomass':
             self.unitmap[self.mkey] = 'msunh'
 
         if self.rsd:
@@ -1740,7 +1756,6 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
 
         self.wprp = None
         self.npairs = None
-
 
     def addRSD(self, mapunit):
 
@@ -1768,7 +1783,8 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             mu['px'][:] = mapunit['px'][:]
             mu['py'][:] = mapunit['py'][:]
             mu['pz'][:] = mapunit['pz'][:]
-            mu[self.mkey] = mapunit[self.mkey]
+            if self.mkey is not None:
+                mu[self.mkey] = mapunit[self.mkey]
 
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
@@ -1791,11 +1807,13 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                     lidx = mu[self.mkey][:,self.mcutind] < self.mbins[i]
                 else:
                     lidx = (self.mbins[i] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[i+1])
-            else:
+            elif (self.mcutind is None) and (self.mkey is not None):
                 if self.upper_limit:
                     lidx = mu[self.mkey] < self.mbins[i]
                 else:
                     lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
+            else:
+                lidx = np.ones(len(mu['px']), dtype=np.bool)
                     
             for j in range(self.ncbins):
                 
@@ -1973,7 +1991,11 @@ class XiofR(CorrelationFunction):
 
         self.writeCorrfuncBinFile(self.rbins)
 
-        self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        if self.mkey is not None:
+            self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        else:
+            self.mapkeys = ['px','py','pz']
+
         self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
 
         if self.lightcone:
@@ -1982,7 +2004,7 @@ class XiofR(CorrelationFunction):
 
         if self.mkey == 'luminosity':
             self.unitmap[self.mkey] = 'mag'
-        else:
+        elif self.mkey == 'halomass':
             self.unitmap[self.mkey] = 'msunh'
 
         self.nd = None
@@ -2389,6 +2411,223 @@ class XiofR(CorrelationFunction):
         return f, ax
 
 
+class XiofRAnalyticRandoms(CorrelationFunction):
+
+    def __init__(self, ministry, mbins=None, zbins=None, rbins=None,
+                  minr=None, maxr=None, logbins=True, nrbins=None,
+                  lightcone=False, catalog_type=None, tag=None,
+                  mcutind=None, same_rand=False, inv_m=True,
+                  **kwargs):
+
+        """
+        Real space 3-d correlation function, xi(r), for use with periodic
+        data.
+        """
+        CorrelationFunction.__init__(self, ministry, lightcone=lightcone,
+                                      mbins=mbins, nrbins=nrbins,
+                                      mcutind=mcutind, zbins=zbins,
+                                      same_rand=same_rand, inv_m=inv_m,
+                                      catalog_type=catalog_type, tag=tag,
+                                      **kwargs)
+
+        self.logbins = logbins
+        self.c = 299792.458
+
+        if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
+            self.minr = 1e-1
+            self.maxr = 25
+            self.nrbins = 15
+            self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
+        elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
+            self.minr = minr
+            self.maxr = maxr
+            self.nrbins = nrbins
+            self.rbins = self.genbins(minr, maxr, nrbins)
+        else:
+            self.rbins = rbins
+            self.minr = rbins[0]
+            self.maxr = rbins[1]
+            self.nrbins = len(rbins)-1
+
+        self.writeCorrfuncBinFile(self.rbins)
+
+        if self.mkey is not None:
+            self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        else:
+            self.mapkeys = ['px','py','pz']
+
+        self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+
+        if self.mkey == 'luminosity':
+            self.unitmap[self.mkey] = 'mag'
+        elif self.mkey == 'halomass':
+            self.unitmap[self.mkey] = 'msunh'
+
+        self.xi = None
+
+    @jackknifeMap
+    def map(self, mapunit):
+
+        if not hascorrfunc:
+            raise(ImportError("CorrFunc is required to calculate xi(r)"))
+
+        if self.xi is None:
+            self.xi = np.zeros((self.nrbins, self.nmbins, 1))
+
+        if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
+            mu = {}
+            mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float32)
+            mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float32)
+            mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float32)
+
+            mu['px'][:] = mapunit['px'][:]
+            mu['py'][:] = mapunit['py'][:]
+            mu['pz'][:] = mapunit['pz'][:]
+            if self.mkey is not None:
+                mu[self.mkey] = mapunit[self.mkey]
+        else:
+            mu = mapunit
+
+        for lj, j in enumerate(self.minds):
+            print('Finding luminosity indices')
+
+            if not self.upper_limit: 
+                if self.mcutind is not None:
+                    lidx = (self.mbins[j] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[j+1])
+                elif (self.mcutind is None) and (self.mkey is not None):
+                    lidx = (self.mbins[j] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[j+1])
+                else:
+                    lidx = np.ones(len(mu['px']), dtype=np.bool)
+            else:
+                if self.mcutind is not None:
+                    lidx = (mu[self.mkey][:,self.mcutind] < self.mbins[j])
+                elif (self.mcutind is None) and (self.mkey is not None):
+                    lidx = (mu[self.mkey] < self.mbins[j])
+                else:
+                    lidx = np.ones(len(mu['px']), dtype=np.bool)
+
+            print("Number of galaxies in this z/lum bin: {0}".format(len(mu['pz'][lidx])))
+            print('calculating xi(r)')
+
+            sys.stdout.flush()
+            ddout = xi(self.ministry.boxsize, 1,
+                       self.binfilename,
+                       mu['px'][lidx],
+                       mu['py'][lidx],
+                       mu['pz'][lidx])
+
+            ddout = np.array(ddout)
+
+            self.xi[:,j,0] = ddout['xi']
+
+
+    def reduce(self, rank=None, comm=None):
+        self.varxi = np.zeros_like(self.xi)
+
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, **kwargs):
+
+        if usecols is None:
+            usecols = range(self.nmbins)
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                ye = np.sqrt(self.varxi[:,l,z])
+                l1 = ax[j][i].plot(rmean, self.xi[:,l,z], **kwargs)
+                ax[j][i].fill_between(rmean, self.xi[:,l,z]-ye, self.xi[:,l,z]+ye, alpha=0.5, **kwargs)
+
+                ax[j][i].set_xscale('log')
+                ax[j][i].set_yscale('log')
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_ylabel(r'$\xi(r)$', fontsize=16, labelpad=20)
+            sax.set_xlabel(r'$r \, [ Mpc h^{-1}]$', fontsize=16, labelpad=20)
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1[0]
+
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 usez=None, labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
 class TabulatedWPrpLightcone(WPrpLightcone):
 
     def __init__(self, ministry, fname, *args, **kwargs):
@@ -2571,13 +2810,17 @@ class GalaxyRadialProfileBCC(Metric):
 
     def visualize(self, plotname=None, f=None, ax=None,
                   compare=False, usecols=None, usez=None,
-                  xlabel=None, ylabel=None, logx=True,
+                  uselum=None, xlabel=None, ylabel=None, logx=True,
                   logy=True, **kwargs):
 
         if usez is None:
             usez = range(self.nzbins)
         if usecols is None:
             usecols = range(self.nmassbins)
+        if uselum is None:
+            uselum = range(self.nlumbins)
+
+
             
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -2588,14 +2831,14 @@ class GalaxyRadialProfileBCC(Metric):
         else:
             newaxes = False
 
-        for i in range(self.nzbins):
-            for j in range(self.nmassbins):
-                for k in range(self.nlumbins):
+        for i in range(len(usez)):
+            for j in range(len(usecols)):
+                for k in range(len(uselum)):
                     ye = np.sqrt(self.varrprof[:,k,j,i])
-                    ax[i][j].plot(self.rmean, self.rprof[:,k,j,i],
+                    l = ax[i][j].plot(self.rmean, self.rprof[:,k,j,i],
                                   **kwargs)
                     ax[i][j].fill_between(self.rmean, self.rprof[:,k,j,i]-ye,
-                                          self.rprof[:,k,j,i]+ye,**kwargs)
+                                          self.rprof[:,k,j,i]+ye,alpha=0.5,**kwargs)
 
         if logx:
             ax[0][0].set_xscale('log')
@@ -2621,7 +2864,62 @@ class GalaxyRadialProfileBCC(Metric):
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
 
+        return f, ax, l
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 usez=None, uselum=None, labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+        if uselum is not None:
+            if not hasattr(uselum[0], '__iter__'):
+                uselum = [uselum]*len(tocompare)
+            else:
+                assert(len(uselum)==len(tocompare))
+        else:
+            uselum = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          uselum=uselum[i],**kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, uselum=uselum[i],**kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
         return f, ax
 
-    def compare(self):
-        pass

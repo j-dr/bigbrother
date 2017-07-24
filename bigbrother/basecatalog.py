@@ -14,7 +14,7 @@ class BaseCatalog:
     Base class for catalog type
     """
 
-    _valid_reader_types = ['fits', 'rockstar', 'ascii']
+    _valid_reader_types = ['fits', 'rockstar', 'ascii', 'lgadget']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
                  unitmap=None,  filters=None, goodpix=None,
@@ -84,13 +84,92 @@ class BaseCatalog:
         we require to filepaths for easy access
         """
 
-    @abstractmethod
-    def getFilePixels(self,nside):
+    def getFilePixels(self, nside):
         """
         Get the healpix cells occupied by galaxies
         in each file. Assumes files have already been
         sorted correctly by parseFileStruct
         """
+        fpix = []
+
+        #BCC catalogs have pixels in filenames
+        if (('BCC' in self.__class__.__name__) &
+          (self.filenside is not None) & (self.filenside>=self.groupnside)):
+            fk = self.filestruct.keys()
+
+            for f in self.filestruct[fk[0]]:
+                p = int(f.split('.')[-2])
+
+                if (self.filenside == self.groupnside):
+                    fpix.append([p])
+                else:
+                    if not self.nest:
+                        while p > 12*self.filenside**2:
+                            p = p - 1000
+                        p = hp.ring2nest(self.filenside, p)
+
+                    o1 = int(np.log2(self.filenside))
+                    o2 = int(np.log2(self.groupnside))
+
+                    base = int(p >> 2*o1)
+                    hosubpix = int(p & ( ( 1 << ( 2 * o1 ) ) - 1 ))
+                    losubpix = int(hosubpix // ( 1 << 2 * ( o1 - o2) ))
+                    p  = int(base * ( 1 << ( 2 * o2 ) ) + losubpix)
+
+                    fpix.append([p])
+
+        else:
+            ct = ['halocatalog']
+
+            pmetric = PixMetric(self.ministry, self.groupnside,
+                                catalog_type=ct, nest=self.nest)
+            mg = self.ministry.genMetricGroups([pmetric])
+            ms = mg[0][1]
+            fm = mg[0][0]
+
+            mappables = self.ministry.genMappables(mg[0])
+
+            if self.ministry.parallel:
+                from mpi4py import MPI
+                
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                size = comm.Get_size()
+
+                mappables = mappables[rank::size]
+
+            for i, mappable in enumerate(mappables):
+
+                mapunit = self.ministry.readMappable(mappable, fm)
+
+                if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                elif 'only' in ms[0].aschema:
+                    mapunit = self.ministry.scListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                if ((ms[0].aschema == 'galaxygalaxy')
+                  | (ms[0].aschema == 'halohalo')
+                  | (ms[0].aschema == 'particleparticle')):
+                    mapunit = self.ministry.dcListToDict(mapunit)
+                    mapunit = self.ministry.convert(mapunit, ms)
+                    mapunit = self.ministry.filter(mapunit)
+
+                fpix.append(pmetric.map(mapunit))
+
+                del mapunit
+
+            if self.ministry.parallel:
+                gfpix = comm.allgather(fpix)
+                fpix = []
+                for fp in gfpix:
+                    fpix.extend(fp)
+
+        return fpix
 
     def addFilterKeysToNecessaries(self):
 
@@ -99,8 +178,8 @@ class BaseCatalog:
 
     def groupFiles(self):
         """
-        Group files together spatially. Healpix grouping implemented,
-        subbox grouping still needs to be done.
+        Group files together spatially. Healpix and cubic subboxes
+        implemented
         """
 
         if self.jtype == 'healpix':
@@ -187,27 +266,32 @@ class BaseCatalog:
 
             for i, mappable in enumerate(mappables):
 
-                mapunit = self.ministry.readMappable(mappable, fm)
+                if nbox == 0:
+                    fbox.append([0])
 
-                if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
-                    mapunit = self.ministry.scListToDict(mapunit)
-                    mapunit = self.ministry.convert(mapunit, ms)
-                    mapunit = self.ministry.filter(mapunit)
+                else:
+                    mapunit = self.ministry.readMappable(mappable, fm)
 
-                elif 'only' in ms[0].aschema:
-                    mapunit = self.ministry.scListToDict(mapunit)
-                    mapunit = self.ministry.convert(mapunit, ms)
-                    mapunit = self.ministry.filter(mapunit)
+                    if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
+                        mapunit = self.ministry.scListToDict(mapunit)
+                        mapunit = self.ministry.convert(mapunit, ms)
+                        mapunit = self.ministry.filter(mapunit)
 
-                if ((ms[0].aschema == 'galaxygalaxy')
-                  | (ms[0].aschema == 'halohalo')):
-                    mapunit = self.ministry.dcListToDict(mapunit)
-                    mapunit = self.ministry.convert(mapunit, ms)
-                    mapunit = self.ministry.filter(mapunit)
+                    elif 'only' in ms[0].aschema:
+                        mapunit = self.ministry.scListToDict(mapunit)
+                        mapunit = self.ministry.convert(mapunit, ms)
+                        mapunit = self.ministry.filter(mapunit)
 
-                fbox.append(bmetric.map(mapunit))
+                    elif ((ms[0].aschema == 'galaxygalaxy')
+                          | (ms[0].aschema == 'halohalo')
+                          | (ms[0].aschema == 'particlecatalog')):
+                        mapunit = self.ministry.dcListToDict(mapunit)
+                        mapunit = self.ministry.convert(mapunit, ms)
+                        mapunit = self.ministry.filter(mapunit)
 
-                del mapunit
+                        fbox.append(bmetric.map(mapunit))
+
+                        del mapunit
 
             if self.ministry.parallel:
                 gfbox = comm.allgather(fbox)

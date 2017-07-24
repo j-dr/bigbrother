@@ -562,6 +562,26 @@ class GalHOD(MassMetric):
         if ylim is not None:
             ax[0][0].set_ylim(ylim)
 
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['top'].set_alpha(0.0)
+            sax.spines['bottom'].set_color('none')
+            sax.spines['bottom'].set_alpha(0.0)
+            sax.spines['left'].set_color('none')
+            sax.spines['left'].set_alpha(0.0)
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_ylabel(r'%s' % ylabel, labelpad=40)
+
+
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
             
@@ -924,7 +944,661 @@ class GalCLF(MassMetric):
         #plt.tight_layout()
 
         return f, ax
+
+class GalCLFSnapshot(MassMetric):
+
+    def __init__(self, ministry, massbins=None, 
+                 catalog_type=['galaxycatalog'], tag=None, magbins=None,
+                 magband=None, unitmap=None, **kwargs):
+
+        if massbins is None:
+            massbins = np.logspace(13, 16, 5)
+
+        MassMetric.__init__(self, ministry, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag, **kwargs)
+
+        if magbins is None:
+            self.magbins = np.linspace(-24,-18,30)
+        else:
+            self.magbins = magbins
+
+        self.nmagbins = len(self.magbins) - 1
         
+        self.magband = magband
+
+        self.nomap = False
+        self.aschema = 'galaxyonly'
+
+        self.mapkeys = ['halomass', 'central', 'haloid', 'upid', 'r200', 'luminosity']
+
+        if unitmap is None:
+            self.unitmap = {'halomass':'msunh', 'r200':'mpch', 'luminosity':'mag'}
+        else:
+            self.unitmap = unitmap
+
+        self.slumcounts   = None
+        self.clumcounts   = None
+        self.halocounts   = None
+
+    @jackknifeMap
+    def map(self, mapunit):
+        
+        if self.slumcounts is None:
+            self.slumcounts = np.zeros((self.njack, self.nmagbins, self.nmassbins, 1))
+            self.clumcounts = np.zeros((self.njack, self.nmagbins, self.nmassbins, 1))
+            self.halocounts = np.zeros((self.njack, self.nmassbins, 1))
+
+        cen = mapunit['central']==1
+        sat = ~cen
+
+        mass_host = mapunit['halomass']
+
+        iidx = mapunit['haloid'].argsort()
+        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
+
+        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
+
+        for j, m in enumerate(self.massbins[:-1]):
+            midx = ((self.massbins[j] < mass_host) & (mass_host < self.massbins[j+1])).reshape(-1)
+
+            self.halocounts[self.jcount,j,0] = np.sum(mapunit['central'][midx])
+            
+            if self.magband is not None:
+                sc,e = np.histogram(mapunit['luminosity'][midx&sat,self.magband], bins=self.magbins)
+                cc,e = np.histogram(mapunit['luminosity'][midx&cen,self.magband], bins=self.magbins)                
+            else:
+                sc,e = np.histogram(mapunit['luminosity'][midx&sat], bins=self.magbins)
+                cc,e = np.histogram(mapunit['luminosity'][midx&cen], bins=self.magbins)                
+
+            self.slumcounts[self.jcount,:,j,0] = sc
+            self.clumcounts[self.jcount,:,j,0] = cc
+
+    def reduce(self,rank=None,comm=None):
+
+        dl = (self.magbins[1:] - self.magbins[:-1]).reshape(1,self.nmagbins,1,1)
+
+        if rank is not None:
+            gslumcounts = comm.gather(self.slumcounts, root=0)
+            gclumcounts = comm.gather(self.clumcounts, root=0)
+            ghalocounts = comm.gather(self.halocounts, root=0)
+
+            if rank==0:
+                jc = 0
+                sshape = [self.njack,self.nmagbins,self.nmassbins,self.nzbins]
+                cshape = [self.njack,self.nmagbins,self.nmassbins,self.nzbins]
+                hshape = [self.njack,self.nmassbins,self.nzbins]
+
+
+                sshape[0] = self.njacktot
+                cshape[0] = self.njacktot
+                hshape[0] = self.njacktot
+
+                self.slumcounts = np.zeros(sshape)
+                self.clumcounts = np.zeros(cshape)
+                self.halocounts = np.zeros(hshape)
+
+                for i, g in enumerate(gslumcounts):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.slumcounts[jc:jc+nj,:,:,:] = g
+                    self.clumcounts[jc:jc+nj,:,:,:] = gclumcounts[i]
+                    self.halocounts[jc:jc+nj,:,:] = ghalocounts[i]
+
+                    jc += nj
+
+                self.jslumfunction = (self.slumcounts / self.halocounts.reshape(self.njacktot, 
+                                                                                 1,self.nmassbins,
+                                                                                 self.nzbins) / dl)
+                self.jclumfunction = (self.clumcounts / self.halocounts.reshape(self.njacktot, 
+                                                                                 1,self.nmassbins,
+                                                                                 self.nzbins) / dl)
+                self.jfsat = self.slumcounts / (self.slumcounts + self.clumcounts)
+
+                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
+                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
+                self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
+
+        else:
+                self.jslumfunction = (self.slumcounts / self.halocounts.reshape(self.njacktot, 
+                                                                                 1,self.nmassbins,
+                                                                                 self.nzbins) / dl)
+                self.jclumfunction = (self.clumcounts / self.halocounts.reshape(self.njacktot, 
+                                                                                 1,self.nmassbins,
+                                                                                 self.nzbins) / dl)
+                self.jfsat = self.slumcounts / (self.slumcounts + self.clumcounts)
+
+                self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
+                self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
+                self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
+                                           
+
+    def visualize(self, plotname=None, usecols=None,
+                    usez=None,sharex=True, sharey=True, 
+                    xlim=None, ylim=None, f=None, ax=None, 
+                    label=None, xlabel=None, ylabel=None,
+                    compare=False, logx=False, logy=True,
+                    satellite_frac=False, **kwargs):
+
+        lmean = (self.magbins[:-1] + self.magbins[1:]) / 2
+        
+        if usecols is None:
+            usecols = range(self.nmassbins)
+        
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usecols), self.nzbins,
+                                 sharex=True, sharey=False,
+                                 figsize=(10,10))
+            ax = np.array(ax).reshape((len(usecols), self.nzbins))
+
+            newaxes = True
+        else:
+            newaxes = False
+                                 
+
+        if not satellite_frac:
+            for i in range(self.nzbins):
+                for j, b in enumerate(usecols):
+                    sy = self.slumfunction[:,j,i]
+                    cy  = self.clumfunction[:,j,i]
+                    sye = np.sqrt(self.varslumfunction[:,j,i])
+                    cye = np.sqrt(self.varclumfunction[:,j,i])
+                    
+                    ls = ax[j,i].errorbar(lmean, sy, yerr=sye, barsabove=True,
+                                          **kwargs)
+                    lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                                          **kwargs)
+
+        else:
+            for i in range(self.nzbins):
+                for j, b in enumerate(usecols):
+                    ye = np.sqrt(self.varfsat[:,j,i])
+                    
+                    ls = ax[j,i].errorbar(lmean, self.fsat[:,j,i], 
+                                          yerr=ye, barsabove=True,
+                                          **kwargs)
+                    lc = None
+
+        if not compare:
+            for i in range(self.nzbins):
+                for j, b in enumerate(usecols):
+                    if not (((self.slumfunction[:,j,i]==0).all()
+                            | ~np.isfinite(self.slumfunction[:,j,i]).any())
+                            & ((self.clumfunction[:,j,i]==0).all()
+                            | ~np.isfinite(self.clumfunction[:,j,i]).any())):
+                        if logx:
+                            ax[j,i].set_xscale('log')
+                        if logy:
+                            ax[j,i].set_yscale('log')
+
+#                if (i==0) & (j==0):
+#                    if xlim is not None:
+#                        ax[0][0].set_xlim(xlim)
+#                    if ylim is not None:
+#                        ax[0][0].set_ylim(ylim)
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['top'].set_alpha(0.0)
+            sax.spines['bottom'].set_color('none')
+            sax.spines['bottom'].set_alpha(0.0)
+            sax.spines['left'].set_color('none')
+            sax.spines['left'].set_alpha(0.0)
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_ylabel(r'%s' % ylabel, labelpad=40)
+            #plt.tight_layout()
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+            
+
+
+        return f, ax, ls, lc
+                        
+    def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
+                xlim=None, ylim=None, labels=None, logx=False,
+                logy=True,**kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+        clflabels = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, ls, lc = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
+                                         compare=True,label=labels[i],usez=usez[i],
+                                         color=Metric._color_list[i], **kwargs)
+            else:
+                f, ax, ls, lc = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
+                                        f=f, ax=ax, compare=True, label=labels[i], 
+                                        usez=usez[i], color=Metric._color_list[i], 
+                                        **kwargs)
+            lines.append(ls[0])
+            clflabels.append(labels[i] + 'sat')
+            lines.append(lc[0])
+            clflabels.append(labels[i] + 'cen')
+
+
+        if labels[0] is not None:
+            f.legend(lines, clflabels, 'best')
+
+        if logx:
+            ax[0,0].set_xscale('log')
+        if logy:
+            ax[0,0].set_yscale('log')
+
+
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        #plt.tight_layout()
+
+        return f, ax
+
+class GalHODSnapshot(MassMetric):
+
+    def __init__(self, ministry, massbins=None,
+                 catalog_type=['galaxycatalog'], tag=None, magcuts=None,
+                 cutband=None, upper_limit=False, **kwargs):
+
+        if massbins is None:
+            massbins = np.logspace(10, 16, 40)
+
+        MassMetric.__init__(self, ministry, massbins=massbins,
+                            catalog_type=catalog_type, tag=tag, **kwargs)
+        self.nomap = False
+        self.magcuts = magcuts
+        self.upper_limit = upper_limit
+        
+        if self.magcuts is not None:
+            self.usemag = True
+            if self.upper_limit:
+                self.nmagcuts = len(self.magcuts)
+            else:
+                self.nmagcuts = len(self.magcuts) - 1
+
+        else:
+            self.usemag = False
+            self.nmagcuts = 1
+
+        self.cutband = cutband
+
+        self.aschema = 'galaxyonly'
+
+        if self.usemag:
+            self.mapkeys = ['halomass', 'central', 'haloid', 'r200', 'luminosity']
+        else:
+            self.mapkeys = ['halomass', 'central', 'haloid', 'r200']
+
+        if self.usemag:
+            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'luminosity':'mag', 'r200':'mpch'}
+        else:
+            self.unitmap = {'halomass':'msunh', 'rhalo':'mpch', 'r200':'mpch'}
+
+        self.socccounts  = None
+        self.cocccounts   = None
+        self.sqsocccounts = None
+        self.sqcocccounts = None
+        self.halocounts   = None
+
+    @jackknifeMap
+    def map(self, mapunit):
+
+        #The number of mass definitions to measure mfcn for
+        if len(mapunit['halomass'].shape)>1:
+            self.ndefs = mapunit['halomass'].shape[1]
+        else:
+            self.ndefs = 1
+            mapunit['halomass'] = np.atleast_2d(mapunit['halomass']).T
+
+        #temporary fix for plotting w/ GMetric functions
+        self.nbands = self.ndefs
+
+        #Want to count galaxies in bins of luminosity for
+        #self.nbands different bands in self.nzbins
+        #redshift bins
+        if self.socccounts is None:
+            self.socccounts = np.zeros((self.njack, len(self.massbins)-1, self.ndefs,
+                                       self.nmagcuts, self.nzbins))
+            self.cocccounts = np.zeros((self.njack, len(self.massbins)-1, self.ndefs,
+                                       self.nmagcuts, self.nzbins))
+            self.sqsocccounts = np.zeros((self.njack,len(self.massbins)-1, self.ndefs,
+                                         self.nmagcuts, self.nzbins))
+            self.sqcocccounts = np.zeros((self.njack,len(self.massbins)-1, self.ndefs,
+                                         self.nmagcuts, self.nzbins))
+            self.halocounts = np.zeros((self.njack,len(self.massbins)-1, self.ndefs,
+                                        self.nmagcuts, self.nzbins))
+
+        cen = mapunit['central']==1
+        sat = ~cen
+
+        mass_host = mapunit['halomass']
+
+        iidx = mapunit['haloid'].argsort()
+        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
+
+        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
+
+        #Count number of halos in mass bins before making mag counts
+
+
+        for j in range(self.ndefs):
+            c, e = np.histogram(mass_host[:,j][cen],
+                                bins=self.massbins)
+            self.halocounts[self.jcount,:,j,:,0] += c.reshape((self.massbins.shape[0]-1, 1))
+            
+            for k in range(self.nmagcuts):
+                if self.usemag:
+                    if self.cutband is not None:
+                        if self.upper_limit:
+                            lidx = (mapunit['luminosity'][:, self.cutband]<self.magcuts[k]).reshape(-1)
+                        else:
+                            lidx = ((self.magcuts[k] < mapunit['luminosity'][:, self.cutband]) &
+                                    (mapunit['luminosity'][:, self.cutband]<self.magcuts[k+1])).reshape(-1)
+                    else:
+                        if self.upper_limit:
+                            lidx = (mapunit['luminosity'][:]<self.magcuts[k])
+                        else:
+                            lidx = ((self.magcuts[k] < mapunit['luminosity'][:]) &
+                                    (mapunit['luminosity'][:]<self.magcuts[k+1]))
+                            
+                        cidx = mapunit['central'][:][lidx]==1
+                        sidx = ~cidx
+
+                        c, e = np.histogram(mass_host[:,j][lidx][cidx], bins=self.massbins)
+                        c = c.reshape(self.cocccounts[self.jcount,:,j,k,0].shape)
+                        self.cocccounts[self.jcount,:,j,k,0] += c
+                        self.sqcocccounts[self.jcount,:,j,k,0] += c**2
+
+                        c, e = np.histogram(mass_host[:,j][lidx][sidx], bins=self.massbins)
+                        c = c.reshape(self.cocccounts[self.jcount,:,j,k,0].shape)
+                        self.socccounts[self.jcount,:,j,k,0] += c
+                        self.sqsocccounts[self.jcount,:,j,k,0] += c**2
+                else:
+                    cidx = mapunit['central'][:]==1
+
+                    c, e = np.histogram(mass_host[:,j][cidx], bins=self.massbins)
+                    self.cocccounts[self.jcount,:,j,k,0] += c
+                    self.sqcocccounts[self.jcount,:,j,k,0] += c**2
+
+                    c, e = np.histogram(mass_host[:,j][(~cidx) & sidx], bins=self.massbins)
+                    self.socccounts[self.jcount,:,j,k,0] += c
+                    self.sqsocccounts[self.jcount,:,j,k,0] += c**2
+
+
+    def reduce(self, rank=None, comm=None):
+        """
+        Given counts in luminosity bins, generate a luminosity function.
+        This will be called after all the mapunits are mapped by the map
+        method. This turns total counts of galaxies into densities as appropriate
+        for a luminosity function. The LF is then saved as an attribute of the
+        LuminosityFunction object.
+        """
+        if rank is not None:
+            gsocc = comm.gather(self.socccounts, root=0)
+            gcocc = comm.gather(self.cocccounts, root=0)
+            gsqsocc = comm.gather(self.sqsocccounts, root=0)
+            gsqcocc = comm.gather(self.sqcocccounts, root=0)
+            ghcounts = comm.gather(self.halocounts, root=0)
+
+            if rank==0:
+                jc = 0
+                hshape = [self.halocounts.shape[i] for i in range(len(self.halocounts.shape))]
+
+                hshape[0] = self.njacktot
+
+                self.socccounts = np.zeros(hshape)
+                self.sqsocccounts = np.zeros(hshape)
+                self.cocccounts = np.zeros(hshape)
+                self.sqcocccounts = np.zeros(hshape)
+                self.halocounts = np.zeros(hshape)
+
+                for i, g in enumerate(gsocc):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.socccounts[jc:jc+nj,:,:,:] = g
+                    self.sqsocccounts[jc:jc+nj,:,:,:] = gsqsocc[i]
+                    self.cocccounts[jc:jc+nj,:,:,:] = gcocc[i]
+                    self.sqcocccounts[jc:jc+nj,:,:,:] = gsqcocc[i]
+                    self.halocounts[jc:jc+nj,:,:,:] = ghcounts[i]
+
+                    jc += nj
+
+                self.jsocccounts = self.jackknife(self.socccounts, reduce_jk=False)
+                self.jsqsocccounts = self.jackknife(self.sqsocccounts, reduce_jk=False)
+                self.jcocccounts = self.jackknife(self.cocccounts, reduce_jk=False)
+                self.jsqcocccounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
+                self.jhalocounts = self.jackknife(self.halocounts, reduce_jk=False)
+
+                self.jshod = self.jsocccounts/self.jhalocounts
+                self.jchod = self.jcocccounts/self.jhalocounts
+
+                self.shod = np.sum(self.jshod, axis=0) / self.njacktot
+                self.chod = np.sum(self.jchod, axis=0) / self.njacktot
+
+                self.shoderr = np.sqrt(np.sum((self.jshod - self.shod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+                self.choderr = np.sqrt(np.sum((self.jchod - self.chod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+
+                self.y = self.shod + self.chod
+                self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
+
+        else:
+            self.jsocccounts = self.jackknife(self.socccounts, reduce_jk=False)
+            self.jsqsocccounts = self.jackknife(self.sqsocccounts, reduce_jk=False)
+            self.jcocccounts = self.jackknife(self.cocccounts, reduce_jk=False)
+            self.jsqcocccounts = self.jackknife(self.sqcocccounts, reduce_jk=False)
+            self.jhalocounts = self.jackknife(self.halocounts, reduce_jk=False)
+
+            self.jshod = self.jsocccounts/self.jhalocounts
+            self.jchod = self.jcocccounts/self.jhalocounts
+
+            self.shod = np.sum(self.jshod, axis=0) / self.njacktot
+            self.chod = np.sum(self.jchod, axis=0) / self.njacktot
+
+            self.shoderr = np.sqrt(np.sum((self.jshod - self.shod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+            self.choderr = np.sqrt(np.sum((self.jchod - self.chod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+
+            self.y = self.shod + self.chod
+            self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
+
+    def visualize(self, plotname=None, usecols=None,
+                    usez=None,sharex=True, sharey=True, 
+                    xlim=None, ylim=None, f=None, ax=None, 
+                    label=None, xlabel=None, ylabel=None,
+                    compare=False, logx=True, logy=True, 
+                    noerr=False, **kwargs):
+
+        mmean = (self.massbins[:-1] + self.massbins[1:]) / 2
+        
+        if usecols is None:
+            usecols = range(self.nmagcuts)
+        
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usecols), len(usez),
+                                 sharex=True, sharey=True,
+                                 figsize=(10,10))
+            ax = np.array(ax).reshape((len(usecols), len(usez)))
+
+            newaxes = True
+        else:
+            newaxes = False
+
+        
+        for i, zi in enumerate(usez):
+            for j, b in enumerate(usecols):
+                sy = self.shod[:,0,j,zi]
+                cy  = self.chod[:,0,j,zi]
+                sye = self.shoderr[:,0,j,zi]
+                cye = self.choderr[:,0,j,zi]
+
+                if not noerr:
+                    ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
+                                          **kwargs)
+                    
+                    lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
+                                          **kwargs)
+                    
+                    lt = ax[j,i].errorbar(mmean, self.y[:,0,j,zi],
+                                          yerr=self.ye[:,0,j,zi],
+                                          fmt='.', barsabove=True,
+                                          **kwargs)
+                else:
+                    ls = ax[j,i].plot(mmean, sy, marker='^',
+                                      **kwargs)
+                    
+                    lc = ax[j,i].plot(mmean, cy, marker='s',
+                                      **kwargs)
+                    
+                    lt = ax[j,i].plot(mmean, self.y[:,0,j,zi],
+                                      marker='.',**kwargs)
+                
+
+
+        if not compare:
+            for i, zi in enumerate(usez):
+                for j, b in enumerate(usecols):
+                    if not (((self.shod[:,0,j,zi]==0).all()
+                            | ~np.isfinite(self.shod[:,0,j,zi]).any())
+                            & ((self.chod[:,0,j,zi]==0).all()
+                            | ~np.isfinite(self.chod[:,0,j,zi]).any())):
+                        if logx:
+                            ax[j,i].set_xscale('log')
+                        if logy:
+                            ax[j,i].set_yscale('log')
+
+        if xlim is not None:
+            ax[0][0].set_xlim(xlim)
+        if ylim is not None:
+            ax[0][0].set_ylim(ylim)
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['top'].set_alpha(0.0)
+            sax.spines['bottom'].set_color('none')
+            sax.spines['bottom'].set_alpha(0.0)
+            sax.spines['left'].set_color('none')
+            sax.spines['left'].set_alpha(0.0)
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_ylabel(r'%s' % ylabel, labelpad=40)
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+            
+        return f, ax, ls, lc, lt
+                        
+    def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
+                xlim=None, ylim=None, labels=None, logx=True,
+                logy=True,**kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+        lab   = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
+                                         compare=True,label=labels[i],usez=usez[i],
+                                         color=Metric._color_list[i], **kwargs)
+            else:
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
+                                        f=f, ax=ax, compare=True, label=labels[i], 
+                                        usez=usez[i], color=Metric._color_list[i], 
+                                        **kwargs)
+            lines.append(ls[0])
+            lab.append(labels[i] + '-sat')
+            lines.append(lc[0])
+            lab.append(labels[i] + '-cen')
+            lines.append(lt[0])
+            lab.append(labels[i] + '-tot')
+
+
+        if labels[0] is not None:
+            f.legend(lines, lab, 'best')
+
+        if logx:
+            ax[0,0].set_xscale('log')
+        if logy:
+            ax[0,0].set_yscale('log')
+
+
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        #plt.tight_layout()
+
+        return f, ax
+            
+
 class OccMass(MassMetric):
 
     def __init__(self, ministry, zbins=None, massbins=None, lightcone=True,
