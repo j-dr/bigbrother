@@ -16,7 +16,7 @@ except:
 try:
     import Corrfunc._countpairs_mocks as countpairs_mocks
     from Corrfunc.theory import DDrppi, DD, wp, xi
-    from Corrfunc.mocks import DDtheta_mocks
+    from Corrfunc.mocks import DDtheta_mocks, DDrppi_mocks
     from Corrfunc.utils import convert_3d_counts_to_cf
     hascorrfunc = True
 except:
@@ -992,56 +992,49 @@ class WPrpLightcone(CorrelationFunction):
                     print(mu['azim_ang'][zlidx:zhidx][cidx])
                     print(cz[zlidx:zhidx][cidx])
 
-                    ddresults = countpairs_mocks.countpairs_rp_pi_mocks(1,
+                    ddresults = DDrppi_mocks(1,
                                             self.cosmology_flag, 1,
                                             self.pimax,
                                             self.binfilename,
                                             mu['azim_ang'][zlidx:zhidx][cidx],
                                             mu['polar_ang'][zlidx:zhidx][cidx],
-                                            cz[zlidx:zhidx][cidx],
-                                            mu['azim_ang'][zlidx:zhidx][cidx],
-                                            mu['polar_ang'][zlidx:zhidx][cidx],
                                             cz[zlidx:zhidx][cidx])
 
-                    ddresults = np.array(ddresults[0]).reshape(-1,int(self.pimax),5)
-                    self.dd[self.jcount,:,:,k,j,i] = ddresults[:,:,4]
+
+                    self.dd[self.jcount,:,:,k,j,i] = ddresults['npairs'].reshape(-1,int(self.pimax))
 
                     #data randoms
                     print('calculating data random pairs')
                     sys.stdout.flush()
-                    drresults = countpairs_mocks.countpairs_rp_pi_mocks(0, 1, 1,
+                    drresults = DDrppi_mocks(0, self.cosmology_flag, 1,
                                             self.pimax,
                                             self.binfilename,
                                             mu['azim_ang'][zlidx:zhidx][cidx],
                                             mu['polar_ang'][zlidx:zhidx][cidx],
                                             cz[zlidx:zhidx][cidx],
-                                            rands['azim_ang'],
-                                            rands['polar_ang'],
-                                            rands['redshift'])
+                                            RA2=rands['azim_ang'],
+                                            DEC2=rands['polar_ang'],
+                                            CZ2=rands['redshift'])
 
-                    drresults = np.array(drresults[0]).reshape(-1,int(self.pimax),5)
-                    self.dr[self.jcount,:,:,k,j,i] = drresults[:,:,4]
+                    self.dr[self.jcount,:,:,k,j,i] = drresults['npairs'].reshape(-1,int(self.pimax))
 
                     #randoms randoms
                     print('calculating random random pairs')
                     sys.stdout.flush()
                     if (li==0) | (not self.same_rand):
-                        rrresults = countpairs_mocks.countpairs_rp_pi_mocks(1, 1, 1,
+                        rrresults = DDrppi_mocks(1, self.cosmology_flag, 1,
                                             self.pimax,
                                             self.binfilename,
-                                            rands['azim_ang'],
-                                            rands['polar_ang'],
-                                            rands['redshift'],
                                             rands['azim_ang'],
                                             rands['polar_ang'],
                                             rands['redshift'])
 
                         try:
-                            rrresults = np.array(rrresults[0]).reshape(-1,int(self.pimax),5)
+                            rrresults = rrresults['npairs'].reshape(-1,int(self.pimax))
                         except:
                             raise
 
-                    self.rr[self.jcount,:,:,k,j,i] = rrresults[:,:,4]
+                    self.rr[self.jcount,:,:,k,j,i] = rrresults
 
     def reduce(self, rank=None, comm=None):
 
