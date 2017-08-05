@@ -14,7 +14,7 @@ import bigbrother.lineofsight     as lsm
 import bigbrother.healpix_utils   as hpm
 import bigbrother.densitymetric   as dnm
 
-_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins']
+_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 'rbins']
 
 def readCfg(filename):
 
@@ -137,6 +137,29 @@ def parseConfig(cfg):
             hc = HaloCatalog(mstry, fs, fieldmap=fm, **hcfg)
             mstry.halocatalog = hc
 
+    if 'ParticleCatalog' in cfg.keys():
+        pcfg = cfg['ParticleCatalog']
+        pct  = pcfg.pop('catalog_type', None)
+        fs   = parseFileStruct(pcfg.pop('filestruct', None))
+
+        if 'fieldmap' in pcfg.keys():
+            fm  = parseFieldMap(pcfg.pop('fieldmap', None))
+        else:
+            fm  = None
+
+        for key in pcfg.keys():
+            if key in _eval_keys:
+                pcfg[key] = eval(pcfg[key])
+
+        if pct in Ministry._known_particle_catalog_types:
+            mstry.setParticleCatalog(pct, fs, fieldmap=fm, **pcfg)
+        else:
+            if fm is None:
+                raise(ValueError("Must supply fieldmap for generic particle catalog"))
+
+            pc = ParticleCatalog(mstry, fs, fieldmap=fm, **pcfg)
+            mstry.particlecatalog = pc
+
     if cmetrics is not None:
         metrics = []
 
@@ -159,7 +182,14 @@ def parseConfig(cfg):
                     cmetrics[m][k] = None
 
                 if k in _eval_keys:
-                    cmetrics[m][k] = eval(cmetrics[m][k])
+                    try:
+                        if cmetrics[m][k] is None:
+                            continue
+                        else:
+                            cmetrics[m][k] = eval(cmetrics[m][k])
+                    except TypeError as e:
+                        print('Config parsing failed on key {} of {}'.format(k, m))
+                        raise(e)
 
 
             mtr = mtr(mstry, **cmetrics[m])
@@ -172,6 +202,7 @@ def parseConfig(cfg):
             mstry.metrics = mstry.galaxycatalog.metrics
         if mstry.halocatalog is not None:
             mstry.metrics.extend(mstry.halocatalog.metrics)
-
+        if mstry.particlecatalog is not None:
+            mstry.metrics.extend(mstry.particlecatalog.metrics)
 
     return mstry

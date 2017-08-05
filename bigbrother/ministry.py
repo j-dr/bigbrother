@@ -5,6 +5,7 @@ from astropy.cosmology import FlatLambdaCDM
 from .basecatalog import PlaceHolder
 from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
 from .halo import HaloCatalog, BCCHaloCatalog
+from .particle import LGadgetSnapshot
 
 from copy import copy, deepcopy
 import numpy as np
@@ -51,6 +52,7 @@ class Ministry:
 
     _known_galaxy_catalog_types = ['BCC', 'S82Phot', 'S82Spec', 'DESGold', 'PlaceHolder']
     _known_halo_catalog_types   = ['BCC', 'PlaceHolder']
+    _known_particle_catalog_types = ['LGadgetSnapshot']
 
     def __init__(self, omega_m, omega_l, h, minz, maxz, area=None,
                  boxsize=None, one_metric_group=False, parallel=False,
@@ -85,6 +87,7 @@ class Ministry:
         self.parallel = parallel
         self.galaxycatalog = None
         self.halocatalog = None
+        self.particlecatalog = None
         self.ministry_name = ministry_name
 
         if area is None:
@@ -142,6 +145,13 @@ class Ministry:
 
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
+
+    def setParticleCatalog(self, catalog_type, filestruct, **kwargs):
+        
+        if catalog_type == "LGadgetSnapshot":
+            self.particlecatalog = LGadgetSnapshot(self, filestruct, **kwargs)
+        elif catalog_type == "PlaceHolder":
+            self.particlecatalog = PlaceHolder(self, None)
 
     def getMetricDependencies(self, metric):
 
@@ -595,6 +605,49 @@ class Ministry:
 
         return mappables
 
+    def particleParticleMappable(self, fieldmap):
+
+        filetypes = fieldmap.keys()
+        mappables = []
+
+        #need to put filetypes with redshifts in
+        #them first
+        zft = []
+        nzft = []
+        for ft in filetypes:
+            if 'redshift' in fieldmap[ft]:
+                zft.append(ft)
+            else:
+                nzft.append(ft)
+
+        filetypes = zft
+        filetypes.extend(nzft)
+
+        g, fgroups = self.particlecatalog.groupFiles()
+        jt = self.particlecatalog.jtype
+        nb = self.particlecatalog.nbox
+        gn = self.particlecatalog.groupnside
+
+        fs = self.particlecatalog.filestruct
+
+        #Create mappables out of filestruct and fieldmaps
+        for i, fg in enumerate(fgroups):
+            for fc, j in enumerate(fg):
+                for k, ft in enumerate(filetypes):
+                    if (fc==0) & (k==0):
+                        root = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last = root
+                    else:
+                        node = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last.children.append(node)
+                        last = node
+
+            mappables.append(root)
+
+        return mappables
+
 
     def getIntersection(self, aschema, p1, p2, nside=8, nest=True):
         """
@@ -647,12 +700,17 @@ class Ministry:
                 return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
             if ct == 'halocatalog':
                 return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+            if ct == 'particlecatalog':
+                return self.singleTypeMappable(fm, self.particlecatalog.filestruct)
         elif aschema == 'galaxygalaxy':
             return self.galaxyGalaxyMappable(fm)
         elif aschema == 'halohalo':
             return self.haloHaloMappable(fm)
         elif aschema == 'halogalaxy':
             return self.haloGalaxyMappable(fm)
+        elif aschema == 'particleparticle':
+            print('particleparticle')
+            return self.particleParticleMappable(fm)
 
 
     def readMappable(self, mappable, fieldmap):
@@ -660,8 +718,11 @@ class Ministry:
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
         elif (self.galaxycatalog is not None) and (mappable.dtype in self.galaxycatalog.filetypes):
             mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
+        elif (self.particlecatalog is not None) and (mappable.dtype in self.particlecatalog.filetypes):
+            mappable.data = self.particlecatalog.readMappable(mappable, fieldmap)
 
         if len(mappable.children)>0:
+            print('mappable.children'.format(mappable.children))
             for child in mappable.children:
                 self.readMappable(child, fieldmap)
 
@@ -881,13 +942,17 @@ class Ministry:
 
         elif mappable.jtype == 'subbox':
             tp = np.zeros((len(mapunit[mapunit.keys()[0]]),3))
-            if hasattr(self, 'galaxycatalog'):
+            if self.galaxycatalog is not None:
                 if 'px' in self.galaxycatalog.unitmap.keys():
                     um = self.galaxycatalog.unitmap
 
-            elif hasattr(self, 'halocatalog'):
+            elif self.halocatalog is not None:
                 if 'px' in self.halocatalog.unitmap.keys():
                     um = self.halocatalog.unitmap
+
+            elif self.particlecatalog is not None:
+                if 'px' in self.particlecatalog.unitmap.keys():
+                    um = self.particlecatalog.unitmap
 
             print('Masking {0} using subbox {1}'.format(mappable.name, mappable.grp))
 
@@ -1045,7 +1110,8 @@ class Ministry:
                         mapunit = self.sortMapunitByZ(mapunit)
 
                 elif sbz & ((ms[0].aschema == 'galaxygalaxy')
-                  | (ms[0].aschema == 'halohalo')):
+                  | (ms[0].aschema == 'halohalo')
+                  | (ms[0].aschema == 'particleparticle')):
                     mapunit = self.dcListToDict(mapunit)
                     mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
@@ -1053,7 +1119,8 @@ class Ministry:
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
                 elif ((ms[0].aschema == 'galaxygalaxy')
-                  | (ms[0].aschema == 'halohalo')):
+                  | (ms[0].aschema == 'halohalo')
+                  | (ms[0].aschema == 'particleparticle')):
                     mapunit = self.dcListToDict(mapunit)
                     mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
