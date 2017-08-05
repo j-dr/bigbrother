@@ -75,7 +75,7 @@ class LuminosityFunction(MagnitudeMetric):
             zbins = np.linspace(ministry.minz, ministry.maxz, 5)
 
         if magbins is None:
-            magbins = np.linspace(-25, -11, 300)
+            magbins = np.linspace(-25, -16, 50)
 
         MagnitudeMetric.__init__(self, ministry, zbins=zbins, magbins=magbins,
                                  catalog_type=catalog_type, tag=tag, **kwargs)
