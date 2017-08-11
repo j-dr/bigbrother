@@ -631,12 +631,14 @@ class GalHOD(MassMetric):
                                         f=f, ax=ax, compare=True, label=labels[i], 
                                         usez=usez[i], color=Metric._color_list[i], 
                                         **kwargs)
-            lines.append(ls[0])
-            lab.append(labels[i] + '-sat')
-            lines.append(lc[0])
-            lab.append(labels[i] + '-cen')
-            lines.append(lt[0])
-            lab.append(labels[i] + '-tot')
+
+            if labels[0] is not None:
+                lines.append(ls[0])
+                lab.append(labels[i] + '-sat')
+                lines.append(lc[0])
+                lab.append(labels[i] + '-cen')
+                lines.append(lt[0])
+                lab.append(labels[i] + '-tot')
 
 
         if labels[0] is not None:
@@ -772,6 +774,7 @@ class GalCLF(MassMetric):
 
                 self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
                 self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
+                self.jlumfunction, self.lumfunction, self.varlumfunction = self.jackknife(self.jslumfunction+self.jclumfunction)
                 self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
 
         else:
@@ -785,6 +788,7 @@ class GalCLF(MassMetric):
 
                 self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
                 self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
+                self.jlumfunction, self.lumfunction, self.varlumfunction = self.jackknife(self.jslumfunction+self.jclumfunction)
                 self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
                                            
 
@@ -793,7 +797,8 @@ class GalCLF(MassMetric):
                     xlim=None, ylim=None, f=None, ax=None, 
                     label=None, xlabel=None, ylabel=None,
                     compare=False, logx=False, logy=True,
-                    satellite_frac=False, **kwargs):
+                    satellite_frac=False, total_clf_only=False,
+                    **kwargs):
 
         lmean = (self.magbins[:-1] + self.magbins[1:]) / 2
         
@@ -819,12 +824,22 @@ class GalCLF(MassMetric):
                 for j, b in enumerate(usecols):
                     sy = self.slumfunction[:,j,i]
                     cy  = self.clumfunction[:,j,i]
+                    y   = self.lumfunction[:,j,i]
+
                     sye = np.sqrt(self.varslumfunction[:,j,i])
                     cye = np.sqrt(self.varclumfunction[:,j,i])
+                    y   = np.sqrt(self.varlumfunction[:,j,i])
                     
-                    ls = ax[j,i].errorbar(lmean, sy, yerr=sye, barsabove=True,
-                                          **kwargs)
-                    lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                    if not total_clf_only:
+                        ls = ax[j,i].errorbar(lmean, sy, yerr=sye, fmt='--', barsabove=True,
+                                              **kwargs)
+                        lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                                              **kwargs)
+                    else:
+                        ls = None
+                        lc = None
+
+                    lt = ax[j,i].errorbar(lmean, y, yerr=ye, barsabove=True,
                                           **kwargs)
 
         else:
@@ -836,6 +851,7 @@ class GalCLF(MassMetric):
                                           yerr=ye, barsabove=True,
                                           **kwargs)
                     lc = None
+                    lt = None
 
         if not compare:
             for i in range(self.nzbins):
@@ -879,11 +895,11 @@ class GalCLF(MassMetric):
             
 
 
-        return f, ax, ls, lc
+        return f, ax, ls, lc, lt
                         
     def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
                 xlim=None, ylim=None, labels=None, logx=False,
-                logy=True,**kwargs):
+                logy=True, total_clf_only=False, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -914,19 +930,28 @@ class GalCLF(MassMetric):
             if usecols[i] is not None:
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
-                f, ax, ls, lc = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
                                          compare=True,label=labels[i],usez=usez[i],
-                                         color=Metric._color_list[i], **kwargs)
+                                         color=Metric._color_list[i], total_clf_only=total_clf_only,
+                                         **kwargs)
             else:
-                f, ax, ls, lc = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                         f=f, ax=ax, compare=True, label=labels[i], 
                                         usez=usez[i], color=Metric._color_list[i], 
+                                        total_clf_only=total_clf_only,
                                         **kwargs)
-            lines.append(ls[0])
-            clflabels.append(labels[i] + 'sat')
-            lines.append(lc[0])
-            clflabels.append(labels[i] + 'cen')
 
+            if labels[0] is not None:
+                if ls is not None:
+                    lines.append(ls[0])
+                    clflabels.append(labels[i] + ' sat')
+                
+                if lc is not None:
+                    lines.append(lc[0])
+                    clflabels.append(labels[i] + ' cen')
+            
+                lines.append(lt[0])
+                clflabels.append(labels[i] + ' tot')
 
         if labels[0] is not None:
             f.legend(lines, clflabels, 'best')
@@ -1056,6 +1081,7 @@ class GalCLFSnapshot(MassMetric):
 
                 self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
                 self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
+                self.jlumfunction, self.lumfunction, self.varlumfunction = self.jackknife(self.jslumfunction+self.jclumfunction)
                 self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
 
         else:
@@ -1069,6 +1095,7 @@ class GalCLFSnapshot(MassMetric):
 
                 self.jslumfunction, self.slumfunction, self.varslumfunction  = self.jackknife(self.jslumfunction)
                 self.jclumfunction, self.clumfunction, self.varclumfunction  = self.jackknife(self.jclumfunction)
+                self.jlumfunction, self.lumfunction, self.varlumfunction = self.jackknife(self.jslumfunction+self.jclumfunction)
                 self.jfsat, self.fsat, self.varfsat  = self.jackknife(self.jfsat)
                                            
 
@@ -1077,7 +1104,7 @@ class GalCLFSnapshot(MassMetric):
                     xlim=None, ylim=None, f=None, ax=None, 
                     label=None, xlabel=None, ylabel=None,
                     compare=False, logx=False, logy=True,
-                    satellite_frac=False, **kwargs):
+                    satellite_frac=False, total_clf_only=False, **kwargs):
 
         lmean = (self.magbins[:-1] + self.magbins[1:]) / 2
         
@@ -1103,12 +1130,22 @@ class GalCLFSnapshot(MassMetric):
                 for j, b in enumerate(usecols):
                     sy = self.slumfunction[:,j,i]
                     cy  = self.clumfunction[:,j,i]
+                    y   = self.lumfunction[:,j,i]
+
                     sye = np.sqrt(self.varslumfunction[:,j,i])
                     cye = np.sqrt(self.varclumfunction[:,j,i])
+                    ye  = np.sqrt(self.varlumfunction[:,j,i])
                     
-                    ls = ax[j,i].errorbar(lmean, sy, yerr=sye, barsabove=True,
-                                          **kwargs)
-                    lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                    if not total_clf_only:
+                        ls = ax[j,i].errorbar(lmean, sy, yerr=sye, fmt='--', barsabove=True,
+                                              **kwargs)
+                        lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                                              **kwargs)
+                    else:
+                        ls = None
+                        lc = None
+
+                    lt = ax[j,i].errorbar(lmean, y, yerr=ye, barsabove=True,
                                           **kwargs)
 
         else:
@@ -1120,6 +1157,8 @@ class GalCLFSnapshot(MassMetric):
                                           yerr=ye, barsabove=True,
                                           **kwargs)
                     lc = None
+                    lt = None
+                                          
 
         if not compare:
             for i in range(self.nzbins):
@@ -1163,11 +1202,11 @@ class GalCLFSnapshot(MassMetric):
             
 
 
-        return f, ax, ls, lc
+        return f, ax, ls, lc, lt
                         
     def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
                 xlim=None, ylim=None, labels=None, logx=False,
-                logy=True,**kwargs):
+                logy=True, total_clf_only=False, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -1198,19 +1237,28 @@ class GalCLFSnapshot(MassMetric):
             if usecols[i] is not None:
                 assert(len(usecols[0])==len(usecols[i]))
             if i==0:
-                f, ax, ls, lc = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
                                          compare=True,label=labels[i],usez=usez[i],
-                                         color=Metric._color_list[i], **kwargs)
+                                         color=Metric._color_list[i], total_clf_only=total_clf_only,
+                                         **kwargs)
             else:
-                f, ax, ls, lc = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
+                f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                         f=f, ax=ax, compare=True, label=labels[i], 
                                         usez=usez[i], color=Metric._color_list[i], 
+                                        total_clf_only=total_clf_only,
                                         **kwargs)
-            lines.append(ls[0])
-            clflabels.append(labels[i] + 'sat')
-            lines.append(lc[0])
-            clflabels.append(labels[i] + 'cen')
 
+            if labels[0] is not None:
+                if ls is not None:
+                    lines.append(ls[0])
+                    clflabels.append(labels[i] + 'sat')
+                
+                if lc is not None:
+                    lines.append(lc[0])
+                    clflabels.append(labels[i] + 'cen')
+            
+                lines.append(lt[0])
+                clflabels.append(labels[i] + ' tot')
 
         if labels[0] is not None:
             f.legend(lines, clflabels, 'best')
@@ -1440,7 +1488,7 @@ class GalHODSnapshot(MassMetric):
                     xlim=None, ylim=None, f=None, ax=None, 
                     label=None, xlabel=None, ylabel=None,
                     compare=False, logx=True, logy=True, 
-                    noerr=False, **kwargs):
+                    noerr=False, total_hod_only=False, **kwargs):
 
         mmean = (self.massbins[:-1] + self.massbins[1:]) / 2
         
@@ -1469,22 +1517,31 @@ class GalHODSnapshot(MassMetric):
                 cye = self.choderr[:,0,j,zi]
 
                 if not noerr:
-                    ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
-                                          **kwargs)
+                    if not total_hod_only:
+                        ls = ax[j,i].errorbar(mmean, sy, yerr=sye, fmt='^', barsabove=True,
+                                              **kwargs)
                     
-                    lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
-                                          **kwargs)
+                        lc = ax[j,i].errorbar(mmean, cy, yerr=cye, fmt='s', barsabove=True,
+                                              **kwargs)
+                    else:
+                        ls = None
+                        lc = None
                     
                     lt = ax[j,i].errorbar(mmean, self.y[:,0,j,zi],
                                           yerr=self.ye[:,0,j,zi],
                                           fmt='.', barsabove=True,
                                           **kwargs)
                 else:
-                    ls = ax[j,i].plot(mmean, sy, marker='^',
-                                      **kwargs)
+                    if not total_hod_only:
+                        ls = ax[j,i].plot(mmean, sy, marker='^',
+                                          **kwargs)
                     
-                    lc = ax[j,i].plot(mmean, cy, marker='s',
-                                      **kwargs)
+                        lc = ax[j,i].plot(mmean, cy, marker='s',
+                                          **kwargs)
+
+                    else:
+                        ls = None
+                        lc = None
                     
                     lt = ax[j,i].plot(mmean, self.y[:,0,j,zi],
                                       marker='.',**kwargs)
@@ -1534,7 +1591,7 @@ class GalHODSnapshot(MassMetric):
                         
     def compare(self, othermetrics, plotname=None, usecols=None, usez=None,
                 xlim=None, ylim=None, labels=None, logx=True,
-                logy=True,**kwargs):
+                logy=True, total_hod_only=False, **kwargs):
 
         tocompare = [self]
         tocompare.extend(othermetrics)
@@ -1567,19 +1624,23 @@ class GalHODSnapshot(MassMetric):
             if i==0:
                 f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim, 
                                          compare=True,label=labels[i],usez=usez[i],
-                                         color=Metric._color_list[i], **kwargs)
+                                         color=Metric._color_list[i], 
+                                         total_hod_only=total_hod_only,**kwargs)
             else:
                 f, ax, ls, lc, lt = m.visualize(usecols=usecols[i], xlim=xlim, ylim=ylim,
                                         f=f, ax=ax, compare=True, label=labels[i], 
                                         usez=usez[i], color=Metric._color_list[i], 
-                                        **kwargs)
-            lines.append(ls[0])
-            lab.append(labels[i] + '-sat')
-            lines.append(lc[0])
-            lab.append(labels[i] + '-cen')
-            lines.append(lt[0])
-            lab.append(labels[i] + '-tot')
+                                        total_hod_only=total_hod_only, **kwargs)
 
+            if labels[0] is not None:
+                if not total_hod_only:
+                    lines.append(ls[0])
+                    lab.append(labels[i] + '-sat')
+                    lines.append(lc[0])
+                    lab.append(labels[i] + '-cen')
+
+                lines.append(lt[0])
+                lab.append(labels[i] + '-tot')
 
         if labels[0] is not None:
             f.legend(lines, lab, 'best')

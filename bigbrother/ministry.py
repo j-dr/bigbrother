@@ -848,6 +848,9 @@ class Ministry:
     def maskMappable(self, mapunit, mappable):
 
         if mappable.jtype == 'healpix':
+            if mappable.gnside == 0:
+                return mapunit
+
             tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
@@ -941,6 +944,9 @@ class Ministry:
             return mapunit
 
         elif mappable.jtype == 'subbox':
+            if mappable.nbox == 0:
+                return mapunit
+
             tp = np.zeros((len(mapunit[mapunit.keys()[0]]),3))
             if self.galaxycatalog is not None:
                 if 'px' in self.galaxycatalog.unitmap.keys():
@@ -1064,8 +1070,8 @@ class Ministry:
             rank = None
             comm = None
 
-
         for mg in self.metric_groups:
+            print(mg)
             sbz = False
             ms  = mg[1]
             fm  = mg[0]

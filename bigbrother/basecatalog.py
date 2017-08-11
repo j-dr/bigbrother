@@ -289,9 +289,10 @@ class BaseCatalog:
                         mapunit = self.ministry.convert(mapunit, ms)
                         mapunit = self.ministry.filter(mapunit)
 
-                        fbox.append(bmetric.map(mapunit))
+                    fbox.append(bmetric.map(mapunit))
+                    print(fbox)
 
-                        del mapunit
+                    del mapunit
 
             if self.ministry.parallel:
                 gfbox = comm.allgather(fbox)

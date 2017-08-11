@@ -94,7 +94,7 @@ class CorrelationFunction(Metric):
         if 'galaxycatalog' in self.catalog_type:
             self.aschema = 'galaxygalaxy'
             self.mkey = 'luminosity'
-        elif 'halohalo' in self.catalog_type:
+        elif 'halocatalog' in self.catalog_type:
             self.mkey = 'halomass'
             self.aschema = 'halohalo'
         else:
@@ -2666,8 +2666,9 @@ class GalaxyRadialProfileBCC(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                  massbins=None, subjack=False, mcutind=None,
-                 catalog_type=['galaxycatalog'],
-                 tag=None, **kwargs):
+                 catalog_type=['galaxycatalog'], splitcolor=None,
+                 cinds=None, cbins=None, tag=None, lightcone=True,
+                 **kwargs):
         """
         Radial profile of galaxies around their nearest halos.
         """
@@ -2676,13 +2677,32 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.catalog_type = catalog_type
 
-        if zbins is None:
-            self.zbins = [0.0, 0.2]
-        else:
-            self.zbins = zbins
-            self.zbins = np.array(self.zbins)
+        self.lightcone = lightcone
 
-        self.nzbins = len(self.zbins)-1
+        if not self.lightcone:
+            if zbins is None:
+                self.zbins = [0.0, 0.2]
+            else:
+                self.zbins = zbins
+                self.zbins = np.array(self.zbins)
+
+            self.nzbins = len(self.zbins)-1
+        else:
+            self.zbins = None
+            self.nzbins = 1
+
+        self.splitcolor = splitcolor
+
+        if self.splitcolor is not None:
+            self.ncbins = 2
+            if cinds is None:
+                self.cinds = [0,1]
+            else:
+                self.cinds = cinds
+        else:
+            self.ncbins = 1
+
+
 
         if lumbins is None:
             self.lumbins = np.array([-22, -21, -20, -19])
@@ -2691,10 +2711,7 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.nlumbins = len(self.lumbins)-1
 
-        if mcutind is None:
-            self.mcutind = 1
-        else:
-            self.mcutind = mcutind
+        self.mcutind = mcutind
         
         if massbins is None:
             self.massbins = np.logspace(np.log10(5e12),15,5)
@@ -2712,9 +2729,13 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.aschema = 'galaxyonly'
 
-        self.mapkeys = ['luminosity', 'redshift', 'rhalo', 'halomass', 'haloid']
+        self.mapkeys = ['luminosity', 'rhalo', 'halomass', 'haloid']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra',
-                        'redshift':'z', 'halomass':'msunh'}
+                        'halomass':'msunh'}
+
+        if self.lightcone:
+            self.mapkeys.append('redshift')
+            self.unitmap['redshift'] = 'z'
 
         self.rcounts = None
         self.hcounts = None
@@ -2724,27 +2745,71 @@ class GalaxyRadialProfileBCC(Metric):
 
         if self.rcounts is None:
             self.rcounts = np.zeros((self.njack, self.nrbins,
-                                     self.nlumbins,
+                                     self.ncbins, self.nlumbins,
                                      self.nmassbins,                                      
                                      self.nzbins))
             self.hcounts = np.zeros((self.njack, self.nmassbins,
                                      self.nzbins))
 
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+        if self.ncbins>1:
+            color = mapunit['luminosity'][:,self.cinds[0]] - mapunit['luminosity'][:,self.cinds[1]]
+
+        if self.lightcone:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             
+                for j, m in enumerate(self.massbins[:-1]):
+                    midx = ((self.massbins[j] < mapunit['halomass'][zlidx:zhidx])
+                            & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1])).reshape(zhidx-zlidx)
+                    self.hcounts[self.jcount,j,i] += len(np.unique(mapunit['haloid'][zlidx:zhidx]))
+                
+                    for k, l in enumerate(self.lumbins[:-1]):
+                        if self.mcutind is not None:
+                            lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,self.mcutind])
+                                    & (mapunit['luminosity'][zlidx:zhidx,self.mcutind]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+                        else:
+                            lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx])
+                                    & (mapunit['luminosity'][zlidx:zhidx]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+
+                        for n in range(self.ncbins):
+                            if self.ncbins>1:
+                                if n==0:
+                                    cidx = lidx & (color[zlidx:zhidx]<self.splitcolor)
+                                else:
+                                    cidx = lidx & (color[zlidx:zhidx]>=self.splitcolor)
+                            else:
+                                cidx = lidx
+
+
+                            c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][midx&cidx], bins=self.rbins)
+                            self.rcounts[self.jcount,:,n,k,j,i] += c
+        else:
             for j, m in enumerate(self.massbins[:-1]):
-                midx = ((self.massbins[j] < mapunit['halomass'][zlidx:zhidx])
-                        & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1])).reshape(zhidx-zlidx)
-                self.hcounts[self.jcount,j,i] += len(np.unique(mapunit['haloid'][zlidx:zhidx]))
+                midx = ((self.massbins[j] < mapunit['halomass'][:])
+                        & (mapunit['halomass'][:] <= self.massbins[j+1])).reshape(len(mapunit['halomass']))
+                self.hcounts[self.jcount,j,0] += len(np.unique(mapunit['haloid'][:]))
                 
                 for k, l in enumerate(self.lumbins[:-1]):
-                    lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,1])
-                             & (mapunit['luminosity'][zlidx:zhidx,1]<self.lumbins[k+1])).reshape(zhidx-zlidx)
+                    if self.mcutind is not None:
+                        lidx = ((self.lumbins[k]<mapunit['luminosity'][:,self.mcutind])
+                                & (mapunit['luminosity'][:,self.mcutind]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+                    else:
+                        lidx = ((self.lumbins[k]<mapunit['luminosity'][:])
+                                & (mapunit['luminosity'][:]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
 
-                    c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][midx&lidx], bins=self.rbins)
-                    self.rcounts[self.jcount,:,k,j,i] += c
+                    for n in range(self.ncbins):
+                        if self.ncbins>1:
+                            if n==0:
+                                cidx = lidx & (color[:]<self.splitcolor)
+                            else:
+                                cidx = lidx & (color[:]>=self.splitcolor)
+                        else:
+                            cidx = lidx
+                            
+                        c, e = np.histogram(mapunit['rhalo'][:][midx&cidx], bins=self.rbins)
+                        self.rcounts[self.jcount,:,n,k,j,0] += c
+            
 
     def reduce(self, rank=None, comm=None):
 
@@ -2767,7 +2832,7 @@ class GalaxyRadialProfileBCC(Metric):
                 for i,g in enumerate(grcounts):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.rcounts[jc:jc+nj,:,:,:,:] = g
+                    self.rcounts[jc:jc+nj,:,:,:,:,:] = g
                     self.hcounts[jc:jc+nj,:,:] = ghcounts[i]
 
                     jc += nj
@@ -2775,12 +2840,12 @@ class GalaxyRadialProfileBCC(Metric):
                 self.rmean = (self.rbins[1:] + self.rbins[:-1]) / 2
                 vol = 4 * np.pi * (self.rmean**3) / 3
 
-                self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1))
+                self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1,1))
 
                 self.jurprof  = self.jackknife(self.jurprof, reduce_jk=False)
                 self.jhcounts = self.jackknife(self.hcounts, reduce_jk=False)
 
-                self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,self.nmassbins,self.nzbins)
+                self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,1,self.nmassbins,self.nzbins)
 
                 self.rprof    = np.sum(self.jrprof, axis=0) / self.njacktot
                 self.varrprof = (np.sum((self.jrprof - self.rprof)**2, axis=0) * (self.njacktot - 1)
@@ -2790,12 +2855,12 @@ class GalaxyRadialProfileBCC(Metric):
             self.rmean = (self.rbins[1:] + self.rbins[:-1]) / 2
             vol = 4 * np.pi * (self.rmean**3) / 3
 
-            self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1))
+            self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1,1))
 
             self.jurprof  = self.jackknife(self.jurprof, reduce_jk=False)
             self.jhcounts = self.jackknife(self.hcounts, reduce_jk=False)
 
-            self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,self.nmassbins,self.nzbins)
+            self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,1,self.nmassbins,self.nzbins)
             self.rprof    = np.sum(self.jrprof, axis=0) / self.njacktot
             self.varrprof = (np.sum((self.jrprof - self.rprof)**2, axis=0) * (self.njacktot - 1)
                                / self.njacktot)
@@ -2803,8 +2868,8 @@ class GalaxyRadialProfileBCC(Metric):
 
     def visualize(self, plotname=None, f=None, ax=None,
                   compare=False, usecols=None, usez=None,
-                  uselum=None, xlabel=None, ylabel=None, logx=True,
-                  logy=True, **kwargs):
+                  uselum=None, usecolor=None, xlabel=None, 
+                  ylabel=None, logx=True, logy=True, **kwargs):
 
         if usez is None:
             usez = range(self.nzbins)
@@ -2812,9 +2877,9 @@ class GalaxyRadialProfileBCC(Metric):
             usecols = range(self.nmassbins)
         if uselum is None:
             uselum = range(self.nlumbins)
+        if usecolor is None:
+            usecolor = range(self.ncbins)
 
-
-            
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
                                     sharey=True, figsize=(8,8))
@@ -2824,14 +2889,15 @@ class GalaxyRadialProfileBCC(Metric):
         else:
             newaxes = False
 
-        for i in range(len(usez)):
-            for j in range(len(usecols)):
-                for k in range(len(uselum)):
-                    ye = np.sqrt(self.varrprof[:,k,j,i])
-                    l = ax[i][j].plot(self.rmean, self.rprof[:,k,j,i],
-                                  **kwargs)
-                    ax[i][j].fill_between(self.rmean, self.rprof[:,k,j,i]-ye,
-                                          self.rprof[:,k,j,i]+ye,alpha=0.5,**kwargs)
+        for i, z in enumerate(usez):
+            for j, c in enumerate(usecols):
+                for k, lu in enumerate(uselum):
+                    for n, cl in enumerate(usecolor):
+                        ye = np.sqrt(self.varrprof[:,cl,lu,j,i])
+                        l = ax[i][j].plot(self.rmean, self.rprof[:,cl,lu,c,z],
+                                          **kwargs)
+                        ax[i][j].fill_between(self.rmean, self.rprof[:,cl,lu,c,z]-ye,
+                                              self.rprof[:,cl,lu,c,z]+ye,alpha=0.5,**kwargs)
 
         if logx:
             ax[0][0].set_xscale('log')
