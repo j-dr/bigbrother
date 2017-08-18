@@ -290,7 +290,6 @@ class BaseCatalog:
                         mapunit = self.ministry.filter(mapunit)
 
                     fbox.append(bmetric.map(mapunit))
-                    print(fbox)
 
                     del mapunit
 

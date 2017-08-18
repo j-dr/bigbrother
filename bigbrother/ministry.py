@@ -172,6 +172,12 @@ class Ministry:
 
             mk  = copy(metric.mapkeys)
             mk.extend(cat.necessaries)
+
+            if cat.jtype is 'subbox':
+                mk.extend(['px','py','pz'])
+            elif cat.jtype is 'healpix':
+                mk.extend(['polar_ang', 'azim_ang'])
+
             mk = np.unique(mk)
 
             for mapkey in mk:
@@ -433,7 +439,7 @@ class Ministry:
         return [cfm, m]
 
 
-    def singleTypeMappable(self, fieldmap, fs):
+    def singleTypeMappable(self, fieldmap, fs, jtype):
         """
         If only working with one type of catalog,
         can assume that the length of all file types
@@ -442,7 +448,6 @@ class Ministry:
 
         filetypes = fieldmap.keys()
         mappables = []
-
 
         #need to put filetypes with redshifts in
         #them first
@@ -456,22 +461,39 @@ class Ministry:
 
         filetypes = zft
         filetypes.extend(nzft)
+        
+
+        if jtype is not None:
+            g, fgroups = self.galaxycatalog.groupFiles()
+            jt = jtype
+            nb = self.galaxycatalog.nbox
+            gn = self.galaxycatalog.groupnside
+
+        else:
+            fgroups = [np.arange(len(fs[filetypes[0]]))]
+            g       = [0]
+            jt = None
+            nb = 0
+            gn = 0
 
         #Create mappables out of filestruct and fieldmaps
-        for i in range(len(fs[filetypes[0]])):
-
-            for j, ft in enumerate(filetypes):
-                if j==0:
-                    root = Mappable(fs[ft][i], ft)
-                    last = root
-                else:
-                    node = Mappable(fs[ft][i], ft)
-                    last.children.append(node)
-                    last = node
+        for i, fg in enumerate(fgroups):
+            for fc, j in enumerate(fg):
+                for k, ft in enumerate(filetypes):
+                    if (fc==0) & (k==0):
+                        root = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last = root
+                    else:
+                        node = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last.children.append(node)
+                        last = node
 
             mappables.append(root)
 
         return mappables
+
 
     def galaxyGalaxyMappable(self, fieldmap):
 
@@ -692,16 +714,16 @@ class Ministry:
             ct      = m.catalog_type[0]
 
         if aschema == 'galaxyonly':
-            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
+            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, m[0].jtype)
         elif aschema == 'haloonly':
-            return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+            return self.singleTypeMappable(fm, self.halocatalog.filestruct, m[0].jtype)
         elif aschema == 'singleonly':
             if ct == 'galaxycatalog':
-                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
+                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, m[0].jtype)
             if ct == 'halocatalog':
-                return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+                return self.singleTypeMappable(fm, self.halocatalog.filestruct, m[0].jtype)
             if ct == 'particlecatalog':
-                return self.singleTypeMappable(fm, self.particlecatalog.filestruct)
+                return self.singleTypeMappable(fm, self.particlecatalog.filestruct, m[0].jtype)
         elif aschema == 'galaxygalaxy':
             return self.galaxyGalaxyMappable(fm)
         elif aschema == 'halohalo':
@@ -722,7 +744,6 @@ class Ministry:
             mappable.data = self.particlecatalog.readMappable(mappable, fieldmap)
 
         if len(mappable.children)>0:
-            print('mappable.children'.format(mappable.children))
             for child in mappable.children:
                 self.readMappable(child, fieldmap)
 
@@ -1071,7 +1092,6 @@ class Ministry:
             comm = None
 
         for mg in self.metric_groups:
-            print(mg)
             sbz = False
             ms  = mg[1]
             fm  = mg[0]
@@ -1107,13 +1127,22 @@ class Ministry:
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
 
-                elif 'only' in ms[0].aschema:
+                elif ('only' in ms[0].aschema) & (mappable.jtype is None):
                     mapunit = self.scListToDict(mapunit)
                     mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
+
+                elif ('only' in ms[0].aschema) & (mappable.jtype is not None):
+                    mapunit = self.dcListToDict(mapunit)
+                    mapunit = self.maskMappable(mapunit, mappable)
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
+
 
                 elif sbz & ((ms[0].aschema == 'galaxygalaxy')
                   | (ms[0].aschema == 'halohalo')

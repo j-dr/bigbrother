@@ -49,7 +49,7 @@ class LuminosityFunction(MagnitudeMetric):
 
     def __init__(self, ministry, central_only=False, zbins=None, magbins=None,
                  catalog_type=['galaxycatalog'], tag=None, CMASS=False,
-                 **kwargs):
+                 lightcone=True, **kwargs):
 
         """
         Initialize a LuminosityFunction object. Note, all metrics should define
@@ -77,6 +77,8 @@ class LuminosityFunction(MagnitudeMetric):
         if magbins is None:
             magbins = np.linspace(-25, -11, 300)
 
+        self.lightcone = lightcone
+
         MagnitudeMetric.__init__(self, ministry, zbins=zbins, magbins=magbins,
                                  catalog_type=catalog_type, tag=tag, **kwargs)
 
@@ -84,9 +86,12 @@ class LuminosityFunction(MagnitudeMetric):
         self.CMASS = CMASS
         
         if central_only:
-            self.mapkeys = ['luminosity', 'redshift', 'central']
+            self.mapkeys = ['luminosity', 'central']
         else:
-            self.mapkeys = ['luminosity', 'redshift']
+            self.mapkeys = ['luminosity']
+
+        if self.lightcone:
+            self.mapkeys.append('redshift')
 
         if self.CMASS:
             self.mapkeys.append('appmag')
@@ -128,21 +133,34 @@ class LuminosityFunction(MagnitudeMetric):
 
         #Assume redshifts are provided, and that the
         #mapunit is sorted in terms of them
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mu['redshift'].searchsorted(self.zbins[i])
-            zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
+        
+        if self.lightcone:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mu['redshift'].searchsorted(self.zbins[i])
+                zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
 
             #Count galaxies in bins of luminosity
+                for j in range(self.nbands):
+                    if not self.CMASS:
+                        c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j],
+                                            bins=self.magbins)
+                    else:
+                        cidx = self.selectCMASS(mu['appmag'][zlidx:zhidx])
+                        c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j][cidx],
+                                            bins=self.magbins)
+                    
+                    self.lumcounts[self.jcount,:,j,i] += c
+        else:
             for j in range(self.nbands):
                 if not self.CMASS:
-                    c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j],
+                    c, e = np.histogram(mu['luminosity'][:,j],
                                         bins=self.magbins)
                 else:
-                    cidx = self.selectCMASS(mu['appmag'][zlidx:zhidx])
-                    c, e = np.histogram(mu['luminosity'][zlidx:zhidx,j][cidx],
+                    cidx = self.selectCMASS(mu['appmag'][:])
+                    c, e = np.histogram(mu['luminosity'][:,j][cidx],
                                         bins=self.magbins)
                     
-                self.lumcounts[self.jcount,:,j,i] += c
+                self.lumcounts[self.jcount,:,j,0] += c
 
 
     def reduce(self, rank=None, comm=None):
