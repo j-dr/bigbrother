@@ -266,7 +266,8 @@ class MagCounts(MagnitudeMetric):
     """
 
     def __init__(self, ministry, zbins=[0.0, 0.2],  magbins=None,
-                 catalog_type=['galaxycatalog'], tag=None, cumulative=False, **kwargs):
+                 catalog_type=['galaxycatalog'], tag=None, cumulative=False, 
+                 mcut=None, mcutind=None, **kwargs):
 
         if magbins is None:
             magbins = np.linspace(10, 30, 60)
@@ -283,6 +284,8 @@ class MagCounts(MagnitudeMetric):
 
         self.aschema = 'galaxyonly'
         self.mc = None
+        self.mcut = mcut
+        self.mcutind = mcutind
 
     @jackknifeMap
     def map(self, mapunit):
@@ -297,12 +300,28 @@ class MagCounts(MagnitudeMetric):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
                 for j in range(self.nbands):
-                    c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j],
+                    if self.mcut is not None:
+                        if self.mcutind is None:
+                            lidx = mapunit['appmag'][zlidx:zhidx] < self.mcut
+                        else:
+                            lidx = mapunit['appmag'][zlidx:zhidx,self.mcutind] < self.mcut
+                    else:
+                        lidx = np.ones(zhidx-zlidx, dtype=np.bool)
+
+                    c, e = np.histogram(mapunit['appmag'][zlidx:zhidx,j][lidx],
                                         bins=self.magbins)
                     self.mc[self.jcount,:,j,i] += c
         else:
             for j in range(self.nbands):
-                c, e = np.histogram(mapunit['appmag'][:,j], bins=self.magbins)
+                if self.mcut is not None:
+                    if self.mcutind is None:
+                        lidx = mapunit['appmag']<self.mcut
+                    else:
+                        lidx = mapunit['appmag'][:,self.mcutind] < self.mcut
+                else:
+                        lidx = np.ones(len(mapunit['appmag']), dtype=np.bool)
+
+                c, e = np.histogram(mapunit['appmag'][lidx,j], bins=self.magbins)
                 self.mc[self.jcount,:,j,0] += c
 
     def reduce(self, rank=None, comm=None):
@@ -323,7 +342,10 @@ class MagCounts(MagnitudeMetric):
 
                     jc += nj
 
-                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                if self.jtype is not None:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                else:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=False)
 
                 if not self.cumulative:
                     self.mc = self.mc
@@ -339,7 +361,10 @@ class MagCounts(MagnitudeMetric):
                 self.y = self.magcounts
                 self.ye = np.sqrt(np.sqrt(self.varmagcounts))
         else:
-            area = self.ministry.galaxycatalog.getArea(jackknife=True)
+            if self.jtype is not None:
+                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+            else:
+                area = self.ministry.galaxycatalog.getArea(jackknife=False)                
 
             if not self.cumulative:
                 self.mc = self.mc
@@ -619,7 +644,7 @@ class ColorDist(Metric):
                     catalog_type=['galaxycatalog'],
                     usebands=None, appmag=False, magcuts=None,
                     pdf=False, cutind=None, binnedz=True,
-                    **kwargs):
+                    appmagcut=False, binnedmag=False, **kwargs):
 
 
         self.pdf = pdf
@@ -651,6 +676,11 @@ class ColorDist(Metric):
         else:
             self.mkey = 'luminosity'
 
+        if appmagcut:
+            self.mcutkey = 'appmag'
+        else:
+            self.mcutkey = 'luminosity'
+
         if magcuts is None:
             if appmag:
                 self.magcuts = np.array([23])
@@ -659,7 +689,12 @@ class ColorDist(Metric):
         else:
             self.magcuts = magcuts
 
-        self.nmagcuts = len(self.magcuts)
+        self.binnedmag = binnedmag
+
+        if not self.binnedmag:
+            self.nmagcuts = len(self.magcuts)
+        else:
+            self.nmagcuts = len(self.magcuts)-1
 
         if cutind is None:
             self.cutind = 0
@@ -677,8 +712,15 @@ class ColorDist(Metric):
         self.cd = None
 
         self.mapkeys = [self.mkey, 'redshift']
+
+        if self.mcutkey not in self.mapkeys:
+            self.mapkeys.append(self.mcutkey)
+
         self.aschema = 'galaxyonly'
         self.unitmap = {self.mkey:'mag'}
+        
+        if self.mcutkey not in self.unitmap.keys():
+            self.unitmap[self.mcutkey] = 'mag'
 
     @jackknifeMap
     def map(self, mapunit):
@@ -706,12 +748,16 @@ class ColorDist(Metric):
 
 
 
-            for j, m in enumerate(self.magcuts):
-                lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind] < self.magcuts[j]
-
+            for j in range(self.nmagcuts):
+                if not self.binnedmag:
+                    lidx = mapunit[self.mcutkey][zlidx:zhidx,self.cutind] < self.magcuts[j]
+                else:
+                    lidx = ((self.magcuts[j]<mapunit[self.mcutkey][zlidx:zhidx,self.cutind])
+                           & (mapunit[self.mcutkey][zlidx:zhidx,self.cutind] < self.magcuts[j+1]))
                 for ci in range(self.ncolors):
                     c, self.cbins = np.histogram(clr[zlidx:zhidx,ci][lidx], bins=self.cbins)
                     self.cd[self.jcount,:,ci,j,i] += c
+
 
     def reduce(self, rank=None, comm=None):
 
@@ -743,7 +789,8 @@ class ColorDist(Metric):
                         area = self.ministry.galaxycatalog.getArea()
 
                     self.jcd = self.jackknife(self.cd, reduce_jk=False)
-                    self.jcolor_dist = self.jcd / area.reshape(self.njacktot, 1, 1, 1)
+                    dc = self.cbins[1:] - self.cbins[:-1]
+                    self.jcolor_dist = self.jcd / area.reshape(self.njacktot, 1, 1, 1, 1) / dc.reshape(1,self.ncbins,1,1,1)
 
                 self.color_dist = np.sum(self.jcolor_dist, axis=0) / self.njacktot
                 self.varcolor_dist = np.sum((self.jcolor_dist - self.color_dist) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
@@ -765,7 +812,8 @@ class ColorDist(Metric):
                     area = self.ministry.galaxycatalog.getArea()
 
                 self.jcd = self.jackknife(self.cd, reduce_jk=False)
-                self.jcolor_dist = self.jcd / area.reshape(self.njacktot, 1, 1, 1)
+                dc = self.cbins[1:] - self.cbins[:-1]
+                self.jcolor_dist = self.jcd / area.reshape(self.njacktot,1,1,1,1) / dc.reshape(1,self.ncbins,1,1,1)
 
             self.color_dist = np.sum(self.jcolor_dist, axis=0) / self.njacktot
             self.varcolor_dist = np.sum((self.jcolor_dist - self.color_dist) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
@@ -800,11 +848,11 @@ class ColorDist(Metric):
         else:
             newaxes = False
 
-        for i in usecolors:
+        for i, c in enumerate(usecolors):
             for j, z in enumerate(usezm):
                 zi = z / self.nmagcuts
                 mi = z % self.nmagcuts
-                l1 = ax[j][i].plot(mclr, self.color_dist[:,i,mi,zi],
+                l1 = ax[j][i].plot(mclr, self.color_dist[:,c,mi,zi],
                                   c=colors, **kwargs)
 
 
@@ -904,8 +952,10 @@ class ColorColor(Metric):
                  catalog_type=['galaxycatalog'],
                  usebands=None, magcuts=None,
                  tag=None, appmag=False,
+                 appmagcut=False,
                  pdf=False, cutind=None, 
-                 binnedz=True,**kwargs):
+                 binnedz=True, binnedmag=False,
+                 **kwargs):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
@@ -931,10 +981,18 @@ class ColorColor(Metric):
         else:
             self.mkey = 'luminosity'
 
+        if appmagcut:
+            self.mcutkey = 'appmag'
+        else:
+            self.mcutkey = 'luminosity'
+
         if (zbins is not None):
             self.mapkeys = [self.mkey, 'redshift']
         else:
             self.mapkeys = [self.mkey]
+
+        if self.mcutkey not in self.mapkeys:
+            self.mapkeys.append(self.mcutkey)
 
         if magcuts is None:
             if appmag:
@@ -945,13 +1003,20 @@ class ColorColor(Metric):
             self.magcuts = magcuts
 
         self.cutind = cutind
-
-        self.nmagcuts = len(self.magcuts)
+        self.binnedmag = binnedmag
+        
+        if not self.binnedmag:
+            self.nmagcuts = len(self.magcuts)
+        else:
+            self.nmagcuts = len(self.magcuts)-1
 
         self.pdf = pdf
         self.usebands = usebands
         self.aschema = 'galaxyonly'
         self.unitmap = {self.mkey:'mag'}
+
+        if self.mcutkey not in self.unitmap.keys():
+            self.unitmap[self.mcutkey] = 'mag'
 
         self.cc = None
 
@@ -985,13 +1050,21 @@ class ColorColor(Metric):
                     zlidx = 0
                     zhidx = mapunit['redshift'].searchsorted(self.zbins[i])
 
-                
-                for j, m in enumerate(self.magcuts):
-                    if self.cutind is None:
-                        lidx = mapunit[self.mkey][zlidx:zhidx]<m
+                for j in range(self.nmagcuts):
+                    if not self.binnedmag:
+                        if self.cutind is None:
+                            lidx = mapunit[self.mcutkey][zlidx:zhidx]<=self.magcuts[j]
+                        else:
+                            lidx = mapunit[self.mcutkey][zlidx:zhidx,self.cutind]<=self.magcuts[j]
                     else:
-                        lidx = mapunit[self.mkey][zlidx:zhidx,self.cutind]<m
+                        if self.cutind is None:
+                            lidx = ((self.magcuts[j]<mapunit[self.mcutkey][zlidx:zhidx])
+                                    &(mapunit[self.mcutkey][zlidx:zhidx]<=self.magcuts[j+1]))
+                        else:
+                            lidx = ((self.magcuts[j]<mapunit[self.mcutkey][zlidx:zhidx,self.cutind])
+                                    &(mapunit[self.mcutkey][zlidx:zhidx,self.cutind]<=self.magcuts[j+1]))
 
+                        
                         for k in range(self.nclr-1):
                             c, e0, e1 = np.histogram2d(clr[zlidx:zhidx,k+1][lidx],
                                                        clr[zlidx:zhidx,k][lidx],
@@ -999,10 +1072,18 @@ class ColorColor(Metric):
                             self.cc[self.jcount,:,:,k,j,i] += c
         else:
             for j, m in enumerate(self.magcuts):
-                if self.cutind is None:
-                    lidx = mapunit[self.mkey]<m
+                if not self.binnedmag:
+                    if self.cutind is None:
+                        lidx = mapunit[self.mcutkey][:]<=self.magcuts[j]
+                    else:
+                        lidx = mapunit[self.mcutkey][:,self.cutind]<=self.magcuts[j]
                 else:
-                    lidx = mapunit[self.mkey][:,self.cutind]<m
+                    if self.cutind is None:
+                        lidx = ((self.magcuts[j]<mapunit[self.mcutkey][:])
+                                &(mapunit[self.mcutkey][:]<=self.magcuts[j+1]))
+                    else:
+                        lidx = ((self.magcuts[j]<mapunit[self.mcutkey][:,self.cutind])
+                                &(mapunit[self.mcutkey][:,self.cutind]<=self.magcuts[j+1]))
 
                     for k in range(self.nclr-1):
                         c, e0, e1 = np.histogram2d(clr[:,k+1][lidx],
@@ -1014,7 +1095,6 @@ class ColorColor(Metric):
     def reduce(self, rank=None, comm=None):
         if rank is not None:
             gcc = comm.gather(self.cc, root=0)
-
 
             if rank==0:
                 gshape = [self.cc.shape[i] for i in range(len(self.cc.shape))]
@@ -1094,12 +1174,12 @@ class ColorColor(Metric):
 
         X, Y = np.meshgrid(mclr, mclr)
 
-        for i in usecolors:
+        for i, c in enumerate(usecolors):
             for j, z in enumerate(usezm):
                 zi = z / self.nmagcuts
                 mi = z % self.nmagcuts
                 try:
-                    l1 = ax[j][i].contour(X, Y, self.color_color[:,:,i,mi,zi].T, nc,
+                    l1 = ax[j][i].contour(X, Y, self.color_color[:,:,c,mi,zi].T, nc,
                                      colors=colors, **kwargs)
                     l1 = plt.Rectangle((0,0),1,1,fc = l1.collections[0].get_color()[0]) 
                 except:
@@ -1197,7 +1277,8 @@ class ColorMagnitude(Metric):
                   central_only=False, logscale=False,
                   catalog_type=['galaxycatalog'],
                   usebands=None, tag=None, appmag=False,
-                  pdf=False, **kwargs):
+                  appcolor=False, pdf=False, 
+                  magcut=None, magcutind=None, **kwargs):
 
         Metric.__init__(self, ministry, catalog_type=catalog_type, tag=tag, **kwargs)
 
@@ -1215,6 +1296,10 @@ class ColorMagnitude(Metric):
             self.mkey = 'luminosity'
             defmbins = np.linspace(-25,-19,60)
 
+        if appcolor:
+            self.ckey = 'appmag'
+        else:
+            self.ckey = 'luminosity'
 
         if (magbins is None) & (cbins is None):
             self.magbins = defmbins
@@ -1237,7 +1322,8 @@ class ColorMagnitude(Metric):
 
         self.central_only = central_only
         self.logscale = logscale
-
+        self.magcut = magcut
+        self.magcutind = magcutind
 
         if central_only & (zbins is not None):
             self.mapkeys = [self.mkey, 'redshift', 'central']
@@ -1246,9 +1332,14 @@ class ColorMagnitude(Metric):
         else:
             self.mapkeys = [self.mkey]
 
+        if self.ckey not in self.mapkeys:
+            self.mapkeys.append(self.ckey)
 
         self.aschema = 'galaxyonly'
         self.unitmap = {self.mkey:'mag'}
+        
+        if self.ckey != self.mkey:
+            self.unitmap[self.ckey] = 'mag'
 
         self.cc = None
 
@@ -1266,36 +1357,40 @@ class ColorMagnitude(Metric):
         else:
             mu = mapunit
 
+        if self.magcut is not None:
+            if self.magcutind is not None:
+                idx = mu[self.mkey][:,self.magcutind]<self.magcut
+            else:
+                idx = mu[self.mkey]<self.magcut
+
+            for k in mapunit.keys():
+                mu[k] = mapunit[k][idx]
+        else:
+                mu = mu
 
         if self.cc is None:
             self.cc = np.zeros((self.njack, len(self.magbins)-1,
                                 len(self.cbins)-1,
-                                int(self.nbands*(self.nbands-1)/2),
+                                int(self.nbands-1),
                                 self.nzbins))
 
         if self.zbins is not None:
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mu['redshift'].searchsorted(self.zbins[i])
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
-                for j, b1 in enumerate(self.usebands):
-                    for k, b2 in enumerate(self.usebands):
-                        if k<=j: continue
-                        ind = int(k*(k-1)//2+j-1)
-                        c, e0, e1 = np.histogram2d(mu[self.mkey][zlidx:zhidx,b1],
-                                                   mu[self.mkey][zlidx:zhidx,b1] -
-                                                   mu[self.mkey][zlidx:zhidx,b2],
-                                                   bins=[self.magbins,self.cbins])
-                        self.cc[self.jcount,:,:,ind,i] += c
+                for j, b1 in enumerate(self.usebands[:-1]):
+                    c, e0, e1 = np.histogram2d(mu[self.mkey][zlidx:zhidx,self.usebands[j+1]],
+                                               mu[self.ckey][zlidx:zhidx,b1] -
+                                               mu[self.ckey][zlidx:zhidx,self.usebands[j+1]],
+                                               bins=[self.magbins,self.cbins])
+                    self.cc[self.jcount,:,:,j,i] += c
         else:
             for j, b1 in enumerate(self.usebands):
-                for k, b2 in enumerate(self.usebands):
-                    if k<=j: continue
-                    ind = int(k*(k-1)//2+j-1)
-                    c, e0, e1 = np.histogram2d(mu[self.mkey][:,b1],
-                                               mu[self.mkey][:,b1] -
-                                               mu[self.mkey][:,b2],
-                                               bins=[self.magbins,self.cbins])
-                    self.cc[self.jcount,:,:,ind,0] += c
+                c, e0, e1 = np.histogram2d(mu[self.mkey][:,self.usebands[j+1]],
+                                           mu[self.ckey][:,b1] -
+                                           mu[self.ckey][:,self.usebands[j+1]],
+                                           bins=[self.magbins,self.cbins])
+                self.cc[self.jcount,:,:,j,0] += c
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
@@ -1316,7 +1411,7 @@ class ColorMagnitude(Metric):
                     jc += nj
 
                 if self.pdf:
-                    self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,int(self.nbands*(self.nbands-1)/2),self.nzbins)
+                    self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,(self.nbands-1),self.nzbins)
                     self.jcc = self.jackknife(self.cc, reduce_jk=False)
                     self.jtc = self.jackknife(self.tc, reduce_jk=False)
                     dc = self.cbins[1:] - self.cbins[:-1]
@@ -1324,7 +1419,10 @@ class ColorMagnitude(Metric):
                     dcdm = np.outer(dc,dm).reshape(-1,self.ncbins, self.nmagbins,1,1)
                     self.jcolor_mag = self.jcc / self.tc / dcdm
                 else:
-                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    if self.jtype is not None:
+                        area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                    else:
+                        area = self.ministry.galaxycatalog.getArea(jackknife=False)
                     self.jcc = self.jackknife(self.cc, reduce_jk=False)
                     self.jcolor_mag = self.jcc / area.reshape(self.njacktot,1,1,1,1)
 
@@ -1333,7 +1431,7 @@ class ColorMagnitude(Metric):
 
         else:
             if self.pdf:
-                self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,int(self.nbands*(self.nbands-1)/2),self.nzbins)
+                self.tc = np.sum(np.sum(self.cc, axis=1), axis=1).reshape(-1,1,1,self.nbands-1,self.nzbins)
                 self.jcc = self.jackknife(self.cc, reduce_jk=False)
                 self.jtc = self.jackknife(self.tc, reduce_jk=False)
                 dc = self.cbins[1:] - self.cbins[:-1]
@@ -1341,7 +1439,10 @@ class ColorMagnitude(Metric):
                 dcdm = np.outer(dc,dm).reshape(-1,self.ncbins, self.nmagbins,1,1)
                 self.jcolor_mag = self.jcc / self.tc / dcdm
             else:
-                area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                if self.jtype is not None:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True)
+                else:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=False)
                 self.jcc = self.jackknife(self.cc, reduce_jk=False)
                 self.jcolor_mag = self.jcc / area.reshape(self.njacktot,1,1,1,1)
 
@@ -1350,7 +1451,7 @@ class ColorMagnitude(Metric):
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None,
-                  compare=False, **kwargs):
+                  compare=False, nc=3, **kwargs):
 
         x = (self.magbins[:-1]+self.magbins[1:])/2
         y = (self.cbins[:-1]+self.cbins[1:])/2
@@ -1376,7 +1477,7 @@ class ColorMagnitude(Metric):
 
         for i, c in enumerate(usecolors):
             for j in range(self.nzbins):
-                l1 = ax[j][i].contour(X, Y, cc[:,:,c,j].T,10,
+                l1 = ax[j][i].contour(X, Y, cc[:,:,c,j].T,nc,
                                     **kwargs)
 
         if newaxes:
@@ -1522,7 +1623,6 @@ class FQuenched(Metric):
             if self.splitcolor[i] is None:
                 continue
             
-            print(self.magcuts)
             lidx = mapunit[self.mkey][zlidx:zhidx][:,self.cinds[0]] < self.magcuts[i]
             qidx, = np.where(clr[zlidx:zhidx][lidx]>self.splitcolor[i])
 

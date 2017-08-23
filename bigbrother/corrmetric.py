@@ -2727,7 +2727,7 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.lightcone = lightcone
 
-        if not self.lightcone:
+        if self.lightcone:
             if zbins is None:
                 self.zbins = [0.0, 0.2]
             else:

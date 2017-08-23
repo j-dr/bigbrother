@@ -21,7 +21,7 @@ class BaseCatalog:
                  reader=None, area=None, jtype=None, nbox=None,
                  filenside=None, groupnside=None, nest=True,
                  maskfile=None, maskcomp=None, maskval=None,
-                 necessaries=None):
+                 necessaries=None, jackknife_area=None):
 
         self.ministry = ministry
         self.filestruct = filestruct
@@ -41,6 +41,8 @@ class BaseCatalog:
             self.area = 0.0
         else:
             self.area = area
+
+        self.jackknife_area = jackknife_area
 
         #jackknife information
         self.jtype = jtype
@@ -127,7 +129,7 @@ class BaseCatalog:
             ms = mg[0][1]
             fm = mg[0][0]
 
-            mappables = self.ministry.genMappables(mg[0])
+            mappables = self.ministry.genMappables(mg[0], override=True)
 
             if self.ministry.parallel:
                 from mpi4py import MPI
@@ -253,7 +255,7 @@ class BaseCatalog:
             ms = mg[0][1]
             fm = mg[0][0]
 
-            mappables = self.ministry.genMappables(mg[0])
+            mappables = self.ministry.genMappables(mg[0], override=True)
 
             if self.ministry.parallel:
                 from mpi4py import MPI

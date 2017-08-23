@@ -105,7 +105,7 @@ class GalaxyCatalog(BaseCatalog):
             ms = mg[0][1]
             fm = mg[0][0]
 
-            mappables = self.ministry.genMappables(mg[0])
+            mappables = self.ministry.genMappables(mg[0], override=True)
 
             if self.ministry.parallel:
                 from mpi4py import MPI
@@ -165,7 +165,13 @@ class GalaxyCatalog(BaseCatalog):
             else:
                 return self.calculateMaskArea()
         else:
-            return self.ministry.metrics[idx].jarea
+            if self.jackknife_area is None:
+                return self.ministry.metrics[idx].jarea
+            else:
+                if self.ministry.njacktot>1:
+                    return np.zeros(self.ministry.njacktot) + self.jackknife_area * (self.ministry.njacktot - 1)
+                else:
+                    return np.zeros(self.ministry.njacktot) + self.jackknife_area
 
     def readMappable(self, mappable, fieldmap):
 

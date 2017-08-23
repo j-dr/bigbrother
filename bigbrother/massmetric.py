@@ -477,8 +477,8 @@ class GalHOD(MassMetric):
                 self.shod = np.sum(self.jshod, axis=0) / self.njacktot
                 self.chod = np.sum(self.jchod, axis=0) / self.njacktot
 
-                self.shoderr = np.sqrt(np.sum((self.jshod - self.shod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
-                self.choderr = np.sqrt(np.sum((self.jchod - self.chod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+                self.shoderr = np.sqrt(np.sum((self.jshod - self.shod)**2, axis=0) * (self.njacktot - 1) / self.njacktot)
+                self.choderr = np.sqrt(np.sum((self.jchod - self.chod)**2, axis=0) * (self.njacktot - 1) / self.njacktot)
 
                 self.y = self.shod + self.chod
                 self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
@@ -496,8 +496,8 @@ class GalHOD(MassMetric):
             self.shod = np.sum(self.jshod, axis=0) / self.njacktot
             self.chod = np.sum(self.jchod, axis=0) / self.njacktot
 
-            self.shoderr = np.sqrt(np.sum((self.jshod - self.shod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
-            self.choderr = np.sqrt(np.sum((self.jchod - self.chod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+            self.shoderr = np.sqrt(np.sum((self.jshod - self.shod)**2, axis=0) * (self.njacktot - 1) / self.njacktot)
+            self.choderr = np.sqrt(np.sum((self.jchod - self.chod)**2, axis=0) * (self.njacktot - 1) / self.njacktot)
 
             self.y = self.shod + self.chod
             self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)
@@ -1055,12 +1055,12 @@ class GalCLFSnapshot(MassMetric):
         mass_host = mapunit['halomass']
 
         iidx = mapunit['haloid'].argsort()
-#        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
-#        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
-        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
+        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
+        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
+#        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
 
-#        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
-        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
+        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
+#        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
 #        mass_host[sat&(~incat)] = -1
 
         for j, m in enumerate(self.massbins[:-1]):
@@ -1407,13 +1407,13 @@ class GalHODSnapshot(MassMetric):
         mass_host = mapunit['halomass']
 
         iidx = mapunit['haloid'].argsort()
-#        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
-#        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
+        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
+        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
 
-        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
+#        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
 
-#        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
-        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
+        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
+#        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
 #        mass_host[sat&(~incat)] = -1
 
         #Count number of halos in mass bins before making mag counts
@@ -1532,8 +1532,8 @@ class GalHODSnapshot(MassMetric):
             self.shod = np.sum(self.jshod, axis=0) / self.njacktot
             self.chod = np.sum(self.jchod, axis=0) / self.njacktot
 
-            self.shoderr = np.sqrt(np.sum((self.jshod - self.shod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
-            self.choderr = np.sqrt(np.sum((self.jchod - self.chod**2), axis=0) * (self.njacktot - 1) / self.njacktot)
+            self.shoderr = np.sqrt(np.sum((self.jshod - self.shod)**2, axis=0) * (self.njacktot - 1) / self.njacktot)
+            self.choderr = np.sqrt(np.sum((self.jchod - self.chod)**2, axis=0) * (self.njacktot - 1) / self.njacktot)
 
             self.y = self.shod + self.chod
             self.ye = np.sqrt(self.shoderr**2 + self.choderr**2)

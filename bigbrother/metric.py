@@ -414,7 +414,7 @@ class GMetric(Metric):
                         if self.ye is not None:
                             ax[i][j].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
                               self.y[:,b,usez[j]]+self.ye[:,b,usez[j]],
-                              alpha=0.5)
+                              alpha=0.5, **kwargs)
                         if logx:
                             ax[i][j].set_xscale('log')
                         if logy:
@@ -441,11 +441,11 @@ class GMetric(Metric):
                         if self.ye is not None:
                             ax[2*i][j].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
                               self.y[:,b,usez[j]]+self.ye[:,b,usez[j]],
-                              alpha=0.5)
+                              alpha=0.5, **kwargs)
                         if dye is not None:
                             ax[2*i+1][j].fill_between(mxs[li:hi,b,usez[j]], fye-dye,
                               fye+dye,
-                              alpha=0.5)
+                              alpha=0.5,**kwargs)
 
                         if logx:
                             ax[2*i][j].set_xscale('log')
@@ -469,7 +469,7 @@ class GMetric(Metric):
                     if self.ye is not None:
                         ax[i][0].fill_between(mxs[:,b,0], self.y[:,b,0] - self.ye[:,b,0],
                                                 self.y[:,b,0] + self.ye[:,b,0],
-                                                alpha=0.5)
+                                                alpha=0.5, **kwargs)
                                             
                     if logx:
                         ax[i][0].set_xscale('log')
@@ -499,11 +499,11 @@ class GMetric(Metric):
                     if self.ye is not None:
                         ax[2*i][0].fill_between(mxs[:,b,0], self.y[:,b,0]-self.ye[:,b,0],
                           self.y[:,b,0]+self.ye[:,b,0],
-                          alpha=0.5)
+                          alpha=0.5, **kwargs)
                     if dye is not None:
                         ax[2*i+1][0].fill_between(mxs[li:hi,b,0], fye-dye,
                           fye+dye,
-                          alpha=0.5)
+                          alpha=0.5, **kwargs)
 
                     if logx:
                         ax[2*i][0].set_xscale('log')

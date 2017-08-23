@@ -98,7 +98,7 @@ class HaloCatalog(BaseCatalog):
             ms = mg[0][1]
             fm = mg[0][0]
 
-            mappables = self.ministry.genMappables(mg[0])
+            mappables = self.ministry.genMappables(mg[0], override=True)
 
             if self.ministry.parallel:
                 from mpi4py import MPI

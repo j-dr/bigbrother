@@ -99,6 +99,11 @@ class SubBoxMetric(Metric):
         yi = (self.nbox * mapunit['py']) // self.lbox
         zi = (self.nbox * mapunit['pz']) // self.lbox
 
+        #fix edge case
+        xi[xi==self.nbox] = self.nbox-1
+        yi[yi==self.nbox] = self.nbox-1
+        zi[zi==self.nbox] = self.nbox-1
+
         bidx = xi * self.nbox**2 + yi * self.nbox + zi
 
         return np.unique(bidx)
