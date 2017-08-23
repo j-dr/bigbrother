@@ -14,7 +14,6 @@ except:
     hastreecorr = False
 
 try:
-    import Corrfunc._countpairs_mocks as countpairs_mocks
     from Corrfunc.theory import DDrppi, DD, wp, xi
     from Corrfunc.mocks import DDtheta_mocks, DDrppi_mocks
     from Corrfunc.utils import convert_3d_counts_to_cf
