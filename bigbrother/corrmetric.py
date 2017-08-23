@@ -2814,10 +2814,10 @@ class GalaxyRadialProfileBCC(Metric):
                     for k, l in enumerate(self.lumbins[:-1]):
                         if self.mcutind is not None:
                             lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,self.mcutind])
-                                    & (mapunit['luminosity'][zlidx:zhidx,self.mcutind]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+                                    & (mapunit['luminosity'][zlidx:zhidx,self.mcutind]<self.lumbins[k+1])).reshape(zhidx-zlidx)
                         else:
                             lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx])
-                                    & (mapunit['luminosity'][zlidx:zhidx]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+                                    & (mapunit['luminosity'][zlidx:zhidx]<self.lumbins[k+1])).reshape(zhidx-zlidx)
 
                         for n in range(self.ncbins):
                             if self.ncbins>1:
