@@ -4,8 +4,10 @@ import healpy as hp
 
 def ra2rad(mapunit, mapkey):
     phi = np.deg2rad(mapunit[mapkey])
-
     return phi
+
+def pid2binary(mapunit, mapkey):
+    return (mapunit[mapkey]==-1).astype(np.int)
 
 def dec2rad(mapunit, mapkey):
     theta = -mapunit[mapkey]+90.

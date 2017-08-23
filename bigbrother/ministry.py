@@ -172,6 +172,12 @@ class Ministry:
 
             mk  = copy(metric.mapkeys)
             mk.extend(cat.necessaries)
+
+            if cat.jtype == 'subbox':
+                mk.extend(['px','py','pz'])
+            elif cat.jtype == 'healpix':
+                mk.extend(['polar_ang', 'azim_ang'])
+
             mk = np.unique(mk)
 
             for mapkey in mk:
@@ -433,7 +439,7 @@ class Ministry:
         return [cfm, m]
 
 
-    def singleTypeMappable(self, fieldmap, fs):
+    def singleTypeMappable(self, fieldmap, fs, jtype, override=False):
         """
         If only working with one type of catalog,
         can assume that the length of all file types
@@ -442,7 +448,6 @@ class Ministry:
 
         filetypes = fieldmap.keys()
         mappables = []
-
 
         #need to put filetypes with redshifts in
         #them first
@@ -456,22 +461,55 @@ class Ministry:
 
         filetypes = zft
         filetypes.extend(nzft)
+        
+
+        if (jtype is not None) & (not override):
+            g, fgroups = self.galaxycatalog.groupFiles()
+            jt = jtype
+            nb = self.galaxycatalog.nbox
+            gn = self.galaxycatalog.groupnside
+
+        elif not override:
+            fgroups = [np.arange(len(fs[filetypes[0]]))]
+            g       = [0]
+            jt = None
+            nb = 0
+            gn = 0
+
+        else:
+            for i in range(len(fs[filetypes[0]])):
+
+                for j, ft in enumerate(filetypes):
+                    if j==0:
+                        root = Mappable(fs[ft][i], ft)
+                        last = root
+                    else:
+                        node = Mappable(fs[ft][i], ft)
+                        last.children.append(node)
+                        last = node
+
+                mappables.append(root)
+
+            return mappables            
 
         #Create mappables out of filestruct and fieldmaps
-        for i in range(len(fs[filetypes[0]])):
-
-            for j, ft in enumerate(filetypes):
-                if j==0:
-                    root = Mappable(fs[ft][i], ft)
-                    last = root
-                else:
-                    node = Mappable(fs[ft][i], ft)
-                    last.children.append(node)
-                    last = node
+        for i, fg in enumerate(fgroups):
+            for fc, j in enumerate(fg):
+                for k, ft in enumerate(filetypes):
+                    if (fc==0) & (k==0):
+                        root = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last = root
+                    else:
+                        node = Mappable(fs[ft][j], ft, jtype=jt,
+                                      gnside=gn, nbox=nb, grp=g[i])
+                        last.children.append(node)
+                        last = node
 
             mappables.append(root)
 
         return mappables
+
 
     def galaxyGalaxyMappable(self, fieldmap):
 
@@ -674,7 +712,7 @@ class Ministry:
 
         return np.array(set(idx))
 
-    def genMappables(self, mgroup):
+    def genMappables(self, mgroup, override=False):
         """
         Given a fieldmap and an association
         schema create mappables for a metric
@@ -692,16 +730,16 @@ class Ministry:
             ct      = m.catalog_type[0]
 
         if aschema == 'galaxyonly':
-            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
+            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, m[0].jtype, override=override)
         elif aschema == 'haloonly':
-            return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+            return self.singleTypeMappable(fm, self.halocatalog.filestruct, m[0].jtype, override=override)
         elif aschema == 'singleonly':
             if ct == 'galaxycatalog':
-                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct)
+                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, m[0].jtype, override=override)
             if ct == 'halocatalog':
-                return self.singleTypeMappable(fm, self.halocatalog.filestruct)
+                return self.singleTypeMappable(fm, self.halocatalog.filestruct, m[0].jtype, override=override)
             if ct == 'particlecatalog':
-                return self.singleTypeMappable(fm, self.particlecatalog.filestruct)
+                return self.singleTypeMappable(fm, self.particlecatalog.filestruct, m[0].jtype, override=override)
         elif aschema == 'galaxygalaxy':
             return self.galaxyGalaxyMappable(fm)
         elif aschema == 'halohalo':
@@ -722,7 +760,6 @@ class Ministry:
             mappable.data = self.particlecatalog.readMappable(mappable, fieldmap)
 
         if len(mappable.children)>0:
-            print('mappable.children'.format(mappable.children))
             for child in mappable.children:
                 self.readMappable(child, fieldmap)
 
@@ -783,6 +820,10 @@ class Ministry:
 
             for key in mapunit.data.keys():
                 if key in mu.keys():
+                    if len(mu[key].shape)<2:
+                        mu[key] = np.atleast_2d(mu[key]).T
+                        mapunit.data[key] = np.atleast_2d(mapunit.data[key]).T
+
                     shp0 = mu[key].shape
                     shp1 = mapunit.data[key].shape
 
@@ -800,6 +841,10 @@ class Ministry:
 
         for key in mapunit.data.keys():
             if key in mu.keys():
+                if len(mu[key].shape)<2:
+                    mu[key] = np.atleast_2d(mu[key]).T
+                    mapunit.data[key] = np.atleast_2d(mapunit.data[key]).T
+
                 shp0 = mu[key].shape
                 shp1 = mapunit.data[key].shape
 
@@ -848,6 +893,9 @@ class Ministry:
     def maskMappable(self, mapunit, mappable):
 
         if mappable.jtype == 'healpix':
+            if mappable.gnside == 0:
+                return mapunit
+
             tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
@@ -941,6 +989,9 @@ class Ministry:
             return mapunit
 
         elif mappable.jtype == 'subbox':
+            if mappable.nbox == 0:
+                return mapunit
+
             tp = np.zeros((len(mapunit[mapunit.keys()[0]]),3))
             if self.galaxycatalog is not None:
                 if 'px' in self.galaxycatalog.unitmap.keys():
@@ -1064,7 +1115,6 @@ class Ministry:
             rank = None
             comm = None
 
-
         for mg in self.metric_groups:
             sbz = False
             ms  = mg[1]
@@ -1093,34 +1143,39 @@ class Ministry:
 #                  & (ms[0].aschema != 'halohalo')):
 #                    self.sortMappableByZ(mapunit, fm, [])
 
-                if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
-                    mapunit = self.scListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)
-                    mapunit = self.convert(mapunit, ms)
-                    mapunit = self.filter(mapunit)
-                    if sbz:
-                        mapunit = self.sortMapunitByZ(mapunit)
+                if (not hasattr(ms,'__iter__')):
+                    aschema = ms.aschema 
+                else:
+                    aschema = ms[0].aschema
 
-                elif 'only' in ms[0].aschema:
-                    mapunit = self.scListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)
-                    mapunit = self.convert(mapunit, ms)
-                    mapunit = self.filter(mapunit)
-                    if sbz:
-                        mapunit = self.sortMapunitByZ(mapunit)
-
-                elif sbz & ((ms[0].aschema == 'galaxygalaxy')
-                  | (ms[0].aschema == 'halohalo')
-                  | (ms[0].aschema == 'particleparticle')):
+                if ('only' in aschema) & (mappable.jtype is None):
                     mapunit = self.dcListToDict(mapunit)
                     mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
-                elif ((ms[0].aschema == 'galaxygalaxy')
-                  | (ms[0].aschema == 'halohalo')
-                  | (ms[0].aschema == 'particleparticle')):
+
+                elif ('only' in aschema) & (mappable.jtype is not None):
+                    mapunit = self.dcListToDict(mapunit)
+                    mapunit = self.maskMappable(mapunit, mappable)
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
+
+                elif sbz & ((aschema == 'galaxygalaxy')
+                  | (aschema == 'halohalo')
+                  | (aschema == 'particleparticle')):
+                    mapunit = self.dcListToDict(mapunit)
+                    mapunit = self.maskMappable(mapunit, mappable)
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
+                elif ((aschema == 'galaxygalaxy')
+                  | (aschema == 'halohalo')
+                  | (aschema == 'particleparticle')):
                     mapunit = self.dcListToDict(mapunit)
                     mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)

@@ -218,6 +218,8 @@ class GMetric(Metric):
             self.xbins = np.linspace(-25, -11, 30)
         else:
             self.xbins = xbins
+        
+        self.nxbins = len(self.xbins)-1
 
     @abstractmethod
     def map(self, mapunit):
@@ -443,7 +445,7 @@ class GMetric(Metric):
                         if dye is not None:
                             ax[2*i+1][j].fill_between(mxs[li:hi,b,usez[j]], fye-dye,
                               fye+dye,
-                              alpha=0.5, **kwargs)
+                              alpha=0.5,**kwargs)
 
                         if logx:
                             ax[2*i][j].set_xscale('log')

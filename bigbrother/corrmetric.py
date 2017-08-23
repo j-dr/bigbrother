@@ -93,7 +93,7 @@ class CorrelationFunction(Metric):
         if 'galaxycatalog' in self.catalog_type:
             self.aschema = 'galaxygalaxy'
             self.mkey = 'luminosity'
-        elif 'halohalo' in self.catalog_type:
+        elif 'halocatalog' in self.catalog_type:
             self.mkey = 'halomass'
             self.aschema = 'halohalo'
         else:
@@ -358,7 +358,6 @@ class AngularCorrelationFunction(CorrelationFunction):
 
         self.jcount = 0
 
-        self.writeCorrfuncBinFile(self.abins, binfilename='angular_bins')
         #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
@@ -396,6 +395,7 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.jsamples += 1
 
         if self.nd is None:
+            self.writeCorrfuncBinFile(self.abins, binfilename='angular_bins')
             self.nd = np.zeros((self.njack, self.ncbins, self.nmbins,
                                   self.nzbins))
             self.nr = np.zeros((self.njack, self.ncbins, self.nmbins,
@@ -416,7 +416,10 @@ class AngularCorrelationFunction(CorrelationFunction):
             mu['azim_ang'][:] = mapunit['azim_ang'][:]
             mu['polar_ang'][:] = mapunit['polar_ang'][:]
             mu['redshift'][:] = mapunit['redshift'][:]
-            mu[self.mkey] = mapunit[self.mkey]
+
+            for f in self.mapkeys:
+                if (f=='px') | (f=='py') | (f=='pz') : continue
+                mu[f] = mapunit[f]
 
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
@@ -821,7 +824,6 @@ class WPrpLightcone(CorrelationFunction):
 
         self.jcount = 0
 
-        self.writeCorrfuncBinFile(self.rbins)
         #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
@@ -839,6 +841,7 @@ class WPrpLightcone(CorrelationFunction):
 
         if self.centrals_only:
             self.mapkeys.append('central')
+            self.unitmap['central'] = 'binary'
 
         if self.pccolor:
             self.mapkeys.append('color')
@@ -877,6 +880,7 @@ class WPrpLightcone(CorrelationFunction):
             clr = mapunit['color']
 
         if self.dd is None:
+            self.writeCorrfuncBinFile(self.rbins)
             self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins, self.nzbins))
             self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins, self.nzbins))
             self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins, self.nzbins))
@@ -893,7 +897,10 @@ class WPrpLightcone(CorrelationFunction):
             mu['azim_ang'][:] = mapunit['azim_ang'][:]
             mu['polar_ang'][:] = mapunit['polar_ang'][:]
             mu['redshift'][:] = mapunit['redshift'][:]
-            mu[self.mkey] = mapunit[self.mkey]
+
+            for f in self.mapkeys:
+                if (f=='px') | (f=='py') | (f=='pz') : continue
+                mu[f] = mapunit[f]
 
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
@@ -1170,8 +1177,8 @@ class WPrpLightcone(CorrelationFunction):
             sax.spines['left'].set_color('none')
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=20)
-            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$',labelpad=20)
+            sax.set_ylabel(r'$w_{p}(r_{p})$', labelpad=30, fontsize=20)
+            sax.set_xlabel(r'$r_{p} \, [ Mpc h^{-1}]$',labelpad=30, fontsize=20)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
@@ -1235,7 +1242,7 @@ class WPrpSnapshot(CorrelationFunction):
                   pimax=None, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
                   rsd=False, upper_limit=False, splitcolor=None,
-                  cinds=None, cbins=None, **kwargs):
+                  cinds=None, cbins=None, centrals_only=False,**kwargs):
 
         """
         Angular correlation function, w(theta), for use with non-periodic
@@ -1288,9 +1295,8 @@ class WPrpSnapshot(CorrelationFunction):
         else:
             self.pimax = pimax
 
-        self.writeCorrfuncBinFile(self.rbins)
-
         self.rsd = rsd
+        self.centrals_only = centrals_only
 
         self.mapkeys = ['px', 'py', 'pz', self.mkey]
         self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
@@ -1302,6 +1308,10 @@ class WPrpSnapshot(CorrelationFunction):
         if self.rsd:
             self.mapkeys.append('velocity')
             self.unitmap['velocity'] = 'kms'
+        
+        if self.centrals_only:
+            self.mapkeys.append('central')
+            self.mapkeys['central'] = 'binary'
 
         self.nd = None
         self.nr = None
@@ -1324,6 +1334,7 @@ class WPrpSnapshot(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if self.dd is None:
+            self.writeCorrfuncBinFile(self.rbins)
             self.dd = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins))
             self.dr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins))
             self.rr = np.zeros((self.njack, self.nrbins, int(self.pimax), self.ncbins, self.nmbins))
@@ -1339,7 +1350,10 @@ class WPrpSnapshot(CorrelationFunction):
             mu['px'][:] = mapunit['px'][:]
             mu['py'][:] = mapunit['py'][:]
             mu['pz'][:] = mapunit['pz'][:]
-            mu[self.mkey] = mapunit[self.mkey]
+
+            for f in self.mapkeys:
+                if (f=='px') | (f=='py') | (f=='pz') : continue
+                mu[f] = mapunit[f]
 
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
@@ -1367,6 +1381,9 @@ class WPrpSnapshot(CorrelationFunction):
                     lidx = mu[self.mkey] < self.mbins[i]
                 else:
                     lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
+
+            if self.centrals_only:
+                lidx &= (self.mapunit['central']==1)
 
             if (li==self.rand_ind) | (not self.same_rand):
                 print('Generating Randoms')
@@ -1666,7 +1683,8 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                   precompute_color=False,
                   mcutind=None, same_rand=False, inv_m=True,
                   rsd=False, upper_limit=False, splitcolor=None,
-                  cinds=None, cbins=None, **kwargs):
+                  cinds=None, cbins=None, centrals_only=True,
+                  **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
         data. All angles should be specified in degrees.
@@ -1725,9 +1743,8 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
         else:
             self.ncbins = 1
 
-        self.writeCorrfuncBinFile(self.rbins)
-
         self.rsd = rsd
+        self.centrals_only = centrals_only
 
         if self.mkey is not None:
             self.mapkeys = ['px', 'py', 'pz', self.mkey]
@@ -1746,6 +1763,10 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             self.mapkeys.append('velocity')
             self.unitmap['velocity'] = 'kms'
 
+        if self.centrals_only:
+            self.mapkeys.append('central')
+            self.unitmap['central'] = 'binary'
+
         self.wprp = None
         self.npairs = None
 
@@ -1763,6 +1784,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate wp(rp)"))
 
         if self.wprp is None:
+            self.writeCorrfuncBinFile(self.rbins)
             self.wprp   = np.zeros((self.nrbins, self.ncbins, self.nmbins, 1))
             self.npairs = np.zeros((self.nrbins, self.ncbins, self.nmbins, 1))
 
@@ -1775,9 +1797,11 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             mu['px'][:] = mapunit['px'][:]
             mu['py'][:] = mapunit['py'][:]
             mu['pz'][:] = mapunit['pz'][:]
-            if self.mkey is not None:
-                mu[self.mkey] = mapunit[self.mkey]
 
+            for f in self.mapkeys:
+                if (f=='px') | (f=='py') | (f=='pz') : continue
+                mu[f] = mapunit[f]
+            
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
                 mu['velocity'][:] = mapunit['velocity'][:]
@@ -1806,6 +1830,9 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                     lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
             else:
                 lidx = np.ones(len(mu['px']), dtype=np.bool)
+
+            if self.centrals_only:
+                lidx &= (mapunit['central']==1)
                     
             for j in range(self.ncbins):
                 
@@ -1949,7 +1976,7 @@ class XiofR(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   lightcone=True, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  **kwargs):
+                  centrals_only=False, **kwargs):
 
         """
         Real space 3-d correlation function, xi(r), for use with non-periodic
@@ -1981,7 +2008,7 @@ class XiofR(CorrelationFunction):
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
 
-        self.writeCorrfuncBinFile(self.rbins)
+
 
         if self.mkey is not None:
             self.mapkeys = ['px', 'py', 'pz', self.mkey]
@@ -1989,6 +2016,8 @@ class XiofR(CorrelationFunction):
             self.mapkeys = ['px','py','pz']
 
         self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+
+        self.centrals_only = centrals_only
 
         if self.lightcone:
             self.mapkeys.append('redshift')
@@ -1998,6 +2027,10 @@ class XiofR(CorrelationFunction):
             self.unitmap[self.mkey] = 'mag'
         elif self.mkey == 'halomass':
             self.unitmap[self.mkey] = 'msunh'
+            
+        if self.centrals_only:
+            self.mapkeys.append('central')
+            self.unitmap['central'] = 'binary'
 
         self.nd = None
         self.nr = None
@@ -2012,6 +2045,7 @@ class XiofR(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate xi(r)"))
 
         if self.dd is None:
+            self.writeCorrfuncBinFile(self.rbins)
             self.dd = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
             self.dr = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
             self.rr = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
@@ -2027,10 +2061,10 @@ class XiofR(CorrelationFunction):
             mu['px'][:] = mapunit['px'][:]
             mu['py'][:] = mapunit['py'][:]
             mu['pz'][:] = mapunit['pz'][:]
-            mu[self.mkey] = mapunit[self.mkey]
 
-            if self.lightcone:
-                mu['redshift'] = mapunit['redshift']
+            for f in self.mapkeys:
+                if (f=='px') | (f=='py') | (f=='pz') : continue
+                mu[f] = mapunit[f]
 
         else:
             mu = mapunit
@@ -2054,6 +2088,9 @@ class XiofR(CorrelationFunction):
                         lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
                     else:
                         lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+
+                    if self.centrals_only:
+                        lidx &= (mapunit['central']==1)
 
                     if (lj==self.rand_ind) | (not self.same_rand):
                         print('Generating Randoms')
@@ -2409,7 +2446,7 @@ class XiofRAnalyticRandoms(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   lightcone=False, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  **kwargs):
+                  centrals_only=False, **kwargs):
 
         """
         Real space 3-d correlation function, xi(r), for use with periodic
@@ -2441,14 +2478,18 @@ class XiofRAnalyticRandoms(CorrelationFunction):
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
 
-        self.writeCorrfuncBinFile(self.rbins)
-
         if self.mkey is not None:
             self.mapkeys = ['px', 'py', 'pz', self.mkey]
         else:
             self.mapkeys = ['px','py','pz']
 
+        self.centrals_only = centrals_only
+
         self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+
+        if self.centrals_only:
+            self.mapkeys.append('central')
+            self.unitmap['central'] = 'binary'
 
         if self.mkey == 'luminosity':
             self.unitmap[self.mkey] = 'mag'
@@ -2464,6 +2505,7 @@ class XiofRAnalyticRandoms(CorrelationFunction):
             raise(ImportError("CorrFunc is required to calculate xi(r)"))
 
         if self.xi is None:
+            self.writeCorrfuncBinFile(self.rbins)
             self.xi = np.zeros((self.nrbins, self.nmbins, 1))
 
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
@@ -2475,8 +2517,11 @@ class XiofRAnalyticRandoms(CorrelationFunction):
             mu['px'][:] = mapunit['px'][:]
             mu['py'][:] = mapunit['py'][:]
             mu['pz'][:] = mapunit['pz'][:]
-            if self.mkey is not None:
-                mu[self.mkey] = mapunit[self.mkey]
+
+            for f in self.mapkeys:
+                if (f=='px') | (f=='py') | (f=='pz'): continue
+                mu[f] = mapunit[f]
+            
         else:
             mu = mapunit
 
@@ -2497,6 +2542,9 @@ class XiofRAnalyticRandoms(CorrelationFunction):
                     lidx = (mu[self.mkey] < self.mbins[j])
                 else:
                     lidx = np.ones(len(mu['px']), dtype=np.bool)
+
+            if self.centrals_only:
+                lidx &= (mu['central']==1)
 
             print("Number of galaxies in this z/lum bin: {0}".format(len(mu['pz'][lidx])))
             print('calculating xi(r)')
@@ -2665,8 +2713,9 @@ class GalaxyRadialProfileBCC(Metric):
 
     def __init__(self, ministry, zbins=None, lumbins=None, rbins=None,
                  massbins=None, subjack=False, mcutind=None,
-                 catalog_type=['galaxycatalog'],
-                 tag=None, **kwargs):
+                 catalog_type=['galaxycatalog'], splitcolor=None,
+                 cinds=None, cbins=None, tag=None, lightcone=True,
+                 **kwargs):
         """
         Radial profile of galaxies around their nearest halos.
         """
@@ -2675,13 +2724,32 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.catalog_type = catalog_type
 
-        if zbins is None:
-            self.zbins = [0.0, 0.2]
-        else:
-            self.zbins = zbins
-            self.zbins = np.array(self.zbins)
+        self.lightcone = lightcone
 
-        self.nzbins = len(self.zbins)-1
+        if self.lightcone:
+            if zbins is None:
+                self.zbins = [0.0, 0.2]
+            else:
+                self.zbins = zbins
+                self.zbins = np.array(self.zbins)
+
+            self.nzbins = len(self.zbins)-1
+        else:
+            self.zbins = None
+            self.nzbins = 1
+
+        self.splitcolor = splitcolor
+
+        if self.splitcolor is not None:
+            self.ncbins = 2
+            if cinds is None:
+                self.cinds = [0,1]
+            else:
+                self.cinds = cinds
+        else:
+            self.ncbins = 1
+
+
 
         if lumbins is None:
             self.lumbins = np.array([-22, -21, -20, -19])
@@ -2690,10 +2758,7 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.nlumbins = len(self.lumbins)-1
 
-        if mcutind is None:
-            self.mcutind = 1
-        else:
-            self.mcutind = mcutind
+        self.mcutind = mcutind
         
         if massbins is None:
             self.massbins = np.logspace(np.log10(5e12),15,5)
@@ -2711,9 +2776,13 @@ class GalaxyRadialProfileBCC(Metric):
 
         self.aschema = 'galaxyonly'
 
-        self.mapkeys = ['luminosity', 'redshift', 'rhalo', 'halomass', 'haloid']
+        self.mapkeys = ['luminosity', 'rhalo', 'halomass', 'haloid']
         self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra',
-                        'redshift':'z', 'halomass':'msunh'}
+                        'halomass':'msunh'}
+
+        if self.lightcone:
+            self.mapkeys.append('redshift')
+            self.unitmap['redshift'] = 'z'
 
         self.rcounts = None
         self.hcounts = None
@@ -2723,27 +2792,71 @@ class GalaxyRadialProfileBCC(Metric):
 
         if self.rcounts is None:
             self.rcounts = np.zeros((self.njack, self.nrbins,
-                                     self.nlumbins,
+                                     self.ncbins, self.nlumbins,
                                      self.nmassbins,                                      
                                      self.nzbins))
             self.hcounts = np.zeros((self.njack, self.nmassbins,
                                      self.nzbins))
 
-        for i, z in enumerate(self.zbins[:-1]):
-            zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
-            zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
+        if self.ncbins>1:
+            color = mapunit['luminosity'][:,self.cinds[0]] - mapunit['luminosity'][:,self.cinds[1]]
+
+        if self.lightcone:
+            for i, z in enumerate(self.zbins[:-1]):
+                zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
+                zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
             
+                for j, m in enumerate(self.massbins[:-1]):
+                    midx = ((self.massbins[j] < mapunit['halomass'][zlidx:zhidx])
+                            & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1])).reshape(zhidx-zlidx)
+                    self.hcounts[self.jcount,j,i] += len(np.unique(mapunit['haloid'][zlidx:zhidx]))
+                
+                    for k, l in enumerate(self.lumbins[:-1]):
+                        if self.mcutind is not None:
+                            lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,self.mcutind])
+                                    & (mapunit['luminosity'][zlidx:zhidx,self.mcutind]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+                        else:
+                            lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx])
+                                    & (mapunit['luminosity'][zlidx:zhidx]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+
+                        for n in range(self.ncbins):
+                            if self.ncbins>1:
+                                if n==0:
+                                    cidx = lidx & (color[zlidx:zhidx]<self.splitcolor)
+                                else:
+                                    cidx = lidx & (color[zlidx:zhidx]>=self.splitcolor)
+                            else:
+                                cidx = lidx
+
+
+                            c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][midx&cidx], bins=self.rbins)
+                            self.rcounts[self.jcount,:,n,k,j,i] += c
+        else:
             for j, m in enumerate(self.massbins[:-1]):
-                midx = ((self.massbins[j] < mapunit['halomass'][zlidx:zhidx])
-                        & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1])).reshape(zhidx-zlidx)
-                self.hcounts[self.jcount,j,i] += len(np.unique(mapunit['haloid'][zlidx:zhidx]))
+                midx = ((self.massbins[j] < mapunit['halomass'][:])
+                        & (mapunit['halomass'][:] <= self.massbins[j+1])).reshape(len(mapunit['halomass']))
+                self.hcounts[self.jcount,j,0] += len(np.unique(mapunit['haloid'][:]))
                 
                 for k, l in enumerate(self.lumbins[:-1]):
-                    lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,1])
-                             & (mapunit['luminosity'][zlidx:zhidx,1]<self.lumbins[k+1])).reshape(zhidx-zlidx)
+                    if self.mcutind is not None:
+                        lidx = ((self.lumbins[k]<mapunit['luminosity'][:,self.mcutind])
+                                & (mapunit['luminosity'][:,self.mcutind]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
+                    else:
+                        lidx = ((self.lumbins[k]<mapunit['luminosity'][:])
+                                & (mapunit['luminosity'][:]<self.lumbins[k+1])).reshape(len(mapunit['halomass']))
 
-                    c, e = np.histogram(mapunit['rhalo'][zlidx:zhidx][midx&lidx], bins=self.rbins)
-                    self.rcounts[self.jcount,:,k,j,i] += c
+                    for n in range(self.ncbins):
+                        if self.ncbins>1:
+                            if n==0:
+                                cidx = lidx & (color[:]<self.splitcolor)
+                            else:
+                                cidx = lidx & (color[:]>=self.splitcolor)
+                        else:
+                            cidx = lidx
+                            
+                        c, e = np.histogram(mapunit['rhalo'][:][midx&cidx], bins=self.rbins)
+                        self.rcounts[self.jcount,:,n,k,j,0] += c
+            
 
     def reduce(self, rank=None, comm=None):
 
@@ -2766,7 +2879,7 @@ class GalaxyRadialProfileBCC(Metric):
                 for i,g in enumerate(grcounts):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.rcounts[jc:jc+nj,:,:,:,:] = g
+                    self.rcounts[jc:jc+nj,:,:,:,:,:] = g
                     self.hcounts[jc:jc+nj,:,:] = ghcounts[i]
 
                     jc += nj
@@ -2774,12 +2887,12 @@ class GalaxyRadialProfileBCC(Metric):
                 self.rmean = (self.rbins[1:] + self.rbins[:-1]) / 2
                 vol = 4 * np.pi * (self.rmean**3) / 3
 
-                self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1))
+                self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1,1))
 
                 self.jurprof  = self.jackknife(self.jurprof, reduce_jk=False)
                 self.jhcounts = self.jackknife(self.hcounts, reduce_jk=False)
 
-                self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,self.nmassbins,self.nzbins)
+                self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,1,self.nmassbins,self.nzbins)
 
                 self.rprof    = np.sum(self.jrprof, axis=0) / self.njacktot
                 self.varrprof = (np.sum((self.jrprof - self.rprof)**2, axis=0) * (self.njacktot - 1)
@@ -2789,12 +2902,12 @@ class GalaxyRadialProfileBCC(Metric):
             self.rmean = (self.rbins[1:] + self.rbins[:-1]) / 2
             vol = 4 * np.pi * (self.rmean**3) / 3
 
-            self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1))
+            self.jurprof = self.rcounts / vol.reshape((1,self.nrbins,1,1,1,1))
 
             self.jurprof  = self.jackknife(self.jurprof, reduce_jk=False)
             self.jhcounts = self.jackknife(self.hcounts, reduce_jk=False)
 
-            self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,self.nmassbins,self.nzbins)
+            self.jrprof   = self.jurprof / self.jhcounts.reshape(-1,1,1,1,self.nmassbins,self.nzbins)
             self.rprof    = np.sum(self.jrprof, axis=0) / self.njacktot
             self.varrprof = (np.sum((self.jrprof - self.rprof)**2, axis=0) * (self.njacktot - 1)
                                / self.njacktot)
@@ -2802,8 +2915,8 @@ class GalaxyRadialProfileBCC(Metric):
 
     def visualize(self, plotname=None, f=None, ax=None,
                   compare=False, usecols=None, usez=None,
-                  uselum=None, xlabel=None, ylabel=None, logx=True,
-                  logy=True, **kwargs):
+                  uselum=None, usecolor=None, xlabel=None, 
+                  ylabel=None, logx=True, logy=True, **kwargs):
 
         if usez is None:
             usez = range(self.nzbins)
@@ -2811,9 +2924,9 @@ class GalaxyRadialProfileBCC(Metric):
             usecols = range(self.nmassbins)
         if uselum is None:
             uselum = range(self.nlumbins)
+        if usecolor is None:
+            usecolor = range(self.ncbins)
 
-
-            
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
                                     sharey=True, figsize=(8,8))
@@ -2823,14 +2936,15 @@ class GalaxyRadialProfileBCC(Metric):
         else:
             newaxes = False
 
-        for i in range(len(usez)):
-            for j in range(len(usecols)):
-                for k in range(len(uselum)):
-                    ye = np.sqrt(self.varrprof[:,k,j,i])
-                    l = ax[i][j].plot(self.rmean, self.rprof[:,k,j,i],
-                                  **kwargs)
-                    ax[i][j].fill_between(self.rmean, self.rprof[:,k,j,i]-ye,
-                                          self.rprof[:,k,j,i]+ye,alpha=0.5,**kwargs)
+        for i, z in enumerate(usez):
+            for j, c in enumerate(usecols):
+                for k, lu in enumerate(uselum):
+                    for n, cl in enumerate(usecolor):
+                        ye = np.sqrt(self.varrprof[:,cl,lu,j,i])
+                        l = ax[i][j].plot(self.rmean, self.rprof[:,cl,lu,c,z],
+                                          **kwargs)
+                        ax[i][j].fill_between(self.rmean, self.rprof[:,cl,lu,c,z]-ye,
+                                              self.rprof[:,cl,lu,c,z]+ye,alpha=0.5,**kwargs)
 
         if logx:
             ax[0][0].set_xscale('log')

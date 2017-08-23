@@ -165,7 +165,10 @@ class DNDz(Metric):
 
                     jc += nj
 
-                area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot,1,1)
+                if self.jtype is not None:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot,1,1)
+                else:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=False)
 
                 if self.normed:
                     dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
@@ -179,7 +182,11 @@ class DNDz(Metric):
                 self.vardndz = np.sum( (self.jdndz - self.dndz) ** 2, axis=0) * (self.njacktot - 1) / self.njacktot
 
         else:
-            area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot,1,1)
+            if self.jtype is not None:
+                area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(self.njacktot,1,1)
+            else:
+                area = self.ministry.galaxycatalog.getArea(jackknife=False).reshape(self.njacktot,1,1)                
+
             if self.normed:
                 dz = (self.zbins[1:]-self.zbins[:-1]).reshape((1,self.zcounts.shape[1],1))
                 jzcounts = self.jackknife(self.zcounts, reduce_jk=False)
