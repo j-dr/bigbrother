@@ -1463,7 +1463,7 @@ class ColorMagnitude(Metric):
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecolors=None,
-                  compare=False, nc=3, **kwargs):
+                  compare=False, nc=3, colors=None, **kwargs):
 
         x = (self.magbins[:-1]+self.magbins[1:])/2
         y = (self.cbins[:-1]+self.cbins[1:])/2
@@ -1489,8 +1489,12 @@ class ColorMagnitude(Metric):
 
         for i, c in enumerate(usecolors):
             for j in range(self.nzbins):
-                l1 = ax[j][i].contour(X, Y, cc[:,:,c,j].T,nc,
-                                    **kwargs)
+                try:
+                    l1 = ax[j][i].contour(X, Y, cc[:,:,c,j].T, nc,
+                                     colors=colors, **kwargs)
+                    l1 = plt.Rectangle((0,0),1,1,fc = l1.collections[0].get_color()[0]) 
+                except:
+                    l1 = plt.Rectangle((0,0),1,1,fc = 'k')
 
         if newaxes:
             sax = f.add_subplot(111)
@@ -1512,7 +1516,7 @@ class ColorMagnitude(Metric):
         return f, ax, l1
 
     def compare(self, othermetrics, plotname=None, usecolors=None,
-                 labels=None, **kwargs):
+                 labels=None, colors=None, **kwargs):
         tocompare = [self]
         tocompare.extend(othermetrics)
 
@@ -1527,6 +1531,11 @@ class ColorMagnitude(Metric):
         if labels is None:
             labels = [None]*len(tocompare)
 
+        if colors is None:
+            colors = [None]*len(tocompare)
+        else:
+            assert(len(colors)==len(tocompare))
+
         lines = []
 
         for i, m in enumerate(tocompare):
@@ -1534,10 +1543,10 @@ class ColorMagnitude(Metric):
                 assert(len(usecolors[0])==len(usecolors[i]))
             if i==0:
                 f, ax, l1 = m.visualize(usecolors=usecolors[i], compare=True,
-                                    **kwargs)
+                                        colors=colors[i],**kwargs)
             else:
                 f, ax, l1 = m.visualize(usecolors=usecolors[i], compare=True,
-                                    f=f, ax=ax, **kwargs)
+                                    f=f, ax=ax, colors=colors[i],**kwargs)
             lines.append(l1)
 
         if labels[0]!=None:

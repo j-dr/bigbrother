@@ -762,6 +762,7 @@ class Ministry:
 
 
     def readMappable(self, mappable, fieldmap):
+        print('Reading {}'.format(mappable.name))
         if (self.halocatalog is not None) and (mappable.dtype in self.halocatalog.filetypes):
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
         elif (self.galaxycatalog is not None) and (mappable.dtype in self.galaxycatalog.filetypes):

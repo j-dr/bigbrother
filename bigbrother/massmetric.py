@@ -524,10 +524,10 @@ class GalHOD(MassMetric):
             usez = range(self.nzbins)
 
         if f is None:
-            f, ax = plt.subplots(len(usecols), len(usez),
+            f, ax = plt.subplots(len(usez), len(usecols), 
                                  sharex=True, sharey=True,
                                  figsize=(10,10))
-            ax = np.array(ax).reshape((len(usecols), len(usez)))
+            ax = np.array(ax).reshape(len(usez), len(usecols))
 
             newaxes = True
         else:
@@ -542,24 +542,24 @@ class GalHOD(MassMetric):
                 cye = self.choderr[:,0,j,zi]
 
                 if not noerr:
-                    ls = ax[j,i].errorbar(mmean, sy, yerr=sye, linestyle='-.', barsabove=True,
+                    ls = ax[i,j].errorbar(mmean, sy, yerr=sye, linestyle='-.', barsabove=True,
                                           **kwargs)
                     
-                    lc = ax[j,i].errorbar(mmean, cy, yerr=cye, linestyle='--', barsabove=True,
+                    lc = ax[i,j].errorbar(mmean, cy, yerr=cye, linestyle='--', barsabove=True,
                                           **kwargs)
                     
-                    lt = ax[j,i].errorbar(mmean, self.y[:,0,j,zi],
+                    lt = ax[i,j].errorbar(mmean, self.y[:,0,j,zi],
                                           yerr=self.ye[:,0,j,zi],
                                           barsabove=True,
                                           **kwargs)
                 else:
-                    ls = ax[j,i].plot(mmean, sy, linestyle='-.',
+                    ls = ax[i,j].plot(mmean, sy, linestyle='-.',
                                       **kwargs)
                     
-                    lc = ax[j,i].plot(mmean, cy, linestyle='--',
+                    lc = ax[i,j].plot(mmean, cy, linestyle='--',
                                       **kwargs)
                     
-                    lt = ax[j,i].plot(mmean, self.y[:,0,j,zi],
+                    lt = ax[i,j].plot(mmean, self.y[:,0,j,zi],
                                       **kwargs)
                 
 
@@ -572,9 +572,9 @@ class GalHOD(MassMetric):
                             & ((self.chod[:,0,j,zi]==0).all()
                             | ~np.isfinite(self.chod[:,0,j,zi]).any())):
                         if logx:
-                            ax[j,i].set_xscale('log')
+                            ax[i,j].set_xscale('log')
                         if logy:
-                            ax[j,i].set_yscale('log')
+                            ax[i,j].set_yscale('log')
 
         if xlim is not None:
             ax[0][0].set_xlim(xlim)
@@ -840,10 +840,10 @@ class GalCLF(MassMetric):
             usez = range(self.nzbins)
 
         if f is None:
-            f, ax = plt.subplots(len(usecols), self.nzbins,
+            f, ax = plt.subplots(self.nzbins, len(usecols),
                                  sharex=True, sharey=False,
                                  figsize=(10,10))
-            ax = np.array(ax).reshape((len(usecols), self.nzbins))
+            ax = np.array(ax).reshape(self.nzbins, len(usecols))
 
             newaxes = True
         else:
@@ -862,15 +862,15 @@ class GalCLF(MassMetric):
                     ye   = np.sqrt(self.varlumfunction[:,j,i])
                     
                     if not total_clf_only:
-                        ls = ax[j,i].errorbar(lmean, sy, yerr=sye, fmt='-.', barsabove=True,
+                        ls = ax[i,j].errorbar(lmean, sy, yerr=sye, fmt='-.', barsabove=True,
                                               **kwargs)
-                        lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                        lc = ax[i,j].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
                                               **kwargs)
                     else:
                         ls = None
                         lc = None
 
-                    lt = ax[j,i].errorbar(lmean, y, yerr=ye, barsabove=True,
+                    lt = ax[i,j].errorbar(lmean, y, yerr=ye, barsabove=True,
                                           **kwargs)
 
         else:
@@ -878,7 +878,7 @@ class GalCLF(MassMetric):
                 for j, b in enumerate(usecols):
                     ye = np.sqrt(self.varfsat[:,j,i])
                     
-                    ls = ax[j,i].errorbar(lmean, self.fsat[:,j,i], 
+                    ls = ax[i,j].errorbar(lmean, self.fsat[:,j,i], 
                                           yerr=ye, barsabove=True,
                                           **kwargs)
                     lc = None
@@ -892,9 +892,9 @@ class GalCLF(MassMetric):
                             & ((self.clumfunction[:,j,i]==0).all()
                             | ~np.isfinite(self.clumfunction[:,j,i]).any())):
                         if logx:
-                            ax[j,i].set_xscale('log')
+                            ax[i,j].set_xscale('log')
                         if logy:
-                            ax[j,i].set_yscale('log')
+                            ax[i,j].set_yscale('log')
 
 #                if (i==0) & (j==0):
 #                    if xlim is not None:
@@ -1161,10 +1161,10 @@ class GalCLFSnapshot(MassMetric):
             usez = range(self.nzbins)
 
         if f is None:
-            f, ax = plt.subplots(len(usecols), self.nzbins,
+            f, ax = plt.subplots(self.nzbins, len(usecols),
                                  sharex=True, sharey=False,
                                  figsize=(10,10))
-            ax = np.array(ax).reshape((len(usecols), self.nzbins))
+            ax = np.array(ax).reshape(self.nzbins, len(usecols))
 
             newaxes = True
         else:
@@ -1183,15 +1183,15 @@ class GalCLFSnapshot(MassMetric):
                     ye  = np.sqrt(self.varlumfunction[:,j,i])
                     
                     if not total_clf_only:
-                        ls = ax[j,i].errorbar(lmean, sy, yerr=sye, fmt='-.', barsabove=True,
+                        ls = ax[i,j].errorbar(lmean, sy, yerr=sye, fmt='-.', barsabove=True,
                                               **kwargs)
-                        lc = ax[j,i].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
+                        lc = ax[i,j].errorbar(lmean, cy, yerr=cye, fmt='--', barsabove=True,
                                               **kwargs)
                     else:
                         ls = None
                         lc = None
 
-                    lt = ax[j,i].errorbar(lmean, y, yerr=ye, barsabove=True,
+                    lt = ax[i,j].errorbar(lmean, y, yerr=ye, barsabove=True,
                                           **kwargs)
 
         else:
@@ -1199,7 +1199,7 @@ class GalCLFSnapshot(MassMetric):
                 for j, b in enumerate(usecols):
                     ye = np.sqrt(self.varfsat[:,j,i])
                     
-                    ls = ax[j,i].errorbar(lmean, self.fsat[:,j,i], 
+                    ls = ax[i,j].errorbar(lmean, self.fsat[:,j,i], 
                                           yerr=ye, barsabove=True,
                                           **kwargs)
                     lc = None
@@ -1214,9 +1214,9 @@ class GalCLFSnapshot(MassMetric):
                             & ((self.clumfunction[:,j,i]==0).all()
                             | ~np.isfinite(self.clumfunction[:,j,i]).any())):
                         if logx:
-                            ax[j,i].set_xscale('log')
+                            ax[i,j].set_xscale('log')
                         if logy:
-                            ax[j,i].set_yscale('log')
+                            ax[i,j].set_yscale('log')
 
 #                if (i==0) & (j==0):
 #                    if xlim is not None:
@@ -1559,10 +1559,10 @@ class GalHODSnapshot(MassMetric):
             usez = range(self.nzbins)
 
         if f is None:
-            f, ax = plt.subplots(len(usecols), len(usez),
+            f, ax = plt.subplots(len(usez), len(usecols),
                                  sharex=True, sharey=True,
                                  figsize=(10,10))
-            ax = np.array(ax).reshape((len(usecols), len(usez)))
+            ax = np.array(ax).reshape(len(usez), len(usecols))
 
             newaxes = True
         else:
@@ -1578,32 +1578,32 @@ class GalHODSnapshot(MassMetric):
 
                 if not noerr:
                     if not total_hod_only:
-                        ls = ax[j,i].errorbar(mmean, sy, yerr=sye, linestyle='-.', barsabove=True,
+                        ls = ax[i,j].errorbar(mmean, sy, yerr=sye, linestyle='-.', barsabove=True,
                                               **kwargs)
                     
-                        lc = ax[j,i].errorbar(mmean, cy, yerr=cye, linestyle='--', barsabove=True,
+                        lc = ax[i,j].errorbar(mmean, cy, yerr=cye, linestyle='--', barsabove=True,
                                               **kwargs)
                     else:
                         ls = None
                         lc = None
                     
-                    lt = ax[j,i].errorbar(mmean, self.y[:,0,j,zi],
+                    lt = ax[i,j].errorbar(mmean, self.y[:,0,j,zi],
                                           yerr=self.ye[:,0,j,zi],
                                           barsabove=True,
                                           **kwargs)
                 else:
                     if not total_hod_only:
-                        ls = ax[j,i].plot(mmean, sy, linestyle='-.',
+                        ls = ax[i,j].plot(mmean, sy, linestyle='-.',
                                           **kwargs)
                     
-                        lc = ax[j,i].plot(mmean, cy, linestyle='--',
+                        lc = ax[i,j].plot(mmean, cy, linestyle='--',
                                           **kwargs)
 
                     else:
                         ls = None
                         lc = None
                     
-                    lt = ax[j,i].plot(mmean, self.y[:,0,j,zi],
+                    lt = ax[i,j].plot(mmean, self.y[:,0,j,zi],
                                       **kwargs)
                 
 
@@ -1616,9 +1616,9 @@ class GalHODSnapshot(MassMetric):
                             & ((self.chod[:,0,j,zi]==0).all()
                             | ~np.isfinite(self.chod[:,0,j,zi]).any())):
                         if logx:
-                            ax[j,i].set_xscale('log')
+                            ax[i,j].set_xscale('log')
                         if logy:
-                            ax[j,i].set_yscale('log')
+                            ax[i,j].set_yscale('log')
 
         if xlim is not None:
             ax[0][0].set_xlim(xlim)

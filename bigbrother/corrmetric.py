@@ -1683,7 +1683,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                   precompute_color=False,
                   mcutind=None, same_rand=False, inv_m=True,
                   rsd=False, upper_limit=False, splitcolor=None,
-                  cinds=None, cbins=None, centrals_only=True,
+                  cinds=None, cbins=None, centrals_only=False,
                   **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic
