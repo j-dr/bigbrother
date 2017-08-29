@@ -95,10 +95,11 @@ class MassFunction(MassMetric):
         if self.centrals_only:
             cidx = mapunit['central']==1
             mu   = {}
-
+            delete_after_map = True
             for f in self.mapkeys:
                 mu[f] = mapunit[f][cidx]
         else:
+            delete_after_map = False
             mu = mapunit
 
         #Want to count galaxies in bins of mass for
@@ -124,6 +125,9 @@ class MassFunction(MassMetric):
             for j in range(self.ndefs):
                 c, e = np.histogram(mu['halomass'][:,j], bins=self.massbins)
                 self.masscounts[self.jcount,:,j,0] += c
+
+        if delete_after_map:
+            del mu
 
     def reduce(self, rank=None, comm=None):
         """

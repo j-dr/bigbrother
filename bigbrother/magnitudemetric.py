@@ -119,9 +119,11 @@ class LuminosityFunction(MagnitudeMetric):
 
         mu = {}
         if self.central_only:
+            delete_after_map = True
             for k in mapunit.keys():
                 mu[k] = mapunit[k][mapunit['central']==1]
         else:
+            delete_after_map = False
             mu = mapunit
 
         #Want to count galaxies in bins of luminosity for
@@ -161,6 +163,9 @@ class LuminosityFunction(MagnitudeMetric):
                                         bins=self.magbins)
                     
                 self.lumcounts[self.jcount,:,j,0] += c
+
+        if delete_after_map:
+            True
 
 
     def reduce(self, rank=None, comm=None):
@@ -481,6 +486,8 @@ class LcenMass(Metric):
                 blum = mu['luminosity'][mb==j]
                 self.bincount[self.jcount,j-1,:,0] += len(blum)
                 self.totlum[self.jcount,j-1,:,0] += np.sum(blum, axis=0)
+
+        del mu
 
 
     def reduce(self, rank=None, comm=None):
@@ -1352,9 +1359,11 @@ class ColorMagnitude(Metric):
 
         mu = {}
         if self.central_only:
+            delete_after_map = True
             for k in mapunit.keys():
                 mu[k] = mapunit[k][mapunit['central']==1]
         else:
+            delete_after_map = False
             mu = mapunit
 
         if self.magcut is not None:
@@ -1391,6 +1400,9 @@ class ColorMagnitude(Metric):
                                            mu[self.ckey][:,self.usebands[j+1]],
                                            bins=[self.magbins,self.cbins])
                 self.cc[self.jcount,:,:,j,0] += c
+
+        if delete_after_map:
+            del mu
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
@@ -1800,6 +1812,7 @@ class FRed(Metric):
             self.qscounts[self.jcount,0] = len(qidx)
             self.tcounts[self.jcount,0] = len(mu['ctcatid'])
 
+        del mu
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:

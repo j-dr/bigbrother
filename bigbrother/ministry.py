@@ -44,7 +44,18 @@ class Mappable(object):
         self.nbox = nbox
         self.grp = grp
 
+    def recursive_delete(self):
 
+        print(self.children)
+        for k in self.data.keys():
+            del self.data[k]
+
+        if len(self.children)==0:
+            return
+        else:
+            for i in range(len(self.children)):
+                self.children[i].recursive_delete()
+        
 class Ministry:
     """
     A class which owns all the other catalog data
@@ -437,7 +448,6 @@ class Ministry:
             m = [m1,m2]
 
         return [cfm, m]
-
 
     def singleTypeMappable(self, fieldmap, fs, jtype, override=False):
         """
@@ -944,6 +954,8 @@ class Ministry:
             for k in mapunit.keys():
                 mu[k] = mapunit[k][pidx]
 
+            del mapunit
+
             mapunit = mu
             return mapunit
 
@@ -1185,7 +1197,11 @@ class Ministry:
                     print('*****{0}*****'.format(m.__class__.__name__))
                     m.map(mapunit)
 
+                for k in mapunit.keys():
+                    del mapunit[k]
+
                 del mapunit
+                mappable.recursive_delete()
 
         #need to reduce area first
 
