@@ -32,7 +32,8 @@ class CorrelationFunction(Metric):
                    nrbins=None, subjack=False, lightcone=True,
                    catalog_type=None, mcutind=None,
                    tag=None, same_rand=False, inv_m=True,
-                   randname=None, upper_limit=False, **kwargs):
+                   randname=None, rand_factor=10, 
+                   upper_limit=False, **kwargs):
         """
         Generic correlation function.
         """
@@ -82,6 +83,7 @@ class CorrelationFunction(Metric):
         self.same_rand = same_rand
         self.inv_m = inv_m
         self.randname = randname
+        self.rand_factor = rand_factor
 
         if nrbins is None:
             self.nrbins = 15
@@ -112,7 +114,8 @@ class CorrelationFunction(Metric):
         if self.randname is None:
             rand = self.generateAngularRandoms(aza, pla, z=z, nside=self.randnside)
         else:
-            rand = self.readAngularRandoms(self.randname, len(aza), z=z, dt=aza.dtype)
+            rand = self.readAngularRandoms(self.randname, len(aza), z=z, dt=aza.dtype,
+                                           rand_factor=self.rand_factor)
 
         return rand
 
@@ -858,9 +861,7 @@ class WPrpLightcone(CorrelationFunction):
         self.dr = None
         self.rr = None
 
-
     def addRSD(self, mapunit):
-
         rvec = hp.ang2vec(-(mapunit['polar_ang'] - 90) * np.pi / 180.,
                             mapunit['azim_ang'] * np.pi / 180 )
         vr   = np.sum(rvec * mapunit['velocity'], axis=1)
