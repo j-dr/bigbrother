@@ -372,34 +372,34 @@ class GMetric(Metric):
         #if no figure provided, set up figure and axes
         if f is None:
             if fracdev==False:
-                f, ax = plt.subplots(len(usecols), nzbins,
+                f, ax = plt.subplots(nzbins, len(usecols),
                                      sharex=True, sharey=True, figsize=(8,8))
-                ax = np.array(ax).reshape((len(usecols), nzbins))
+                ax = np.array(ax).reshape((nzbins, len(usecols)))
             #if want fractional deviations, need to make twice as
             #many rows of axes. Every other row contains fractional
             #deviations from the row above it.
             else:
                 assert(ref_y is not None)
-                gs = gridspec.GridSpec(len(usecols)*2, nzbins)
+                gs = gridspec.GridSpec(nzbins*2, len(usecols))
                 f = plt.figure()
-                ax = np.zeros((len(usecols)*2, nzbins), dtype='O')
+                ax = np.zeros((nzbins*2, len(usecols)), dtype='O')
                 for r in range(len(usecols)):
                     for c in range(nzbins):
                         if (r==0) & (c==0):
-                            ax[2*r][c] = f.add_subplot(gs[2*r,c])
-                            ax[2*r+1][c] = f.add_subplot(gs[2*r+1,c], sharex=ax[0][0])
+                            ax[2*c][r] = f.add_subplot(gs[2*c,r])
+                            ax[2*c+1][r] = f.add_subplot(gs[2*c+1,r], sharex=ax[0][0])
                         else:
                             if sharex & sharey:
-                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharex=ax[0][0], sharey=ax[0][0])
+                                ax[2*c][r] = f.add_subplot(gs[2*c,r], sharex=ax[0][0], sharey=ax[0][0])
                             elif sharex:
-                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharex=ax[0][0])
+                                ax[2*c][r] = f.add_subplot(gs[2*c,r], sharex=ax[0][0])
                             elif sharey:
-                                ax[2*r][c] = f.add_subplot(gs[2*r,c], sharey=ax[0][0])
+                                ax[2*c][r] = f.add_subplot(gs[2*c,r], sharey=ax[0][0])
                             else:
-                                ax[2*r][c]= f.add_subplot(gs[2*r,c])
+                                ax[2*c][r]= f.add_subplot(gs[2*c,r])
 
-                            ax[2*r+1][c] = f.add_subplot(gs[2*r+1,c],
-                              sharex=ax[0][0], sharey=ax[1][0])
+                            ax[2*c+1][r] = f.add_subplot(gs[2*c+1,r],
+                              sharex=ax[2*c][r], sharey=ax[1][0])
 
             newaxes = True
         else:
@@ -410,15 +410,15 @@ class GMetric(Metric):
                 for j in range(nzbins):
                     if fracdev==False:
                         if (self.y[:,b,usez[j]]==0).all() | (np.isnan(self.y[:,b,usez[j]]).all()): continue
-                        l1 = ax[i][j].plot(mxs[:,b,usez[j]], self.y[:,b,usez[j]], **kwargs)
+                        l1 = ax[j][i].plot(mxs[:,b,usez[j]], self.y[:,b,usez[j]], **kwargs)
                         if self.ye is not None:
-                            ax[i][j].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
+                            ax[j][i].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
                               self.y[:,b,usez[j]]+self.ye[:,b,usez[j]],
                               alpha=0.5, **kwargs)
                         if logx:
-                            ax[i][j].set_xscale('log')
+                            ax[j][i].set_xscale('log')
                         if logy:
-                            ax[i][j].set_yscale('log')
+                            ax[j][i].set_yscale('log')
                     else:
                         li = lidx[i,j]
                         hi = hidx[i,j]
@@ -436,22 +436,22 @@ class GMetric(Metric):
                             dye = None
 
                         if (self.y[:,b,usez[j]]==0).all() | (np.isnan(self.y[:,b,usez[j]]).all()): continue
-                        l1 = ax[2*i][j].plot(mxs[:,b,usez[j]], self.y[:,b,usez[j]], **kwargs)
-                        ax[2*i+1][j].plot(mxs[li:hi,b,usez[j]], fye, **kwargs)
+                        l1 = ax[2*j][i].plot(mxs[:,b,usez[j]], self.y[:,b,usez[j]], **kwargs)
+                        ax[2*j+1][i].plot(mxs[li:hi,b,usez[j]], fye, **kwargs)
                         if self.ye is not None:
-                            ax[2*i][j].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
+                            ax[2*j][i].fill_between(mxs[:,b,usez[j]], self.y[:,b,usez[j]]-self.ye[:,b,usez[j]],
                               self.y[:,b,usez[j]]+self.ye[:,b,usez[j]],
                               alpha=0.5, **kwargs)
                         if dye is not None:
-                            ax[2*i+1][j].fill_between(mxs[li:hi,b,usez[j]], fye-dye,
+                            ax[2*j+1][i].fill_between(mxs[li:hi,b,usez[j]], fye-dye,
                               fye+dye,
                               alpha=0.5,**kwargs)
 
                         if logx:
-                            ax[2*i][j].set_xscale('log')
+                            ax[2*j][i].set_xscale('log')
 
                         if logy:
-                            ax[2*i][j].set_yscale('log')
+                            ax[2*j][i].set_yscale('log')
 
                         if (i==0) & (j==0):
                             if xlim is not None:
@@ -465,16 +465,16 @@ class GMetric(Metric):
             for i, b in enumerate(usecols):
                 if fracdev==False:
                     if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
-                    l1 = ax[i][0].plot(mxs[:,b,0], self.y[:,b,0], **kwargs)
+                    l1 = ax[0][i].plot(mxs[:,b,0], self.y[:,b,0], **kwargs)
                     if self.ye is not None:
-                        ax[i][0].fill_between(mxs[:,b,0], self.y[:,b,0] - self.ye[:,b,0],
+                        ax[0][i].fill_between(mxs[:,b,0], self.y[:,b,0] - self.ye[:,b,0],
                                                 self.y[:,b,0] + self.ye[:,b,0],
                                                 alpha=0.5, **kwargs)
                                             
                     if logx:
-                        ax[i][0].set_xscale('log')
+                        ax[0][i].set_xscale('log')
                     if logy:
-                        ax[i][0].set_yscale('log')
+                        ax[0][i].set_yscale('log')
 
                 else:
                     li = lidx[i,0]
@@ -493,22 +493,22 @@ class GMetric(Metric):
                         dye = None
 
                     if (self.y[:,b,0]==0).all() | (np.isnan(self.y[:,b,0]).all()): continue
-                    l1 = ax[2*i][0].plot(mxs[:,b,0], self.y[:,b,0], **kwargs)
-                    ax[2*i+1][0].plot(mxs[li:hi,b,0], fye, **kwargs)
+                    l1 = ax[0][i].plot(mxs[:,b,0], self.y[:,b,0], **kwargs)
+                    ax[1][i].plot(mxs[li:hi,b,0], fye, **kwargs)
 
                     if self.ye is not None:
-                        ax[2*i][0].fill_between(mxs[:,b,0], self.y[:,b,0]-self.ye[:,b,0],
+                        ax[0][i].fill_between(mxs[:,b,0], self.y[:,b,0]-self.ye[:,b,0],
                           self.y[:,b,0]+self.ye[:,b,0],
                           alpha=0.5, **kwargs)
                     if dye is not None:
-                        ax[2*i+1][0].fill_between(mxs[li:hi,b,0], fye-dye,
+                        ax[1][i].fill_between(mxs[li:hi,b,0], fye-dye,
                           fye+dye,
                           alpha=0.5, **kwargs)
 
                     if logx:
-                        ax[2*i][0].set_xscale('log')
+                        ax[0][i].set_xscale('log')
                     if logy:
-                        ax[2*i][0].set_yscale('log')
+                        ax[0][i].set_yscale('log')
 
                     if (i==0):
                         if xlim is not None:

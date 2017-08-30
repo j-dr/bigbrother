@@ -513,8 +513,7 @@ class GalHOD(MassMetric):
                     compare=False, logx=True, logy=True, 
                     noerr=False, **kwargs):
 
-        print(usez)
-        print(usecols)
+
         mmean = (self.massbins[:-1] + self.massbins[1:]) / 2
         
         if usecols is None:
@@ -597,7 +596,7 @@ class GalHOD(MassMetric):
             sax.spines['left'].set_alpha(0.0)
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_xlabel(r'%s' % xlabel, labelpad=20)
             sax.set_ylabel(r'%s' % ylabel, labelpad=40)
 
 
@@ -917,7 +916,7 @@ class GalCLF(MassMetric):
             sax.spines['left'].set_alpha(0.0)
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_xlabel(r'%s' % xlabel, labelpad=20)
             sax.set_ylabel(r'%s' % ylabel, labelpad=40)
             #plt.tight_layout()
 
@@ -1239,13 +1238,12 @@ class GalCLFSnapshot(MassMetric):
             sax.spines['left'].set_alpha(0.0)
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_xlabel(r'%s' % xlabel, labelpad=20)
             sax.set_ylabel(r'%s' % ylabel, labelpad=40)
             #plt.tight_layout()
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)
-            
 
 
         return f, ax, ls, lc, lt
@@ -1641,7 +1639,7 @@ class GalHODSnapshot(MassMetric):
             sax.spines['left'].set_alpha(0.0)
             sax.spines['right'].set_color('none')
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-            sax.set_xlabel(r'%s' % xlabel, labelpad=40)
+            sax.set_xlabel(r'%s' % xlabel, labelpad=20)
             sax.set_ylabel(r'%s' % ylabel, labelpad=40)
 
         if (plotname is not None) & (not compare):
