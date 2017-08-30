@@ -742,7 +742,7 @@ class WPrpLightcone(CorrelationFunction):
                   centrals_only=False, rsd=False,
                   randnside=None, deevolve_mstar=False,
                   faber=False, Q=None, CMASS=False, splitcolor=None,
-                  cinds=None, cbins=None, **kwargs):
+                  cinds=None,cbins=None,**kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
         data.
@@ -789,7 +789,6 @@ class WPrpLightcone(CorrelationFunction):
         self.pccolor = precompute_color
         self.centrals_only = centrals_only
         self.CMASS = CMASS
-
 
         self.logbins = logbins
         self.c = 299792.458
