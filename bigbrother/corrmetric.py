@@ -888,30 +888,26 @@ class WPrpLightcone(CorrelationFunction):
             self.nr = np.zeros((self.njack, self.ncbins, self.nmbins, self.nzbins))
 
 
-        if (mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64):
-            mu = {}
-            mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
-            mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
-            mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
+        mu = {}
+        mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
+        mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
+        mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
 
-            mu['azim_ang'][:] = mapunit['azim_ang'][:]
-            mu['polar_ang'][:] = mapunit['polar_ang'][:]
-            mu['redshift'][:] = mapunit['redshift'][:]
+        mu['azim_ang'][:] = mapunit['azim_ang'][:]
+        mu['polar_ang'][:] = mapunit['polar_ang'][:]
+        mu['redshift'][:] = mapunit['redshift'][:]
 
-            for f in self.mapkeys:
-                if (f=='px') | (f=='py') | (f=='pz') : continue
-                mu[f] = mapunit[f]
+        for f in self.mapkeys:
+            if (f=='px') | (f=='py') | (f=='pz') : continue
+            mu[f] = mapunit[f]
 
-            if self.rsd:
-                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
-                mu['velocity'][:] = mapunit['velocity'][:]
+        if self.rsd:
+            mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
+            mu['velocity'][:] = mapunit['velocity'][:]
 
-            if (self.CMASS) & (self.mkey is not 'appmag'):
-                mu['appmag'] = mapunit['appmag']
+        if (self.CMASS) & (self.mkey is not 'appmag'):
+            mu['appmag'] = mapunit['appmag']
                 
-        else:
-            mu = mapunit
-
         if self.deevolve_mstar:
             lum = self.deevolve_gal(mu, self.Q, faber=self.faber)
         else:
