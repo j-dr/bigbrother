@@ -19,13 +19,17 @@ class GalaxyCatalog(BaseCatalog):
     Base class for galaxy catalogs
     """
 
-    def __init__(self, ministry, filestruct, zbins=None, zp=None, Q=None,**kwargs):
+    def __init__(self, ministry, filestruct, zbins=None, zp=None, 
+                 Q=None,appmagcut=None, appmagcutind=None, **kwargs):
 
 
         self.ctype = 'galaxycatalog'
         self.zbins = zbins
         self.zp = zp
         self.Q  = Q
+        self.appmagcut = appmagcut
+        self.appmagcutind = appmagcutind
+
         BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
 
 
@@ -139,6 +143,7 @@ class GalaxyCatalog(BaseCatalog):
                 fpix.append(pmetric.map(mapunit))
 
                 del mapunit
+                del mappable
 
             if self.ministry.parallel:
                 gfpix = comm.allgather(fpix)
@@ -225,6 +230,14 @@ class GalaxyCatalog(BaseCatalog):
             else:
                 idxi = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b])) & (~np.isnan(mapunit['appmag'][:,b]))
                 idx = idx&idxi
+
+        if self.appmagcut is not None:
+            print('Filtering on appmag < {}'.format(self.appmagcut))
+            if self.appmagcutind is None:
+                idx &= mapunit['appmag'] < self.appmagcut
+            else:
+                idx &= mapunit['appmag'][:,self.appmagcutind] < self.appmagcut            
+
 
         return idx
 

@@ -32,7 +32,8 @@ class CorrelationFunction(Metric):
                    nrbins=None, subjack=False, lightcone=True,
                    catalog_type=None, mcutind=None,
                    tag=None, same_rand=False, inv_m=True,
-                   randname=None, upper_limit=False, **kwargs):
+                   randname=None, rand_factor=10, 
+                   upper_limit=False, **kwargs):
         """
         Generic correlation function.
         """
@@ -82,6 +83,7 @@ class CorrelationFunction(Metric):
         self.same_rand = same_rand
         self.inv_m = inv_m
         self.randname = randname
+        self.rand_factor = rand_factor
 
         if nrbins is None:
             self.nrbins = 15
@@ -112,7 +114,8 @@ class CorrelationFunction(Metric):
         if self.randname is None:
             rand = self.generateAngularRandoms(aza, pla, z=z, nside=self.randnside)
         else:
-            rand = self.readAngularRandoms(self.randname, len(aza), z=z, dt=aza.dtype)
+            rand = self.readAngularRandoms(self.randname, len(aza), z=z, dt=aza.dtype,
+                                           rand_factor=self.rand_factor)
 
         return rand
 
@@ -739,7 +742,7 @@ class WPrpLightcone(CorrelationFunction):
                   centrals_only=False, rsd=False,
                   randnside=None, deevolve_mstar=False,
                   faber=False, Q=None, CMASS=False, splitcolor=None,
-                  cinds=None, cbins=None, **kwargs):
+                  cinds=None,cbins=None,**kwargs):
         """
         Projected correlation function, wp(rp), for use with non-periodic
         data.
@@ -786,7 +789,6 @@ class WPrpLightcone(CorrelationFunction):
         self.pccolor = precompute_color
         self.centrals_only = centrals_only
         self.CMASS = CMASS
-
 
         self.logbins = logbins
         self.c = 299792.458
@@ -858,9 +860,7 @@ class WPrpLightcone(CorrelationFunction):
         self.dr = None
         self.rr = None
 
-
     def addRSD(self, mapunit):
-
         rvec = hp.ang2vec(-(mapunit['polar_ang'] - 90) * np.pi / 180.,
                             mapunit['azim_ang'] * np.pi / 180 )
         vr   = np.sum(rvec * mapunit['velocity'], axis=1)
@@ -1679,7 +1679,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                   precompute_color=False,
                   mcutind=None, same_rand=False, inv_m=True,
                   rsd=False, upper_limit=False, splitcolor=None,
-                  cinds=None, cbins=None, centrals_only=True,
+                  cinds=None, cbins=None, centrals_only=False,
                   **kwargs):
         """
         Angular correlation function, w(theta), for use with non-periodic

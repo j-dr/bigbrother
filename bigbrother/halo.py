@@ -132,6 +132,7 @@ class HaloCatalog(BaseCatalog):
                 fpix.append(pmetric.map(mapunit))
 
                 del mapunit
+                del mappable
 
             if self.ministry.parallel:
                 gfpix = comm.allgather(fpix)
