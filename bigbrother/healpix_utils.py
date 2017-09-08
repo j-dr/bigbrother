@@ -1,10 +1,12 @@
 from __future__ import print_function
 from .metric import Metric, GMetric
+from scipy.stats import mode
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import healpy as hp
+import fitsio
 
 from .metric import jackknifeMap
 
@@ -121,7 +123,9 @@ class SubBoxMetric(Metric):
 
 class Area(Metric):
 
-    def __init__(self, ministry, nside=2048, tag=None, **kwargs):
+    def __init__(self, ministry, nside=2048, tag=None, maskfile=None,
+                 nside_group=None, nside_mask=None, nest_group=False,
+                 nest_mask=False, **kwargs):
 
         Metric.__init__(self, ministry, tag=tag, novis=True, **kwargs)
 
@@ -142,7 +146,19 @@ class Area(Metric):
             self.mapkeys = ['polar_ang', 'azim_ang']
             self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
 
+        if maskfile is not None:
+            self.mask = fitsio.read(maskfile)
+        else:
+            self.mask = None
+
+        self.nside_mask  = nside_mask
+        self.nside_group = nside_group
+
+        self.nest_mask = nest_mask
+        self.nest_group = nest_group
+
         self.jarea = None
+
 
     @jackknifeMap
     def map(self, mapunit):
@@ -150,11 +166,41 @@ class Area(Metric):
         if self.jarea is None:
             self.jarea = np.zeros(self.njack)
 
-        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'],
-                         nest=True)
-        upix = np.unique(pix)
-        area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
-        self.jarea[self.jcount] += area
+        if self.mask is None:
+            pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'],
+                             nest=True)
+            upix = np.unique(pix)
+            area = hp.nside2pixarea(self.nside,degrees=True) * len(upix)
+            self.jarea[self.jcount] += area
+        else:
+            pix = hp.ang2pix(self.nside_group, mapunit['polar_ang'], mapunit['azim_ang'],
+                             nest=self.nest_group)
+            upix = np.unique(pix)
+
+            if len(upix)>1:
+                p = mode(upix)
+            else:
+                p = pix[0]
+            
+            if self.nest_group:
+                order_in = 'NESTED'
+            else:
+                order_in = 'RING'
+            
+            if self.nest_mask:
+                order_out = 'NESTED'
+            else:
+                order_out = 'RING'
+
+            ud_map = hp.ud_grade(np.arange(12*self.nside_group**2), self.nside_mask,
+                                 order_in=order_in, order_out=order_out)
+            mpix   = ud_map[self.mask['HPIX']]
+            npix   = np.sum(self.mask['FRACGOOD'][mpix==p,2])
+
+            pix_area = hp.nside2pixarea(self.nside_mask)
+
+            self.jarea[self.jcount] += pix_area * npix
+                
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
