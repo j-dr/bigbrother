@@ -164,7 +164,7 @@ class BaseCatalog:
                 fpix.append(pmetric.map(mapunit))
 
                 del mapunit
-                del mappable
+                mappable.recursive_delete()
 
             if self.ministry.parallel:
                 gfpix = comm.allgather(fpix)
@@ -295,7 +295,7 @@ class BaseCatalog:
                     fbox.append(bmetric.map(mapunit))
 
                     del mapunit
-                    del mappable
+                    mappable.recursive_delete()
 
             if self.ministry.parallel:
                 gfbox = comm.allgather(fbox)
