@@ -893,12 +893,12 @@ class WPrpLightcone(CorrelationFunction):
         mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
         mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
 
-        mu['azim_ang'][:] = mapunit['azim_ang'][:]
-        mu['polar_ang'][:] = mapunit['polar_ang'][:]
-        mu['redshift'][:] = mapunit['redshift'][:]
+        mu['azim_ang'][:] = mapunit['azim_ang'][:].astype(np.float64)
+        mu['polar_ang'][:] = mapunit['polar_ang'][:].astype(np.float64)
+        mu['redshift'][:] = mapunit['redshift'][:].astype(np.float64)
 
         for f in self.mapkeys:
-            if (f=='px') | (f=='py') | (f=='pz') : continue
+            if (f=='polar_ang') | (f=='azim_ang') | (f=='redshift') : continue
             mu[f] = mapunit[f]
 
         if self.rsd:
@@ -916,7 +916,7 @@ class WPrpLightcone(CorrelationFunction):
         if self.rsd:
             cz = self.addRSD(mu)
         else:
-            cz = mu['redshift'] * self.c
+            cz = (mu['redshift'] * self.c).astype(np.float64)
 
 
         #calculate DD

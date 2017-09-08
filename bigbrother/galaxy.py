@@ -143,7 +143,7 @@ class GalaxyCatalog(BaseCatalog):
                 fpix.append(pmetric.map(mapunit))
 
                 del mapunit
-                del mappable
+                mappable.recursive_delete()
 
             if self.ministry.parallel:
                 gfpix = comm.allgather(fpix)
