@@ -202,6 +202,9 @@ class LuminosityFunction(MagnitudeMetric):
                 for i in range(self.nzbins):
                     vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
 
+                if (not self.lightcone) & (self.jtype is not None):
+                    vol *= (self.njacktot-1) / self.njacktot
+
                 self.jlumcounts  = self.jackknife(self.lumcounts, reduce_jk=False)
                 self.jluminosity_function = self.jlumcounts / vol.reshape(self.njacktot, 1, 1, -1) / dl
 
@@ -218,6 +221,9 @@ class LuminosityFunction(MagnitudeMetric):
             vol = np.zeros((self.njacktot, self.nzbins))
             for i in range(self.nzbins):
                 vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+
+            if (not self.lightcone) & (self.jtype is not None):
+                vol *= (self.njacktot-1) / self.njacktot
 
             self.jlumcounts  = self.jackknife(self.lumcounts, reduce_jk=False)
             self.jluminosity_function = self.jlumcounts / vol.reshape(self.njacktot, 1, 1, -1)

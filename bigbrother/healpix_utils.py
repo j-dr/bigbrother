@@ -198,7 +198,7 @@ class Area(Metric):
             mpix   = ud_map[self.mask['HPIX']]
             npix   = np.sum(self.mask['FRACGOOD'][mpix==p,2])
 
-            pix_area = hp.nside2pixarea(self.nside_mask)
+            pix_area = hp.nside2pixarea(self.nside_mask, degrees=True)
 
             self.jarea[self.jcount] += pix_area * npix
                 
@@ -220,11 +220,13 @@ class Area(Metric):
                     self.jarea[jc:jc+nj] = g
 
                     jc += nj
-
-                self.jarea, self.area, self.vararea = self.jackknife(self.jarea)
+                
+                self.area = np.sum(self.jarea)
+                self.jarea, _, self.vararea = self.jackknife(self.jarea)
 
         else:
-            self.jarea, self.area, self.vararea = self.jackknife(self.jarea)
+            self.area = np.sum(self.jarea)
+            self.jarea, _, self.vararea = self.jackknife(self.jarea)
 
 
     def visualize(self):

@@ -162,6 +162,9 @@ class MassFunction(MassMetric):
                 for i in range(self.nzbins):
                     vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
 
+                if (not self.lightcone) & (self.jtype is not None):
+                    vol *= (self.njacktot-1) / self.njacktot
+
                 jmasscounts = self.jackknife(self.masscounts, reduce_jk=False)
 
                 self.jmass_function = jmasscounts / vol.reshape(self.njacktot,1,1,self.nzbins)
@@ -177,6 +180,9 @@ class MassFunction(MassMetric):
 
             for i in range(self.nzbins):
                 vol[:,i] = self.ministry.calculate_volume(area, self.zbins[i], self.zbins[i+1])
+
+            if (not self.lightcone) & (self.jtype is not None):
+                vol *= (self.njacktot-1) / self.njacktot
 
             jmasscounts = self.jackknife(self.masscounts, reduce_jk=False)
 
