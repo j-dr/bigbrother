@@ -178,7 +178,8 @@ class Area(Metric):
             upix = np.unique(pix)
 
             if len(upix)>1:
-                p = mode(upix)
+                print('Hmm, there is more than one group pixel in this mappable, using the most frequent')
+                p = mode(upix)[0][0]
             else:
                 p = pix[0]
             

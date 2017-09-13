@@ -123,7 +123,6 @@ class GalaxyCatalog(BaseCatalog):
             for i, mappable in enumerate(mappables):
 
                 mapunit = self.ministry.readMappable(mappable, fm)
-                print('converting before getting file pixels')
                 if (not hasattr(ms,'__iter__')) and ('only' in ms.aschema):
                     mapunit = self.ministry.scListToDict(mapunit)
                     mapunit = self.ministry.convert(mapunit, ms)

@@ -1307,7 +1307,7 @@ class WPrpSnapshot(CorrelationFunction):
         
         if self.centrals_only:
             self.mapkeys.append('central')
-            self.mapkeys['central'] = 'binary'
+            self.unitmap['central'] = 'binary'
 
         self.nd = None
         self.nr = None
@@ -1379,7 +1379,7 @@ class WPrpSnapshot(CorrelationFunction):
                     lidx = (self.mbins[i] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[i+1])
 
             if self.centrals_only:
-                lidx &= (self.mapunit['central']==1)
+                lidx &= (mapunit['central']==1)
 
             if (li==self.rand_ind) | (not self.same_rand):
                 print('Generating Randoms')
@@ -1389,7 +1389,7 @@ class WPrpSnapshot(CorrelationFunction):
 
                 rands = self.getCartesianRandoms(mu['px'][lidx], mu['py'][lidx], cz[lidx])
 
-            for j in self.ncbins:
+            for j in range(self.ncbins):
                 
                 if self.splitcolor is not None:
                     if j==0:
@@ -1415,10 +1415,7 @@ class WPrpSnapshot(CorrelationFunction):
                                mu['px'][cidx],
                                mu['py'][cidx],
                                mu['pz'][cidx],
-                               False,
-                               mu['px'][cidx],
-                               mu['py'][cidx],
-                               mu['pz'][cidx])
+                               periodic=False)
 
                 ddout = np.array(ddout)
                 ddout = ddout.reshape(-1,int(self.pimax))
@@ -1432,10 +1429,10 @@ class WPrpSnapshot(CorrelationFunction):
                                mu['px'][cidx],
                                mu['py'][cidx],
                                mu['pz'][cidx],
-                               False,
-                               rands['px'],
-                               rands['py'],
-                               rands['pz'])
+                               periodic=False,
+                               X2=rands['px'],
+                               Y2=rands['py'],
+                               Z2=rands['pz'])
 
                 drout = np.array(drout)
                 drout = drout.reshape(-1,int(self.pimax))
@@ -1450,10 +1447,7 @@ class WPrpSnapshot(CorrelationFunction):
                                    rands['px'],
                                    rands['py'],
                                    rands['pz'],
-                                   False,
-                                   rands['px'],
-                                   rands['py'],
-                                   rands['pz'])
+                                   periodic=False)
 
                     rrout = np.array(rrout)
                     rrout = rrout.reshape(-1,int(self.pimax))
@@ -1530,8 +1524,8 @@ class WPrpSnapshot(CorrelationFunction):
                 self.varwprp = np.sum((self.jwprp - self.wprp)**2, axis=0) * (self.njacktot - 1) / self.njacktot
         else:
             self.jwprp = np.zeros(self.dd.shape)
-            self.nd = self.nd.reshape(self.njacktot, 1, 1, self.nmbins)
-            self.nr = self.nr.reshape(self.njacktot, 1, 1, self.nmbins)
+            self.nd = self.nd.reshape(self.njacktot, 1, 1, 1, self.nmbins)
+            self.nr = self.nr.reshape(self.njacktot, 1, 1, 1, self.nmbins)
 
             self.jnd = self.jackknife(self.nd, reduce_jk=False)
             self.jnr = self.jackknife(self.nr, reduce_jk=False)
@@ -2115,10 +2109,8 @@ class XiofR(CorrelationFunction):
                                  mu['px'][zlidx:zhidx][lidx],
                                  mu['py'][zlidx:zhidx][lidx],
                                  mu['pz'][zlidx:zhidx][lidx],
-                                 False,
-                                 mu['px'][zlidx:zhidx][lidx],
-                                 mu['py'][zlidx:zhidx][lidx],
-                                 mu['pz'][zlidx:zhidx][lidx])
+                                 periodic=False)
+
 
                     ddout = np.array(ddout)
 
@@ -2132,10 +2124,10 @@ class XiofR(CorrelationFunction):
                                  mu['px'][zlidx:zhidx][lidx],
                                  mu['py'][zlidx:zhidx][lidx],
                                  mu['pz'][zlidx:zhidx][lidx],
-                                 False,
-                                 rands['px'],
-                                 rands['py'],
-                                 rands['pz'])
+                                 periodic=False,
+                                 X2=rands['px'],
+                                 Y2=rands['py'],
+                                 Z2=rands['pz'])
 
                     drout = np.array(drout)
                     self.dr[self.jcount,:,j,i] = drout['npairs']
@@ -2149,10 +2141,8 @@ class XiofR(CorrelationFunction):
                                      rands['px'],
                                      rands['py'],
                                      rands['pz'],
-                                     False,
-                                     rands['px'],
-                                     rands['py'],
-                                     rands['pz'])
+                                     periodic=False)
+
 
                         rrout = np.array(rrout)
 
@@ -2194,10 +2184,7 @@ class XiofR(CorrelationFunction):
                              mu['px'][lidx],
                              mu['py'][lidx],
                              mu['pz'][lidx],
-                             False,
-                             mu['px'][lidx],
-                             mu['py'][lidx],
-                             mu['pz'][lidx])
+                             periodic=False)
 
                 ddout = np.array(ddout)
 
@@ -2210,10 +2197,10 @@ class XiofR(CorrelationFunction):
                              mu['px'][lidx],
                              mu['py'][lidx],
                              mu['pz'][lidx],
-                             False,
-                             rands['px'],
-                             rands['py'],
-                             rands['pz'])
+                             periodic=False,
+                             X2=rands['px'],
+                             Y2=rands['py'],
+                             Z2=rands['pz'])
 
                 drout = np.array(drout)
                 self.dr[self.jcount,:,j,i] = drout['npairs']
@@ -2227,10 +2214,10 @@ class XiofR(CorrelationFunction):
                                  rands['px'],
                                  rands['py'],
                                  rands['pz'],
-                                 False,
-                                 rands['px'],
-                                 rands['py'],
-                                 rands['pz'])
+                                 periodic=False,
+                                 X2=rands['px'],
+                                 Y2=rands['py'],
+                                 Z2=rands['pz'])
 
                     rrout = np.array(rrout)
                 self.rr[self.jcount,:,j,i] = rrout['npairs']
@@ -2308,6 +2295,9 @@ class XiofR(CorrelationFunction):
 
         else:
             self.jxi = np.zeros(self.dd.shape)
+            self.nd  = self.nd.reshape(-1,1,self.nmbins,self.nzbins)
+            self.nr  = self.nr.reshape(-1,1,self.nmbins,self.nzbins)
+
             self.jnd = self.jackknife(self.nd, reduce_jk=False)
             self.jnr = self.jackknife(self.nr, reduce_jk=False)
             self.jdd = self.jackknife(self.dd, reduce_jk=False)
