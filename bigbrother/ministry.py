@@ -449,7 +449,7 @@ class Ministry:
 
         return [cfm, m]
 
-    def singleTypeMappable(self, fieldmap, fs, jtype, override=False):
+    def singleTypeMappable(self, fieldmap, fs, ct, jtype, override=False):
         """
         If only working with one type of catalog,
         can assume that the length of all file types
@@ -474,10 +474,12 @@ class Ministry:
         
 
         if (jtype is not None) & (not override):
-            g, fgroups = self.galaxycatalog.groupFiles()
+            cat = getattr(self, ct)
+            g, fgroups = cat.groupFiles()
+
             jt = jtype
-            nb = self.galaxycatalog.nbox
-            gn = self.galaxycatalog.groupnside
+            nb = cat.nbox
+            gn = cat.groupnside
 
         elif not override:
             fgroups = [np.arange(len(fs[filetypes[0]]))]
@@ -497,7 +499,7 @@ class Ministry:
                         node = Mappable(fs[ft][i], ft)
                         last.children.append(node)
                         last = node
-
+                    
                 mappables.append(root)
 
             return mappables            
@@ -740,16 +742,16 @@ class Ministry:
             ct      = m.catalog_type[0]
 
         if aschema == 'galaxyonly':
-            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, m[0].jtype, override=override)
+            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, ct, m[0].jtype, override=override)
         elif aschema == 'haloonly':
-            return self.singleTypeMappable(fm, self.halocatalog.filestruct, m[0].jtype, override=override)
+            return self.singleTypeMappable(fm, self.halocatalog.filestruct, ct, m[0].jtype, override=override)
         elif aschema == 'singleonly':
             if ct == 'galaxycatalog':
-                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, m[0].jtype, override=override)
+                return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, ct, m[0].jtype, override=override)
             if ct == 'halocatalog':
-                return self.singleTypeMappable(fm, self.halocatalog.filestruct, m[0].jtype, override=override)
+                return self.singleTypeMappable(fm, self.halocatalog.filestruct, ct, m[0].jtype, override=override)
             if ct == 'particlecatalog':
-                return self.singleTypeMappable(fm, self.particlecatalog.filestruct, m[0].jtype, override=override)
+                return self.singleTypeMappable(fm, self.particlecatalog.filestruct, ct, m[0].jtype, override=override)
         elif aschema == 'galaxygalaxy':
             return self.galaxyGalaxyMappable(fm)
         elif aschema == 'halohalo':

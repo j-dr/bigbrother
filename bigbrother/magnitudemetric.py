@@ -2152,11 +2152,11 @@ class FQuenchedLum(Metric):
             if xlabel is None:
                 sax.set_xlabel(r'$Mag$', labelpad=30)
             else:
-                sax.set_xlabel(xlabel,labelpad=30)
+                sax.set_xlabel(xlabel,labelpad=30, fontsize=18)
             if ylabel is None:
-                sax.set_ylabel(r'$f_{red}$',labelpad=30)
+                sax.set_ylabel(r'$f_{red}$',labelpad=30, fontsize=18)
             else:
-                sax.set_ylabel(ylabel,labelpad=30)
+                sax.set_ylabel(ylabel,labelpad=30, fontsize=18)
 
         #plt.tight_layout()
 
