@@ -2282,10 +2282,10 @@ class XiofR(CorrelationFunction):
                                                                         self.jnd[i,0,j,k],
                                                                         self.jnr[i,0,j,k],
                                                                         self.jnr[i,0,j,k],
-                                                                        self.dd[i,:,j,k],
-                                                                        self.dr[i,:,j,k],
-                                                                        self.dr[i,:,j,k],
-                                                                        self.rr[i,:,j,k])
+                                                                        self.jdd[i,:,j,k],
+                                                                        self.jdr[i,:,j,k],
+                                                                        self.jdr[i,:,j,k],
+                                                                        self.jrr[i,:,j,k])
 
                 self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
                 self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
@@ -2311,10 +2311,10 @@ class XiofR(CorrelationFunction):
                                                                       self.jnd[i,0,j,k],
                                                                       self.jnr[i,0,j,k],
                                                                       self.jnr[i,0,j,k],
-                                                                      self.dd[i,:,j,k],
-                                                                      self.dr[i,:,j,k],
-                                                                      self.dr[i,:,j,k],
-                                                                      self.rr[i,:,j,k])
+                                                                      self.jdd[i,:,j,k],
+                                                                      self.jdr[i,:,j,k],
+                                                                      self.jdr[i,:,j,k],
+                                                                      self.jrr[i,:,j,k])
 
             self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
             self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
