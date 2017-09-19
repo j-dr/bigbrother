@@ -3,8 +3,13 @@ from .metric import Metric, GMetric, jackknifeMap
 import matplotlib as mpl
 mpl.use('TkAgg')
 import matplotlib.pylab as plt
+import seaborn as sns
 import numpy as np
 
+#sns.set(style='ticks', palette='colorblind')
+#sns.despine()
+
+colors = sns.color_palette('colorblind')
 
 class MagnitudeMetric(GMetric):
     """

@@ -3,7 +3,7 @@ import matplotlib as mpl
 mpl.use('TkAgg')
 import matplotlib.pylab as plt
 import numpy as np
-
+import seaborn as sns
 from .metric import Metric
 
 

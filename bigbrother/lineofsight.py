@@ -6,6 +6,7 @@ import numpy as np
 
 from metric import Metric, jackknifeMap
 from .selection import Selector
+import seaborn as sns
 
 class DNDz(Metric):
 

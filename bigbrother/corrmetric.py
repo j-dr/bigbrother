@@ -5,6 +5,7 @@ mpl.use('Agg')
 import matplotlib.pylab as plt
 import fitsio
 import warnings
+import seaborn as sns
 import sys
 
 try:

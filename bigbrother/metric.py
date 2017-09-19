@@ -14,8 +14,12 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.gridspec as gridspec
 import matplotlib.pylab as plt
+import seaborn as sns
 import numpy as np
 import warnings
+
+sns.set(style='ticks', palette='colorblind')
+sns.despine()
 
 class Metric(object):
     """
@@ -24,7 +28,7 @@ class Metric(object):
     """
     __metaclass__ = ABCMeta
 
-    _color_list = ['k', 'b', 'r', 'm', 'g', 'c', 'y']
+    _color_list = sns.color_palette('colorblind')
 
     def __init__(self, ministry, catalog_type=None, tag=None,
                   nomap=False, novis=False, jtype=None):
