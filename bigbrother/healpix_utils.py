@@ -148,6 +148,7 @@ class Area(Metric):
 
         if maskfile is not None:
             self.mask = fitsio.read(maskfile)
+            self.mask = self.mask[self.mask['FRACGOOD'][:,2]>0]
         else:
             self.mask = None
 
@@ -196,7 +197,7 @@ class Area(Metric):
             ud_map = hp.ud_grade(np.arange(12*self.nside_group**2), self.nside_mask,
                                  order_in=order_in, order_out=order_out)
             mpix   = ud_map[self.mask['HPIX']]
-            npix   = np.sum(self.mask['FRACGOOD'][mpix==p,2])
+            npix   = np.sum(self.mask['FRACGOOD'][(mpix==p),2])
 
             pix_area = hp.nside2pixarea(self.nside_mask, degrees=True)
 

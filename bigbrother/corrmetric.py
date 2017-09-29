@@ -2260,11 +2260,11 @@ class XiofR(CorrelationFunction):
                 for i, g in enumerate(gnd):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.nd[jc:jc+nj,0,:,:] = g
-                    self.nr[jc:jc+nj,0,:,:] = gnr[i]
-                    self.dd[jc:jc+nj,:,:,:] = gdd[i]
-                    self.dr[jc:jc+nj,:,:,:] = gdr[i]
-                    self.rr[jc:jc+nj,:,:,:] = grr[i]
+                    self.nd[i::len(gnd),0,:,:] = g
+                    self.nr[i::len(gnd),0,:,:] = gnr[i]
+                    self.dd[i::len(gnd),:,:,:] = gdd[i]
+                    self.dr[i::len(gnd),:,:,:] = gdr[i]
+                    self.rr[i::len(gnd),:,:,:] = grr[i]
 
                     jc += nj
 
@@ -2604,6 +2604,275 @@ class XiofRAnalyticRandoms(CorrelationFunction):
 
         return f, ax, l1[0]
 
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 usez=None, labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
+class DDCounts(CorrelationFunction):
+
+    def __init__(self, ministry, mbins=None, zbins=None, rbins=None,
+                  minr=None, maxr=None, logbins=True, nrbins=None,
+                  lightcone=False, catalog_type=None, tag=None,
+                  mcutind=None, inv_m=True,
+                  centrals_only=False, **kwargs):
+
+        """
+        Real space 3-d normalized pairs, DD(r).
+        """
+        CorrelationFunction.__init__(self, ministry, lightcone=lightcone,
+                                      mbins=mbins, nrbins=nrbins,
+                                      mcutind=mcutind, zbins=zbins,
+                                      inv_m=inv_m,catalog_type=catalog_type, 
+                                      tag=tag, **kwargs)
+
+        self.logbins = logbins
+        self.c = 299792.458
+
+        if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
+            self.minr = 1e-1
+            self.maxr = 25
+            self.nrbins = 15
+            self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
+        elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
+            self.minr = minr
+            self.maxr = maxr
+            self.nrbins = nrbins
+            self.rbins = self.genbins(minr, maxr, nrbins)
+        else:
+            self.rbins = rbins
+            self.minr = rbins[0]
+            self.maxr = rbins[1]
+            self.nrbins = len(rbins)-1
+
+        if self.mkey is not None:
+            self.mapkeys = ['px', 'py', 'pz', self.mkey]
+        else:
+            self.mapkeys = ['px','py','pz']
+
+        self.centrals_only = centrals_only
+
+        self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+
+        if self.centrals_only:
+            self.mapkeys.append('central')
+            self.unitmap['central'] = 'binary'
+
+        if self.mkey == 'luminosity':
+            self.unitmap[self.mkey] = 'mag'
+        elif self.mkey == 'halomass':
+            self.unitmap[self.mkey] = 'msunh'
+
+        self.dd = None
+        self.nd = None
+
+    @jackknifeMap
+    def map(self, mapunit):
+
+        if not hascorrfunc:
+            raise(ImportError("CorrFunc is required to calculate xi(r)"))
+
+        if self.dd is None:
+            self.writeCorrfuncBinFile(self.rbins)
+            self.dd = np.zeros((self.njack, self.nrbins, self.nmbins, 1))
+            self.nd = np.zeros((self.njack, self.nmbins, 1))
+
+        if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
+            mu = {}
+            mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float32)
+            mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float32)
+            mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float32)
+
+            mu['px'][:] = mapunit['px'][:]
+            mu['py'][:] = mapunit['py'][:]
+            mu['pz'][:] = mapunit['pz'][:]
+
+            for f in self.mapkeys:
+                if (f=='px') | (f=='py') | (f=='pz'): continue
+                mu[f] = mapunit[f]
+            
+        else:
+            mu = mapunit
+
+        for lj, j in enumerate(self.minds):
+            print('Finding luminosity indices')
+
+            if not self.upper_limit: 
+                if self.mcutind is not None:
+                    lidx = (self.mbins[j] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[j+1])
+                elif (self.mcutind is None) and (self.mkey is not None):
+                    lidx = (self.mbins[j] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[j+1])
+                else:
+                    lidx = np.ones(len(mu['px']), dtype=np.bool)
+            else:
+                if self.mcutind is not None:
+                    lidx = (mu[self.mkey][:,self.mcutind] < self.mbins[j])
+                elif (self.mcutind is None) and (self.mkey is not None):
+                    lidx = (mu[self.mkey] < self.mbins[j])
+                else:
+                    lidx = np.ones(len(mu['px']), dtype=np.bool)
+
+            if self.centrals_only:
+                lidx &= (mu['central']==1)
+
+            self.nd[self.jcount,j,0] = len(mu['pz'][lidx])
+
+            print("Number of galaxies in this z/lum bin: {0}".format(len(mu['pz'][lidx])))
+            print('calculating xi(r)')
+
+            sys.stdout.flush()
+            ddout = DD(1,1,
+                         self.binfilename,
+                         mu['px'][lidx],
+                         mu['py'][lidx],
+                         mu['pz'][lidx],
+                         periodic=False)
+
+            ddout = np.array(ddout)
+            self.dd[self.jcount,:,j,0] = ddout['npairs']
+
+
+    def reduce(self, rank=None, comm=None):
+        if rank is not None:
+            gnd = comm.gather(self.nd, root=0)
+            gdd = comm.gather(self.dd, root=0)
+
+            if rank==0:
+                ndshape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
+                ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+
+                ndshape.insert(1,1)
+
+                ndshape[0] = self.njacktot
+                ddshape[0] = self.njacktot
+
+                self.nd = np.zeros(ndshape)
+                self.dd = np.zeros(ddshape)
+
+                jc = 0
+                for i, g in enumerate(gnd):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.nd[jc:jc+nj,0,:,:] = g
+                    self.dd[jc:jc+nj,:,:,:] = gdd[i]
+
+                    jc += nj
+
+                self.jnd = self.jackknife(self.nd, reduce_jk=False)
+                self.jdd = self.jackknife(self.dd, reduce_jk=False)
+
+                self.jDD = self.jdd / self.jnd.reshape(-1,1,self.nmbins,1)
+
+                self.DD    = np.sum(self.jDD, axis=0) / self.njacktot
+                self.varDD = np.sum((self.jDD - self.DD)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+        else:
+            self.jnd = self.jackknife(self.nd, reduce_jk=False)
+            self.jdd = self.jackknife(self.dd, reduce_jk=False)
+
+            self.jDD = self.jdd / self.jnd.reshape(-1,1,self.nmbins,1)
+
+            self.DD    = np.sum(self.jDD, axis=0) / self.njacktot
+            self.varDD = np.sum((self.jDD - self.DD)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+        
+
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, **kwargs):
+
+        if usecols is None:
+            usecols = range(self.nmbins)
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
+
+        for i, l in enumerate(usecols):
+            ye = np.sqrt(self.varDD[:,l,0])
+            l1 = ax[0][i].plot(rmean, self.DD[:,l,0], **kwargs)
+            ax[0][i].fill_between(rmean, self.DD[:,l,0]-ye, self.DD[:,l,0]+ye, alpha=0.5, **kwargs)
+
+            ax[0][i].set_xscale('log')
+            ax[0][i].set_yscale('log')
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_ylabel(r'$DD(r)$', fontsize=16, labelpad=20)
+            sax.set_xlabel(r'$r \, [ Mpc h^{-1}]$', fontsize=16, labelpad=20)
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1[0]
 
     def compare(self, othermetrics, plotname=None, usecols=None,
                  usez=None, labels=None, **kwargs):

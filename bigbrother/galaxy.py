@@ -20,7 +20,8 @@ class GalaxyCatalog(BaseCatalog):
     """
 
     def __init__(self, ministry, filestruct, zbins=None, zp=None, 
-                 Q=None,appmagcut=None, appmagcutind=None, **kwargs):
+                 Q=None,appmagcut=None, appmagcutind=None, sigma=None,
+                 **kwargs):
 
 
         self.ctype = 'galaxycatalog'
@@ -29,8 +30,16 @@ class GalaxyCatalog(BaseCatalog):
         self.Q  = Q
         self.appmagcut = appmagcut
         self.appmagcutind = appmagcutind
+        self.sigma = sigma
 
-        BaseCatalog.__init__(self, ministry, filestruct, **kwargs)
+        if self.sigma is not None:
+            necessaries = kwargs.pop('necessaries', [])
+            necessaries.append('appmag_err')
+        else:
+            necessaries = None
+
+        BaseCatalog.__init__(self, ministry, filestruct, necessaries=necessaries,
+                             **kwargs)
 
 
     def calculateMaskArea(self, pixels, nside):
@@ -215,7 +224,7 @@ class GalaxyCatalog(BaseCatalog):
         return mapunit
 
 
-    def filterAppmag(self, mapunit, bands=None, badval=99.):
+    def filterAppmag(self, mapunit, bands=None, badval=99., sigma=None):
         if bands is None:
             if len(mapunit['appmag'].shape)>1:
                 bands = range(mapunit['appmag'].shape[1])
@@ -230,30 +239,16 @@ class GalaxyCatalog(BaseCatalog):
                 idxi = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b])) & (~np.isnan(mapunit['appmag'][:,b]))
                 idx = idx&idxi
 
+                if self.sigma is not None:
+                    idx &= (mapunit['appmag_err'][:,b]<1/self.sigma) & np.isfinite(mapunit['appmag_err'][:,b]) & (~np.isnan(mapunit['appmag_err'][:,b]))
+                
+
         if self.appmagcut is not None:
             print('Filtering on appmag < {}'.format(self.appmagcut))
             if self.appmagcutind is None:
                 idx &= mapunit['appmag'] < self.appmagcut
             else:
                 idx &= mapunit['appmag'][:,self.appmagcutind] < self.appmagcut            
-
-
-        return idx
-
-    def filter10sigma(self, mapunit, bands=None, badval=99.):
-        if bands is None:
-            if len(mapunit['appmag_err'].shape)>1:
-                bands = range(mapunit['appmag_err'].shape[1])
-            else:
-                bands = [0]
-                mapunit['appmag_err'] = np.atleast_2d(mapunit['appmag_err']).T
-
-        for i, b in enumerate(bands):
-            if i==0:
-                idx = (mapunit['appmag_err'][:,b]<0.1) & (np.isfinite(mapunit['appmag_err'][:,b])) & (~np.isnan(mapunit['appmag_err'][:,b]))
-            else:
-                idxi = (mapunit['appmag_err'][:,b]<0.1) & (np.isfinite(mapunit['appmag_err'][:,b])) & (~np.isnan(mapunit['appmag_err'][:,b]))
-                idx = idx&idxi
 
         return idx
 

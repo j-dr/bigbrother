@@ -149,12 +149,12 @@ class MassFunction(MassMetric):
                 dshape[0] = self.njacktot
                 self.masscounts = np.zeros(dshape)
 
-                for g in gdata:
+                for i, g in enumerate(gdata):
                     if g is None: continue
-                    nj = g.shape[0]
-                    self.masscounts[jc:jc+nj,:,:,:] = g
+#                    nj = g.shape[0]
+                    self.masscounts[i::len(gdata),:,:,:] = g
 
-                    jc += nj
+#                    jc += nj
 
                 area = self.ministry.halocatalog.getArea(jackknife=True)
                 self.jmass_function = np.zeros(self.masscounts.shape)
