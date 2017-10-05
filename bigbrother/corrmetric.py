@@ -34,7 +34,8 @@ class CorrelationFunction(Metric):
                    catalog_type=None, mcutind=None,
                    tag=None, same_rand=False, inv_m=True,
                    randname=None, rand_factor=10, 
-                   upper_limit=False, **kwargs):
+                   upper_limit=False, appmag=False,
+                   **kwargs):
         """
         Generic correlation function.
         """
@@ -47,6 +48,7 @@ class CorrelationFunction(Metric):
 
         self.lightcone = lightcone
         self.upper_limit = upper_limit
+        self.appmag    = appmag
 
         if (zbins is None) & lightcone:
             self.zbins = np.linspace(self.ministry.minz, self.ministry.maxz, 4)
@@ -61,7 +63,11 @@ class CorrelationFunction(Metric):
 
 
         if (mbins is None) & (self.catalog_type == ['galaxycatalog']):
-            self.mbins = np.array([-30, 0])
+            if self.appmag:
+                self.mbins = np.array([0,40])
+            else:
+                self.mbins = np.array([-30, 0])
+
         elif (mbins is None) & (self.catalog_type == ['halocatalog']):
             self.mbins = np.array([10**7, 10**17])
         elif self.catalog_type == ['particlecatalog']:
@@ -95,7 +101,11 @@ class CorrelationFunction(Metric):
 
         if 'galaxycatalog' in self.catalog_type:
             self.aschema = 'galaxygalaxy'
-            self.mkey = 'luminosity'
+            if not self.appmag:
+                self.mkey = 'luminosity'
+            else:
+                self.mkey = 'appmag'
+
         elif 'halocatalog' in self.catalog_type:
             self.mkey = 'halomass'
             self.aschema = 'halohalo'
@@ -283,7 +293,7 @@ class CorrelationFunction(Metric):
         return mag
         
 
-class AngularCorrelationFunction(CorrelationFunction):
+class WTheta(CorrelationFunction):
 
     def __init__(self, ministry, zbins=None, mbins=None,
                   abins=None, mintheta=None, maxtheta=None,
@@ -367,7 +377,7 @@ class AngularCorrelationFunction(CorrelationFunction):
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
 
         if self.catalog_type == ['galaxycatalog']:
-            self.unitmap = {'luminosity':'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
+            self.unitmap = {self.mkey:'mag', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
         elif self.catalog_type == ['halocatalog']:
             self.unitmap = {'halomass':'msunh', 'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z'}
 
@@ -411,28 +421,18 @@ class AngularCorrelationFunction(CorrelationFunction):
             self.rr = np.zeros((self.njack, self.nabins, self.ncbins, 
                                   self.nmbins, self.nzbins))
 
-        if ((mapunit['azim_ang'].dtype == '>f4') | (mapunit['azim_ang'].dtype == '>f8') | (mapunit['azim_ang'].dtype == np.float64)) & self.homogenize_type :
-            mu = {}
-            mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
-            mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
-            mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
+        mu = {}
+        mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
+        mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
+        mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
 
-            mu['azim_ang'][:] = mapunit['azim_ang'][:]
-            mu['polar_ang'][:] = mapunit['polar_ang'][:]
-            mu['redshift'][:] = mapunit['redshift'][:]
+        mu['azim_ang'][:] = mapunit['azim_ang'][:].astype(np.float64)
+        mu['polar_ang'][:] = mapunit['polar_ang'][:].astype(np.float64)
+        mu['redshift'][:] = mapunit['redshift'][:].astype(np.float64)
 
-            for f in self.mapkeys:
-                if (f=='px') | (f=='py') | (f=='pz') : continue
-                mu[f] = mapunit[f]
-
-            if self.rsd:
-                mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float64)
-                mu['velocity'][:] = mapunit['velocity'][:]
-
-            if self.centrals_only:
-                mu['central'] = mapunit['central']
-        else:
-            mu = mapunit
+        for f in self.mapkeys:
+            if (f=='polar_ang') | (f=='azim_ang') | (f=='redshift') : continue
+            mu[f] = mapunit[f]
 
         if self.deevolve_mstar:
             lum = self.deevolve_gal(mu, self.Q, faber=self.faber)
@@ -453,8 +453,9 @@ class AngularCorrelationFunction(CorrelationFunction):
 
             if zlidx==zhidx:
                 print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
-                print("Min and max z: {0}, {1}".format(np.min(z), np.max(z)))
                 print(z)
+                print("Min and max z: {0}, {1}".format(np.min(z), np.max(z)))
+
                 continue
 
             if (self.splitcolor is None) & (self.bimodal_ccut):
@@ -2550,6 +2551,7 @@ class XiofRAnalyticRandoms(CorrelationFunction):
 
     def reduce(self, rank=None, comm=None):
         self.varxi = np.zeros_like(self.xi)
+
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
                     usez=None, compare=False, **kwargs):
