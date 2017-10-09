@@ -513,10 +513,7 @@ class WTheta(CorrelationFunction):
 
                     ddresults = DDtheta_mocks(1, 1, self.binfilename,
                                             mu['azim_ang'][zlidx:zhidx][cidx],
-                                            mu['polar_ang'][zlidx:zhidx][cidx],
-                                            mu['azim_ang'][zlidx:zhidx][cidx],
                                             mu['polar_ang'][zlidx:zhidx][cidx])
-
 
                     self.dd[self.jcount,:,k,j,i] = ddresults['npairs']
 
@@ -526,8 +523,8 @@ class WTheta(CorrelationFunction):
                     drresults = DDtheta_mocks(0, 1, self.binfilename,
                                             mu['azim_ang'][zlidx:zhidx][cidx],
                                             mu['polar_ang'][zlidx:zhidx][cidx],
-                                            rands['azim_ang'],
-                                            rands['polar_ang'])
+                                            RA2=rands['azim_ang'],
+                                            DEC2=rands['polar_ang'])
 
                     self.dr[self.jcount,:,k,j,i] = drresults['npairs']
 
@@ -537,10 +534,7 @@ class WTheta(CorrelationFunction):
                     if (li==0) | (not self.same_rand):
                         rrresults = DDtheta_mocks(1, 1, self.binfilename,
                                                 rands['azim_ang'],
-                                                rands['polar_ang'],
-                                                rands['azim_ang'],
                                                 rands['polar_ang'])
-
 
                     self.rr[self.jcount,:,k,j,i] = rrresults['npairs']
 
@@ -597,7 +591,7 @@ class WTheta(CorrelationFunction):
                 self.jdr = self.jackknife(self.dr, reduce_jk=False)
                 self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
-                fnorm = self.jnr / self.jnd
+                fnorm = (self.jnr / self.jnd).reshape(-1,1,self.ncbins,self.nmbins,self.nzbins)
 
                 self.jwtheta = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
 
@@ -614,7 +608,7 @@ class WTheta(CorrelationFunction):
             self.jdr = self.jackknife(self.dr, reduce_jk=False)
             self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
-            fnorm = self.jnr / self.jnd
+            fnorm = (self.jnr / self.jnd).reshape(-1,1,self.ncbins,self.nmbins,self.nzbins)
 
             self.jwtheta = (fnorm ** 2 * self.jdd - 2 * fnorm * self.jdr + self.jrr) / self.jrr
 
