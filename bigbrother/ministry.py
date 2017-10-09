@@ -6,7 +6,7 @@ from .basecatalog import PlaceHolder
 from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, DESGoldCatalog
 from .halo import HaloCatalog, BCCHaloCatalog
 from .particle import LGadgetSnapshot
-
+from .healpix_utils import SubBoxMetric, PixMetric
 from copy import copy, deepcopy
 import numpy as np
 import healpy as hp
@@ -55,7 +55,7 @@ class Mappable(object):
         else:
             for i in range(len(self.children)):
                 self.children[i].recursive_delete()
-        
+
 class Ministry:
     """
     A class which owns all the other catalog data
@@ -99,6 +99,7 @@ class Ministry:
         self.galaxycatalog = None
         self.halocatalog = None
         self.particlecatalog = None
+        self.clustercatalog = None
         self.ministry_name = ministry_name
 
         if area is None:
@@ -117,7 +118,7 @@ class Ministry:
         self.maskcomp = maskcomp
         self.maskval  = maskval
         self.mask = None
-        
+
 
     def calculate_volume(self,area,minz,maxz):
         if self.lightcone:
@@ -157,8 +158,19 @@ class Ministry:
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
 
+    def setHaloCatalog(self, catalog_type, filestruct, goodpix=1, **kwargs):
+        """
+        Fill in the halo catalog information
+        """
+
+        if catalog_type == "redmapper":
+            self.clustercatalog = RedmapperCatalog(self, filestruct, **kwargs)
+
+        elif catalog_type == "PlaceHolder":
+            self.clustercatalog = PlaceHolder(self, None)
+
     def setParticleCatalog(self, catalog_type, filestruct, **kwargs):
-        
+
         if catalog_type == "LGadgetSnapshot":
             self.particlecatalog = LGadgetSnapshot(self, filestruct, **kwargs)
         elif catalog_type == "PlaceHolder":
@@ -182,14 +194,22 @@ class Ministry:
             #fields as specified by the catalog's field map
 
             mk  = copy(metric.mapkeys)
+            print(mk)
             mk.extend(cat.necessaries)
 
             if cat.jtype == 'subbox':
-                mk.extend(['px','py','pz'])
+                if isinstance(metric, SubBoxMetric):
+                    pass
+                else:
+                    mk.extend(['px','py','pz'])
             elif cat.jtype == 'healpix':
-                mk.extend(['polar_ang', 'azim_ang'])
+                if isinstance(metric, PixMetric) :
+                    pass
+                else:
+                    mk.extend(['polar_ang', 'azim_ang'])
 
             mk = np.unique(mk)
+            print(mk)
 
             for mapkey in mk:
                 if mapkey not in valid.keys():
@@ -471,7 +491,7 @@ class Ministry:
 
         filetypes = zft
         filetypes.extend(nzft)
-        
+
 
         if (jtype is not None) & (not override):
             cat = getattr(self, ct)
@@ -499,10 +519,10 @@ class Ministry:
                         node = Mappable(fs[ft][i], ft)
                         last.children.append(node)
                         last = node
-                    
+
                 mappables.append(root)
 
-            return mappables            
+            return mappables
 
         #Create mappables out of filestruct and fieldmaps
         for i, fg in enumerate(fgroups):
@@ -523,13 +543,14 @@ class Ministry:
         return mappables
 
 
-    def galaxyGalaxyMappable(self, fieldmap):
+    def doubleTypeMappable(self, fieldmap, ct1, ct2, jtype):
 
         filetypes = fieldmap.keys()
         mappables = []
 
-        #need to put filetypes with redshifts in
-        #them first
+        cat1 = getattr(self, ct1)
+        cat2 = getattr(self, ct2)
+
         zft = []
         nzft = []
         for ft in filetypes:
@@ -541,156 +562,71 @@ class Ministry:
         filetypes = zft
         filetypes.extend(nzft)
 
-        g, fgroups = self.galaxycatalog.groupFiles()
-        jt = self.galaxycatalog.jtype
-        nb = self.galaxycatalog.nbox
-        gn = self.galaxycatalog.groupnside
+        fs1 = cat1.filestruct
+        fs2 = cat2.filestruct
 
-        fs = self.galaxycatalog.filestruct
+        if jtype is not None:
+            g1, fgroups1 = cat1.groupFiles()
+            g2, fgroups2 = cat2.groupFiles()
 
-        #Create mappables out of filestruct and fieldmaps
-        for i, fg in enumerate(fgroups):
-            for fc, j in enumerate(fg):
+            #only use groups that show up in both catalogs
+            idx1 = np.in1d(g1, g2)
+            idx2 = np.in1d(g2, g1)
+
+            g1 = g1[idx1]
+            fgroups1 = [fgroups1[i] for i in idx1]
+
+            g2 = g2[idx2]
+            fgroups2 = [fgroups2[i] for i in idx2]
+
+            idx = g1.argsort()
+            g1  = g1[idx]
+            g2  = g2[idx]
+
+            assert(len(g1)==len(g2))
+
+            print('jackknife groups: {}'.format(g1))
+
+            fgroups1 = [fgroups1[i] for i in idx]
+            fgroups2 = [fgroups2[i] for i in idx]
+
+            jt = cat1.jtype
+            nb = cat1.nbox
+            gn = cat1.groupnside
+
+        else:
+            fgroups1 = [np.arange(len(fs1[fs1.keys()[0]]))]
+            fgroups2 = [np.arange(len(fs2[fs2.keys()[0]]))]
+
+            g1  = [0]
+            g2  = [0]
+
+            jt = None
+            nb = 0
+            gn = 0
+
+
+        for i, fg in enumerate(zip(fgroups1, fgroups2)):
+
+            for fc, j1 in enumerate(fg[0]):
+                j2 = fg[1][fc]
+
                 for k, ft in enumerate(filetypes):
+
+                    if ft in fs1.keys():
+                        fs = fs1
+                        j  = j1
+                    else:
+                        fs = fs2
+                        j  = j2
+
                     if (fc==0) & (k==0):
                         root = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g[i])
+                                      gnside=gn, nbox=nb, grp=g1[i])
                         last = root
                     else:
                         node = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g[i])
-                        last.children.append(node)
-                        last = node
-
-            mappables.append(root)
-
-        return mappables
-
-
-    def haloHaloMappable(self, fieldmap):
-        filetypes = fieldmap.keys()
-        mappables = []
-
-        #need to put filetypes with redshifts in
-        #them first
-        zft = []
-        nzft = []
-        for ft in filetypes:
-            if 'redshift' in fieldmap[ft]:
-                zft.append(ft)
-            else:
-                nzft.append(ft)
-
-        filetypes = zft
-        filetypes.extend(nzft)
-
-        g, fgroups = self.halocatalog.groupFiles()
-        jt = self.halocatalog.jtype
-        nb = self.halocatalog.nbox
-        gn = self.halocatalog.groupnside
-
-        fs = self.halocatalog.filestruct
-
-        #Create mappables out of filestruct and fieldmaps
-        for i, fg in enumerate(fgroups):
-            for fc, j in enumerate(fg):
-                for k, ft in enumerate(filetypes):
-                    if (fc==0) & (k==0):
-                        root = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g[i])
-                        last = root
-                    else:
-                        node = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g[i])
-                        last.children.append(node)
-                        last = node
-
-            mappables.append(root)
-
-        return mappables
-
-    def haloGalaxyMappable(self, fieldmap, nside=8):
-
-        #combine file structures for halo
-        #and galaxy catalogs
-        fs  = self.galaxycatalog.filestruct
-        hfs = self.halocatalog.filestruct
-        fs.update(hfs)
-
-        gft = [ft for ft in fieldmap.keys() if ft
-               in self.galaxycatalog.filestruct.keys()]
-        hft = [ft for ft in fieldmap.keys() if ft
-               in self.halocatalog.filestruct.keys()]
-
-        #get a filetype necessary for halo catalog
-        hkey = hft[0]
-
-        gfpix = self.galaxycatalog.getFilePixels(nside)
-        hfpix = self.halocatalog.getFilePixels(nside)
-
-        filetypes = fieldmap.keys()
-        mappables = []
-
-        #Create mappables out of filestruct and fieldmaps
-        for i in range(len(hfs[hkey])):
-            root = Mappable(hfs[hkey][i], hkey)
-            last = root
-            for ft in hft:
-                if ft==hkey:    continue
-                mp = Mappable(hfs[ft][i], ft)
-                last.children.append(mp)
-
-            hlast = last
-            gidx = self.getIntersection('halogalaxy',hfpix[i], gfpix)
-
-            for idx in gidx:
-                last = hlast
-
-                for ft in gft:
-                    mp = Mappable(gfs[ft][idx], ft)
-                    last.children.append(mp)
-                    last = mp
-
-            mappables.append(mappable)
-
-        return mappables
-
-    def particleParticleMappable(self, fieldmap):
-
-        filetypes = fieldmap.keys()
-        mappables = []
-
-        #need to put filetypes with redshifts in
-        #them first
-        zft = []
-        nzft = []
-        for ft in filetypes:
-            if 'redshift' in fieldmap[ft]:
-                zft.append(ft)
-            else:
-                nzft.append(ft)
-
-        filetypes = zft
-        filetypes.extend(nzft)
-
-        g, fgroups = self.particlecatalog.groupFiles()
-        jt = self.particlecatalog.jtype
-        nb = self.particlecatalog.nbox
-        gn = self.particlecatalog.groupnside
-
-        fs = self.particlecatalog.filestruct
-
-        #Create mappables out of filestruct and fieldmaps
-        for i, fg in enumerate(fgroups):
-            for fc, j in enumerate(fg):
-                for k, ft in enumerate(filetypes):
-                    if (fc==0) & (k==0):
-                        root = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g[i])
-                        last = root
-                    else:
-                        node = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g[i])
+                                      gnside=gn, nbox=nb, grp=g1[i])
                         last.children.append(node)
                         last = node
 
@@ -743,25 +679,45 @@ class Ministry:
 
         if aschema == 'galaxyonly':
             return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, ct, m[0].jtype, override=override)
+
         elif aschema == 'haloonly':
             return self.singleTypeMappable(fm, self.halocatalog.filestruct, ct, m[0].jtype, override=override)
+
         elif aschema == 'singleonly':
             if ct == 'galaxycatalog':
                 return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, ct, m[0].jtype, override=override)
+
             if ct == 'halocatalog':
                 return self.singleTypeMappable(fm, self.halocatalog.filestruct, ct, m[0].jtype, override=override)
+
             if ct == 'particlecatalog':
                 return self.singleTypeMappable(fm, self.particlecatalog.filestruct, ct, m[0].jtype, override=override)
-        elif aschema == 'galaxygalaxy':
-            return self.galaxyGalaxyMappable(fm)
-        elif aschema == 'halohalo':
-            return self.haloHaloMappable(fm)
-        elif aschema == 'halogalaxy':
-            return self.haloGalaxyMappable(fm)
-        elif aschema == 'particleparticle':
-            print('particleparticle')
-            return self.particleParticleMappable(fm)
 
+        elif aschema == 'galaxygalaxy':
+            return self.singleTypeMappable(fm, self.galaxycatalog.filestruct, ct, m[0].jtype, override=override)
+
+        elif aschema == 'halohalo':
+            return self.singleTypeMappable(fm, self.halocatalog.filestruct, ct, m[0].jtype, override=override)
+
+        elif aschema == 'particleparticle':
+            return self.singleTypeMappable(fm, self.particlecatalog.filestruct, ct, m[0].jtype, override=override)
+
+        elif aschema == 'galaxyhalo':
+            return self.doubleTypeMappable(fm, 'galaxycatalog', 'halocatalog',
+                                            m[0].jtype)
+
+        elif aschema == 'galaxyparticle':
+            return self.doubleTypeMappable(fm, 'galaxycatalog',
+                                            'particlecatalog',
+                                            m[0].jtype)
+
+        elif aschema == 'particlehalo':
+            return self.doubleTypeMappable(fm, 'particlecatalog',
+                                            'halocatalog',
+                                            m[0].jtype)
+
+        else:
+            raise(ValueError('{} is not a supported aschema'.format(aschema)))
 
     def readMappable(self, mappable, fieldmap):
         print('Reading {}'.format(mappable.name))
@@ -798,7 +754,7 @@ class Ministry:
                     if len(mu[key].shape) == 1:
                         mu[key] = np.hstack([mu[key], mapunit.data[key]])
                     else:
-                        mu[key] = np.vstack([mu[key], mapunit.data[key]])                    
+                        mu[key] = np.vstack([mu[key], mapunit.data[key]])
                 else:
                     mu[key] = mapunit.data[key]
 
@@ -809,7 +765,7 @@ class Ministry:
                 if len(mu[key].shape) == 1:
                     mu[key] = np.hstack([mu[key], mapunit.data[key]])
                 else:
-                    mu[key] = np.vstack([mu[key], mapunit.data[key]])                    
+                    mu[key] = np.vstack([mu[key], mapunit.data[key]])
             else:
                 mu[key] = mapunit.data[key]
 
@@ -872,24 +828,24 @@ class Ministry:
 
         return mu
 
-    def sortMappableByZ(self, mappable, fieldmap, idx):
-        """
-        Sort a mappable by redshift for each galaxy type
-        """
-
-        if 'redshift' in fieldmap[mappable.dtype].keys():
-            idx = mappable.data['redshift'].argsort()
-
-
-        dk = mappable.data.keys()
-        if len(idx)==len(mappable.data[dk[0]]):
-            for k in dk:
-                mappable.data[k] = mappable.data[k][idx]
-
-
-        if len(mappable.children)>0:
-            for child in mappable.children:
-                self.sortMappableByZ(child, fieldmap, idx)
+#    def sortMappableByZ(self, mappable, fieldmap, idx):
+#        """
+#        Sort a mappable by redshift for each galaxy type
+#        """
+#
+#        if 'redshift' in fieldmap[mappable.dtype].keys():
+#            idx = mappable.data['redshift'].argsort()
+#
+#
+#        dk = mappable.data.keys()
+#        if len(idx)==len(mappable.data[dk[0]]):
+#            for k in dk:
+#                mappable.data[k] = mappable.data[k][idx]
+#
+#
+#        if len(mappable.children)>0:
+#            for child in mappable.children:
+#                self.sortMappableByZ(child, fieldmap, idx)
 
     def sortMapunitByZ(self, mapunit):
 
@@ -897,29 +853,38 @@ class Ministry:
 
         if 'redshift' in dk:
             idx = mapunit['redshift'].argsort()
+            for k in dk:
+                if (len(mapunit[k])==len(idx)):
+                    mapunit[k] = mapunit[k][idx]
 
-        for k in dk:
-            mapunit[k] = mapunit[k][idx]
+        if 'redshift1' in dk:
+            idx = mapunit['redshift1'].argsort()
+
+            if (len(mapunit[k])==len(idx)):
+                mapunit[k] = mapunit[k][idx]
 
         return mapunit
 
-    def maskMappable(self, mapunit, mappable):
+    def maskMappable(self, mapunit, mappable, azim_ang_key='azim_ang',
+                      polar_ang_key='polar_ang', px_key='px', py_key='py',
+                      pz_key='pz'):
 
         if mappable.jtype == 'healpix':
             if mappable.gnside == 0:
                 return mapunit
 
-            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+            tp = np.zeros((len(mapunit[azim_ang_key]),2))
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
-            for i, key in enumerate(['azim_ang', 'polar_ang']):
+            for i, key in enumerate([azim_ang_key, polar_ang_key]):
 
                 if self.galaxycatalog is not None:
-                    if 'azim_ang' in self.galaxycatalog.unitmap.keys():
+                    if azim_ang_key in self.galaxycatalog.unitmap.keys():
                         um = self.galaxycatalog.unitmap
                         nest = self.galaxycatalog.nest
 
-                elif self.halocatalog is not None:
-                    if 'azim_ang' in self.halocatalog.unitmap.keys():
+                if (self.halocatalog is not None):
+                    if azim_ang_key in self.halocatalog.unitmap.keys():
+                        print('unitmap')
                         um = self.halocatalog.unitmap
                         nest = self.halocatalog.nest
 
@@ -953,20 +918,13 @@ class Ministry:
                 else:
                     raise('Comparison {} not supported'.format(self.maskcomp))
 
-            mu = {}
-            for k in mapunit.keys():
-                mu[k] = mapunit[k][pidx]
-
-            del mapunit
-
-            mapunit = mu
-            return mapunit
+            return pidx
 
         elif mappable.jtype == 'angular-generic':
-            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+            tp = np.zeros((len(mapunit[azim_ang_key]),2))
 
             print('Masking {0} using angular-generic {1}'.format(mappable.name, mappable.grp))
-            for i, key in enumerate(['azim_ang', 'polar_ang']):
+            for i, key in enumerate([azim_ang_key, polar_ang_key]):
                 try:
                     conversion = getattr(self, '{0}2{1}'.format(self.unitmap[key],'rad'))
                 except:
@@ -996,33 +954,34 @@ class Ministry:
             else:
                 raise('Comparison {} not supported'.format(self.maskcomp))
 
-            mu = {}
-            for k in mapunit.keys():
-                mu[k] = mapunit[k][pidx]
+#            mu = {}
+#            for k in mapunit.keys():
+#                mu[k] = mapunit[k][pidx]
 
-            mapunit = mu
-            return mapunit
+#            mapunit = mu
+#            return mapunit
+            return pidx
 
         elif mappable.jtype == 'subbox':
             if mappable.nbox == 0:
                 return mapunit
 
-            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),3))
+            tp = np.zeros((len(px_key),3))
             if self.galaxycatalog is not None:
-                if 'px' in self.galaxycatalog.unitmap.keys():
+                if px_key in self.galaxycatalog.unitmap.keys():
                     um = self.galaxycatalog.unitmap
 
             elif self.halocatalog is not None:
-                if 'px' in self.halocatalog.unitmap.keys():
+                if px_key in self.halocatalog.unitmap.keys():
                     um = self.halocatalog.unitmap
 
             elif self.particlecatalog is not None:
-                if 'px' in self.particlecatalog.unitmap.keys():
+                if px_key in self.particlecatalog.unitmap.keys():
                     um = self.particlecatalog.unitmap
 
             print('Masking {0} using subbox {1}'.format(mappable.name, mappable.grp))
 
-            for i, key in enumerate(['px', 'py', 'pz']):
+            for i, key in enumerate([px_key, py_key, pz_key]):
                 if um[key] != 'mpch':
                     try:
                         conversion = getattr(self, '{0}2{1}'.format(um[key],'mpch'))
@@ -1041,15 +1000,16 @@ class Ministry:
 
             pidx = bidx==mappable.grp
 
-            mu = {}
-            for k in mapunit.keys():
-                mu[k] = mapunit[k][pidx]
+#            mu = {}
+#            for k in mapunit.keys():
+#                mu[k] = mapunit[k][pidx]
 
-            mapunit = mu
-            return mapunit
+#            mapunit = mu
+#            return mapunit
+            return pidx
 
         elif mappable.jtype is None:
-            return mapunit
+            return None
         else:
             raise NotImplementedError
 
@@ -1072,7 +1032,8 @@ class Ministry:
 
         return mapunit
 
-    def validate(self, nmap=None, metrics=None, verbose=False, parallel=False):
+    def validate(self, nmap=None, metrics=None, verbose=False, parallel=False,
+                    debug_mapunit=False):
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
@@ -1159,13 +1120,12 @@ class Ministry:
 #                    self.sortMappableByZ(mapunit, fm, [])
 
                 if (not hasattr(ms,'__iter__')):
-                    aschema = ms.aschema 
+                    aschema = ms.aschema
                 else:
                     aschema = ms[0].aschema
 
                 if ('only' in aschema) & (mappable.jtype is None):
                     mapunit = self.dcListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
@@ -1173,7 +1133,13 @@ class Ministry:
 
                 elif ('only' in aschema) & (mappable.jtype is not None):
                     mapunit = self.dcListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)
+
+                    if pidx is not None:
+                        pidx = self.maskMappable(mapunit, mappable)
+
+                        for k in mapunit.keys():
+                            mapunit[k] = mapunit[k][pidx]
+
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
@@ -1183,21 +1149,77 @@ class Ministry:
                   | (aschema == 'halohalo')
                   | (aschema == 'particleparticle')):
                     mapunit = self.dcListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)
+                    pidx = self.maskMappable(mapunit, mappable)
+
+                    if pidx is not None:
+                        mu = {}
+                        for k in mapunit.keys():
+                            mu[k] = mapunit[k][pidx]
+
+                        mapunit = mu
+
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
                 elif ((aschema == 'galaxygalaxy')
-                  | (aschema == 'halohalo')
-                  | (aschema == 'particleparticle')):
+                        | (aschema == 'halohalo')
+                        | (aschema == 'particleparticle')):
+
                     mapunit = self.dcListToDict(mapunit)
-                    mapunit = self.maskMappable(mapunit, mappable)
+
+                    #mask the first catalog
+                    pidx = self.maskMappable(mapunit, mappable)
+                    if pidx is not None:
+                        mu = {}
+                        for k in mapunit.keys():
+                            if len(mapunit[k])==len(pidx):
+                                mu[k] = mapunit[k][pidx]
+
+                        mapunit = mu
+
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
 
+                elif ((aschema == 'galaxyhalo')
+                        | (aschema == 'galaxyparticle')
+                        | (aschema == 'particlehalo')):
+
+                    mapunit = self.dcListToDict(mapunit)
+
+                    #mask the first catalog
+                    pidx = self.maskMappable(mapunit, mappable)
+                    if pidx is not None:
+                        for k in mapunit.keys():
+                            if len(mapunit[k])==len(pidx):
+                                mapunit[k] = mapunit[k][pidx]
+
+                    #mask the second catalog
+                    pidx = self.maskMappable(mapunit, mappable,
+                                              polar_ang_key='polar_ang1',
+                                              azim_ang_key='azim_ang1',
+                                              px_key='px1',
+                                              py_key='py1',
+                                              pz_key='pz1')
+                    if pidx is not None:
+
+                        for k in mapunit.keys():
+                            if len(mapunit[k])==len(pidx):
+                                mapunit[k] = mapunit[k][pidx]
+
+                    mapunit = self.convert(mapunit, ms)
+                    mapunit = self.filter(mapunit)
+
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
+
+                else:
+                    raise(ValueError("Don't know how to handle {} aschema".format(aschema)))
+
                 for m in ms:
                     print('*****{0}*****'.format(m.__class__.__name__))
+                    if debug_mapunit:
+                        return mapunit
                     m.map(mapunit)
 
                 for k in mapunit.keys():

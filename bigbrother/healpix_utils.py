@@ -33,7 +33,9 @@ def sortHpixFileStruct(filestruct):
 
 class PixMetric(Metric):
 
-    def __init__(self, ministry, nside, nest=False, tag=None, **kwargs):
+    def __init__(self, ministry, nside, nest=False, tag=None,
+                polar_ang_key='polar_ang', azim_ang_key='azim_ang',
+                **kwargs):
         """
         Initialize a PixMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -48,15 +50,18 @@ class PixMetric(Metric):
 
         self.nside = nside
         self.nest  = nest
+        self.polar_ang_key = polar_ang_key
+        self.azim_ang_key = azim_ang_key
 
-        self.mapkeys = ['polar_ang', 'azim_ang']
+        self.mapkeys = [self.polar_ang_key, self.azim_ang_key]
         self.aschema = 'singleonly'
-        self.unitmap = {'polar_ang':'rad', 'azim_ang':'rad'}
+        self.unitmap = {self.polar_ang_key:'rad', self.azim_ang_key:'rad'}
 
 
     def map(self, mapunit):
 
-        pix = hp.ang2pix(self.nside, mapunit['polar_ang'], mapunit['azim_ang'], nest=self.nest)
+        pix = hp.ang2pix(self.nside, mapunit[self.polar_ang_key],
+                        mapunit[self.azim_ang_key], nest=self.nest)
 
         return np.unique(pix)
 
@@ -71,7 +76,8 @@ class PixMetric(Metric):
 
 class SubBoxMetric(Metric):
 
-    def __init__(self, ministry, nbox, tag=None, **kwargs):
+    def __init__(self, ministry, nbox, tag=None, px_key='px', py_key='py',
+                  pz_key='pz', **kwargs):
         """
         Initialize a PixMetric object. Note, all metrics should define
         an attribute called mapkeys which specifies the types of data that they
@@ -87,9 +93,13 @@ class SubBoxMetric(Metric):
         self.nbox = nbox
         self.lbox = self.ministry.boxsize
 
-        self.mapkeys = ['px', 'py', 'pz']
+        self.px_key = px_key
+        self.py_key = py_key
+        self.pz_key = pz_key
+
+        self.mapkeys = [self.px_key, self.py_key, self.pz_key]
         self.aschema = 'singleonly'
-        self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch'}
+        self.unitmap = {self.px_key:'mpch', self.py_key:'mpch', self.pz_key:'mpch'}
 
 
     def map(self, mapunit):
@@ -97,9 +107,9 @@ class SubBoxMetric(Metric):
         print('self.nbox: {0}'.format(self.nbox))
         print('self.lbox: {0}'.format(self.lbox))
 
-        xi = (self.nbox * mapunit['px']) // self.lbox
-        yi = (self.nbox * mapunit['py']) // self.lbox
-        zi = (self.nbox * mapunit['pz']) // self.lbox
+        xi = (self.nbox * mapunit[self.px_key]) // self.lbox
+        yi = (self.nbox * mapunit[self.py_key]) // self.lbox
+        zi = (self.nbox * mapunit[self.pz_key]) // self.lbox
 
         #fix edge case
         xi[xi==self.nbox] = self.nbox-1
@@ -183,12 +193,12 @@ class Area(Metric):
                 p = mode(upix)[0][0]
             else:
                 p = pix[0]
-            
+
             if self.nest_group:
                 order_in = 'NESTED'
             else:
                 order_in = 'RING'
-            
+
             if self.nest_mask:
                 order_out = 'NESTED'
             else:
@@ -202,7 +212,7 @@ class Area(Metric):
             pix_area = hp.nside2pixarea(self.nside_mask, degrees=True)
 
             self.jarea[self.jcount] += pix_area * npix
-                
+
 
     def reduce(self, rank=None, comm=None):
         if rank is not None:
@@ -221,7 +231,7 @@ class Area(Metric):
                     self.jarea[jc:jc+nj] = g
 
                     jc += nj
-                
+
                 self.area = np.sum(self.jarea)
                 self.jarea, _, self.vararea = self.jackknife(self.jarea)
 
@@ -260,7 +270,7 @@ class HealpixMap(Metric):
         self.aschema      = 'singleonly'
         if self.catalog_type is None:
             self.catalog_type = ['galaxycatalog']
-            
+
         self.unitmap      = {'polar_ang':'rad', 'azim_ang':'rad'}
         self.pbins        = np.arange(12*nside**2+1)
         self.hmap         = np.zeros((12*nside**2, self.ncuts))

@@ -21,12 +21,21 @@ class BaseCatalog:
                  reader=None, area=None, jtype=None, nbox=None,
                  filenside=None, groupnside=None, nest=True,
                  maskfile=None, maskcomp=None, maskval=None,
-                 necessaries=None, jackknife_area=None):
+                 necessaries=None, jackknife_area=None,
+                 polar_ang_key='polar_ang', azim_ang_key='azim_ang',
+                 px_key='px', py_key='py', pz_key='pz'):
 
         self.ministry = ministry
         self.filestruct = filestruct
         self.fieldmap = fieldmap
         self.unitmap  = unitmap
+        self.polar_ang_key = polar_ang_key
+        self.azim_ang_key = azim_ang_key
+
+        self.px_key = px_key
+        self.py_key = py_key
+        self.pz_key = pz_key
+
         if filters is not None:
             self.filters = filters
         else:
@@ -124,7 +133,10 @@ class BaseCatalog:
             ct = ['halocatalog']
 
             pmetric = PixMetric(self.ministry, self.groupnside,
-                                catalog_type=ct, nest=self.nest)
+                                catalog_type=ct, nest=self.nest,
+                                polar_ang_key=self.polar_ang_key,
+                                azim_ang_key=self.azim_ang_key)
+
             mg = self.ministry.genMetricGroups([pmetric])
             ms = mg[0][1]
             fm = mg[0][0]
@@ -133,7 +145,7 @@ class BaseCatalog:
 
             if self.ministry.parallel:
                 from mpi4py import MPI
-                
+
                 comm = MPI.COMM_WORLD
                 rank = comm.Get_rank()
                 size = comm.Get_size()
@@ -194,7 +206,7 @@ class BaseCatalog:
             for p in upix:
                 fgrps.append([i for i in range(len(fpix)) if p in fpix[i]])
 
-            return upix, fgrps
+            return np.array(upix), fgrps
 
         elif self.jtype == 'angular-generic':
 
@@ -251,7 +263,8 @@ class BaseCatalog:
         else:
 
             bmetric = SubBoxMetric(self.ministry, nbox,
-                                  catalog_type=ct)
+                                  catalog_type=ct, px_key=self.px_key,
+                                  py_key=self.py_key, pz_key=self.pz_key)
             mg = self.ministry.genMetricGroups([bmetric])
             ms = mg[0][1]
             fm = mg[0][0]
@@ -454,6 +467,7 @@ class BaseCatalog:
             for key in m.unitmap:
 
                 if key in beenconverted: continue
+                if key not in self.fieldmap.keys(): continue
                 if key not in mapunit.keys(): continue
 
                 try:

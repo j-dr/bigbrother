@@ -93,7 +93,10 @@ class HaloCatalog(BaseCatalog):
             ct = ['halocatalog']
 
             pmetric = PixMetric(self.ministry, self.groupnside,
-                                catalog_type=ct, nest=self.nest)
+                                catalog_type=ct, nest=self.nest,
+                                polar_ang_key=self.polar_ang_key,
+                                azim_ang_key=self.azim_ang_key)
+
             mg = self.ministry.genMetricGroups([pmetric])
             ms = mg[0][1]
             fm = mg[0][0]
@@ -102,7 +105,7 @@ class HaloCatalog(BaseCatalog):
 
             if self.ministry.parallel:
                 from mpi4py import MPI
-                
+
                 comm = MPI.COMM_WORLD
                 rank = comm.Get_rank()
                 size = comm.Get_size()
@@ -151,10 +154,10 @@ class HaloCatalog(BaseCatalog):
 
         r = np.sqrt(np.sum(mapunit[mapkey]**2, axis=1)) / self.ministry.h**3
         z = np.interp(r, self.dgrid.value, self.zgrid).reshape(-1)
-        
+
         return z
 
-        
+
     def unitConversion(self, mapunit):
 
         midx = mapunit['halomass']!=0.0
@@ -208,7 +211,7 @@ class HaloCatalog(BaseCatalog):
                 ne = len(mapunit[mapkey])
                 nf = len(fieldmap[ft][mapkey])
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
-            
+
 	return mapunit
 
 class BCCHaloCatalog(HaloCatalog):
