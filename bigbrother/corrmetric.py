@@ -372,8 +372,6 @@ class WTheta(CorrelationFunction):
 
         self.jcount = 0
 
-        #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
-
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
 
         if self.catalog_type == ['galaxycatalog']:
@@ -455,7 +453,6 @@ class WTheta(CorrelationFunction):
                 print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
                 print(z)
                 print("Min and max z: {0}, {1}".format(np.min(z), np.max(z)))
-
                 continue
 
             if (self.splitcolor is None) & (self.bimodal_ccut):
@@ -821,8 +818,6 @@ class WPrpLightcone(CorrelationFunction):
             self.pimax = pimax
 
         self.jcount = 0
-
-        #self.binfilename = '/anaconda/lib/python2.7/site-packages/Corrfunc/xi_mocks/tests/bins'
 
         self.mapkeys = [self.mkey, 'redshift', 'polar_ang', 'azim_ang']
 
