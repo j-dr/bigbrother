@@ -19,7 +19,7 @@ class GalaxyCatalog(BaseCatalog):
     Base class for galaxy catalogs
     """
 
-    def __init__(self, ministry, filestruct, zbins=None, zp=None, 
+    def __init__(self, ministry, filestruct, zbins=None, zp=None,
                  Q=None,appmagcut=None, appmagcutind=None, sigma=None,
                  **kwargs):
 
@@ -113,7 +113,10 @@ class GalaxyCatalog(BaseCatalog):
             ct = ['galaxycatalog']
 
             pmetric = PixMetric(self.ministry, self.groupnside,
-                                  catalog_type=ct,nest=self.nest)
+                                catalog_type=ct, nest=self.nest,
+                                polar_ang_key=self.polar_ang_key,
+                                azim_ang_key=self.azim_ang_key)
+
             mg = self.ministry.genMetricGroups([pmetric])
             ms = mg[0][1]
             fm = mg[0][0]
@@ -241,14 +244,14 @@ class GalaxyCatalog(BaseCatalog):
 
                 if self.sigma is not None:
                     idx &= (mapunit['appmag_err'][:,b]<1/self.sigma) & np.isfinite(mapunit['appmag_err'][:,b]) & (~np.isnan(mapunit['appmag_err'][:,b]))
-                
+
 
         if self.appmagcut is not None:
             print('Filtering on appmag < {}'.format(self.appmagcut))
             if self.appmagcutind is None:
                 idx &= mapunit['appmag'] < self.appmagcut
             else:
-                idx &= mapunit['appmag'][:,self.appmagcutind] < self.appmagcut            
+                idx &= mapunit['appmag'][:,self.appmagcutind] < self.appmagcut
 
         return idx
 
@@ -259,12 +262,12 @@ class GalaxyCatalog(BaseCatalog):
 
     def filterLssflag(self, mapunit):
         print("Filtering LSS")
-        
+
         return (mapunit['lssflag']==1) | (mapunit['lssflag']==3)
 
     def filterWlflag(self, mapunit):
         print("Filtering WL")
-        
+
         return (mapunit['wlflag']==2) | (mapunit['wlflag']==3)
 
 
@@ -290,7 +293,7 @@ class BCCCatalog(GalaxyCatalog):
                         LuminosityFunction(self.ministry,
                                             zbins=np.linspace(0.0,1.0,11),
                                             tag="AllLF",
-                                            jtype=self.jtype),                        
+                                            jtype=self.jtype),
                         MagCounts(self.ministry,
                                     zbins=self.zbins,
                                     tag="BinZ",
@@ -349,7 +352,7 @@ class BCCCatalog(GalaxyCatalog):
                                        usebands=[0,1],
                                        tag="AllCMApp",
                                        jtype=self.jtype,
-                                       appmag=True),                        
+                                       appmag=True),
                         ColorColor(self.ministry,
                                     zbins=self.zbins,
                                     usebands=[0,1,2],

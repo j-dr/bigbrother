@@ -33,9 +33,10 @@ class CorrelationFunction(Metric):
                    nrbins=None, subjack=False, lightcone=True,
                    catalog_type=None, mcutind=None,
                    tag=None, same_rand=False, inv_m=True,
-                   randname=None, rand_factor=10, 
+                   randname=None, rand_factor=10,
                    upper_limit=False, appmag=False,
-                   **kwargs):
+                   rand_azim_ang_field='RA', rand_polar_ang_field='DEC',
+                   weight_field=None, redshift_field=None, **kwargs):
         """
         Generic correlation function.
         """
@@ -49,6 +50,12 @@ class CorrelationFunction(Metric):
         self.lightcone = lightcone
         self.upper_limit = upper_limit
         self.appmag    = appmag
+
+        #random file stuff
+        self.rand_azim_ang_field  = rand_azim_ang_field
+        self.rand_polar_ang_field = rand_polar_ang_field
+        self.weight_field         = weight_field
+        self.redshift_field       = redshift_field
 
         if (zbins is None) & lightcone:
             self.zbins = np.linspace(self.ministry.minz, self.ministry.maxz, 4)
@@ -99,15 +106,18 @@ class CorrelationFunction(Metric):
 
         self.subjack = subjack
 
-        if 'galaxycatalog' in self.catalog_type:
+        if 'galaxycatalog' == self.catalog_type[0]:
             self.aschema = 'galaxygalaxy'
             if not self.appmag:
                 self.mkey = 'luminosity'
             else:
                 self.mkey = 'appmag'
 
-        elif 'halocatalog' in self.catalog_type:
-            self.mkey = 'halomass'
+        elif 'halocatalog' == self.catalog_type[0]:
+            if not self.clustercatalog:
+                self.mkey = 'halomass'
+            else:
+                self.mkey = 'richness'
             self.aschema = 'halohalo'
         else:
             self.mkey = None
@@ -123,10 +133,16 @@ class CorrelationFunction(Metric):
     def getRandoms(self, aza, pla, z=None):
 
         if self.randname is None:
-            rand = self.generateAngularRandoms(aza, pla, z=z, nside=self.randnside)
+            rand = self.generateAngularRandoms(aza, pla, z=z,
+                                                nside=self.randnside)
         else:
-            rand = self.readAngularRandoms(self.randname, len(aza), z=z, dt=aza.dtype,
-                                           rand_factor=self.rand_factor)
+            rand = self.readAngularRandoms(self.randname, len(aza), z=z,
+                                            dt=aza.dtype,
+                                            rand_factor=self.rand_factor,
+                                            polar_ang_field=self.rand_polar_ang_field,
+                                            azim_ang_field=self.rand_azim_ang_field,
+                                            weight_field=self.weight_field,
+                                            redshift_field=self.redshift_field)
 
         return rand
 
@@ -210,43 +226,103 @@ class CorrelationFunction(Metric):
 
         return gr
 
-    def readAngularRandoms(self, fname, ngal, z=None, rand_factor=10, dt='>f8'):
+    def addRSD(self, mapunit, cat1=False):
+
+        if not cat1:
+            rvec = hp.ang2vec(-(mapunit['polar_ang'] - 90) * np.pi / 180.,
+                                mapunit['azim_ang'] * np.pi / 180 )
+            vr   = np.sum(rvec * mapunit['velocity'], axis=1)
+
+            return vr + mapunit['redshift']*self.c
+        else:
+            rvec = hp.ang2vec(-(mapunit['polar_ang1'] - 90) * np.pi / 180.,
+                                mapunit['azim_ang1'] * np.pi / 180 )
+            vr   = np.sum(rvec * mapunit['velocity1'], axis=1)
+
+            return vr + mapunit['redshift1']*self.c
+
+    def readAngularRandoms(self, fname, ngal, z=None, rand_factor=10, dt='>f8',
+                            azim_ang_field='RA', polar_ang_field='DEC',
+                            weight_field=None, redshift_field=None):
         """
         Use randoms from a file
         """
 
         print('Reading randoms from file: {0}'.format(fname))
 
+        nfields = 2
+        if weight_field:
+            nfields += 1
+        if redshift_field:
+            nfields +=1
+
         try:
             r = np.genfromtxt(fname)
-            if r.shape[1]<2:
-                raise ValueError("Not enough columns in {0} to be a random catalog".format(fname))
-            elif r.shape[1]>2:
-                warnings.warn("More than 2 columns in {0}, assuming first two are ra and dec respectively.")
 
-            rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', dt), ('polar_ang', dt), ('redshift', dt)]))
-            idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
-            rand['azim_ang'] = r[idx,0][idx]
-            rand['polar_ang'] = r[idx,1][idx]
+            if r.shape[1]<nfields:
+                raise ValueError("Not enough columns in {0} to be a random catalog".format(fname))
+            elif (r.shape[1]>nfields):
+                warnings.warn("More than {} columns in {}, assuming first two are ra and dec respectively.".format(nfields, fname))
+
+            if weight_field:
+                dtype = np.dtype([('azim_ang', dt), ('polar_ang', dt), ('redshift', dt), ('weight', dt)])
+            else:
+                dtype = np.dtype([('azim_ang', dt), ('polar_ang', dt), ('redshift', dt)])
+
+
+            rand = np.zeros(ngal*rand_factor, dtype=dtype)
+
+            if redshift_field:
+                zmin = np.min(z)
+                zmax = np.max(z)
+
+                idx = (zmin<r[:,redshift_field]) & (r[:,redshift_field]<=zmax)
+                r = r[idx]
+
+            idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor,
+                                    replace=False)
+
+
+            rand['azim_ang'] = r[idx,0]
+            rand['polar_ang'] = r[idx,1]
+            if redshift:
+                rand['redshift'] = r[idx,redshift_field]
+            if weight:
+                rand['redshift'] = r[idx,weight_field]
 
         except Exception as e:
-            try:
-                r = fitsio.read(fname, columns=['RA', 'DEC'])
+            cols = [azim_ang_field, polar_ang_field]
+            if redshift_field:
+                cols.append(redshift_field)
+            if weight_field:
+                cols.append(weight_field)
 
-                rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', dt), ('polar_ang', dt), ("redshift", dt)]))
-                idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
-                rand['azim_ang'] = r['RA'][idx]
-                rand['polar_ang'] = r['DEC'][idx]
+            r = fitsio.read(fname, columns=cols)
 
-            except ValueError as e:
-                r = fitsio.read(fname, columns=['azim_ang', 'polar_ang'])
+            if weight_field:
+                dtype = np.dtype([('azim_ang', dt), ('polar_ang', dt), ('redshift', dt), ('weight', dt)])
+            else:
+                dtype = np.dtype([('azim_ang', dt), ('polar_ang', dt), ('redshift', dt)])
 
-                rand = np.zeros(ngal*rand_factor, dtype=np.dtype([('azim_ang', dt), ('polar_ang', dt), ("redshift", dt)]))
-                idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
-                rand['azim_ang'] = r['azim_ang'][idx]
-                rand['polar_ang'] = r['polar_ang'][idx]
+            rand = np.zeros(ngal*rand_factor, dtype=dtype)
 
-        if z is not None:
+            if redshift_field:
+                zmin = np.min(z)
+                zmax = np.max(z)
+
+                idx = (zmin<r[redshift_field]) & (r[redshift_field]<=zmax)
+                r = r[idx]
+
+            idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
+            rand['azim_ang']  = r[azim_ang_field][idx]
+            rand['polar_ang'] = r[polar_ang_field][idx]
+
+            if weight_field:
+                rand['weight']    = r[weight_field][idx]
+            if redshift_field:
+                rand['redshift']  = r[redshift_field][idx]
+
+        if (z is not None) & (redshift_field is not None):
             rand['redshift'] = np.random.choice(z, size=ngal*rand_factor)
 
         return rand
@@ -291,7 +367,598 @@ class CorrelationFunction(Metric):
             mag = mapunit[self.mkey] - Q * (1/(mapunit['redshift'].reshape(len(mapunit['redshift']),1)+1) - 1./1.1)
 
         return mag
-        
+
+class CrossCorrelationFunction(CorrelationFunction):
+
+    def __init__(self, ministry, mbins1=None, mcutind1=None,
+                    upper_limit1=False, randname1=None, inv_m1=False,
+                    clustercatalog=False, **kwargs):
+
+        CorrelationFunction.__init__(self, ministry, **kwargs)
+
+        self.mcutind1 = mcutind1
+        self.mbins1   = mbins1
+        self.randname1 = randname1
+        self.inv_m1 = inv_m1
+        self.upper_limit1 = upper_limit1
+
+        self.clustercatalog = clustercatalog
+
+        if self.upper_limit1:
+            self.nmbins1 = len(self.mbins1)
+        else:
+            self.nmbins1 = len(self.mbins1) - 1
+
+        self.minds1 = np.arange(self.nmbins1)
+        if self.inv_m1:
+            self.minds1 = self.minds1[::-1]
+
+        if self.catalog_type[1] == 'galaxycatalog':
+            if self.appmag:
+                self.mkey1 = 'appmag'
+            else:
+                self.mkey1 = 'luminosity'
+
+        elif self.catalog_type[1] == 'halocatalog':
+            if self.clustercatalog & (self.mkey !='richness'):
+                self.mkey1 = 'richness'
+            else:
+                self.mkey1 = 'halomass'
+
+        else:
+            self.mkey1 = None
+
+        self.aschema = ''.join([c.split('catalog')[0] for c in self.catalog_type])
+
+
+class WxyTheta(CrossCorrelationFunction):
+
+    def __init__(self, ministry,rsd=False,rsd1=False,centrals_only=False,
+                    centrals_only1=False,colorcat=None,pccolor=False,
+                    cbins=None, cinds=None,abins=None, mintheta=None,
+                    maxtheta=None,nabins=None,randnside=None,same_rand1=False,
+                    cosmology_flag=None,logbins=True,**kwargs):
+
+        CrossCorrelationFunction.__init__(self,ministry,lightcone=True,**kwargs)
+
+        self.c = 299792.458
+        self.logbins = logbins
+
+        if (abins is None) & ((mintheta is None) | (maxtheta is None) | (nabins is None)):
+            self.mintheta = 1e-2
+            self.maxtheta = 1
+            self.nabins = 30
+            self.abins = self.genbins(self.mintheta, self.maxtheta, self.nabins)
+        elif ((mintheta is not None) & (maxtheta is not None) & (nabins is not None)):
+            self.mintheta = mintheta
+            self.maxtheta = maxtheta
+            self.nabins = nabins
+            self.abins = self.genbins(mintheta, maxtheta, nabins)
+        else:
+            self.abins = abins
+            self.mintheta = abins[0]
+            self.maxtheta = abins[-1]
+            self.nabins = len(abins)-1
+
+        self.same_rand1 = same_rand1
+        self.cbins  = cbins
+        self.cinds  = cinds
+        self.pccolor  = pccolor
+        self.colorcat = colorcat
+
+        if self.cbins is None:
+            self.ncbins = 1
+        else:
+            self.ncbins = len(cbins) - 1
+            if self.colorcat is None:
+                if ('galaxy' in self.catalog_type[0]) & ('galaxy' not in self.catalog_type[1]):
+                    self.colorcat = 0
+                elif ('galaxy' not in self.catalog_type[0]) & ('galaxy' in self.catalog_type[1]):
+                    self.colorcat = 1
+                else:
+                    #if both galaxy catalogs, then use first
+                    self.colorcat = 0
+
+        if randnside is None:
+            self.randnside = 128
+        else:
+            self.randnside = randnside
+
+        if cosmology_flag is None:
+            self.cosmology_flag = 2
+        else:
+            self.cosmology_flag = cosmology_flag
+
+        self.jcount = 0
+
+        self.mapkeys = [self.mkey, self.mkey1, 'redshift', 'polar_ang',
+                        'azim_ang', 'redshift1', 'polar_ang1', 'azim_ang1']
+
+        self.unitmap = {'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z',
+                        'polar_ang1':'dec', 'azim_ang1':'ra', 'redshift1':'z'}
+
+        if (self.mkey == 'appmag') | (self.mkey=='luminosity'):
+            self.unitmap[self.mkey] = 'mag'
+        if (self.mkey == 'halomass'):
+            self.unitmap[self.mkey] = 'msunh'
+
+        if (self.mkey1 == 'appmag') | (self.mkey1=='luminosity'):
+            self.unitmap[self.mkey1] = 'mag'
+        if (self.mkey1 == 'halomass'):
+            self.unitmap[self.mkey1] = 'msunh'
+
+        self.rsd  = rsd
+        self.rsd1 = rsd1
+
+        self.centrals_only  = centrals_only
+        self.centrals_only1 = centrals_only1
+
+        if self.rsd:
+            self.mapkeys.append('velocity')
+            self.unitmap['velocity'] = 'kms'
+
+        if self.rsd1:
+            self.mapkeys.append('velocity1')
+            self.unitmap['velocity1'] = 'kms'
+
+        if self.centrals_only:
+            self.mapkeys.append('central')
+            self.unitmap['central'] = 'binary'
+
+        if self.centrals_only1:
+            self.mapkeys.append('central1')
+            self.unitmap['central1'] = 'binary'
+
+        if self.pccolor:
+            self.mapkeys.append('color')
+
+        self.rand_ind = 0
+        self.rand_ind1 = 0
+
+        self.nd1 = None
+        self.nr1 = None
+        self.nd2 = None
+        self.nr2 = None
+
+        self.dd = None
+        self.dr = None
+        self.rd = None
+        self.rr = None
+
+    @jackknifeMap
+    def map(self, mapunit):
+        if (self.ncbins > 1) & (~self.pccolor):
+            if self.colorcat==0:
+                clr = mapunit[self.mkey][:,self.cinds[0]] - mapunit[self.mkey][:,self.cinds[1]]
+            else:
+                clr = mapunit[self.mkey1][:,self.cinds[0]] - mapunit[self.mkey1][:,self.cinds[1]]
+        elif self.pccolor:
+            clr = mapunit['color']
+
+        if self.nd1 is None:
+            self.writeCorrfuncBinFile(self.abins, binfilename='angular_bins')
+            self.nd1 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins))
+            self.nr1 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins))
+            self.nd2 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins))
+            self.nr2 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins))
+
+            self.dd = np.zeros((self.njack, self.nabins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins))
+            self.dr = np.zeros((self.njack, self.nabins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins))
+            self.rd = np.zeros((self.njack, self.nabins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins))
+            self.rr = np.zeros((self.njack, self.nabins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins))
+
+        mu = {}
+        mu['azim_ang'] = np.zeros(len(mapunit['azim_ang']), dtype=np.float64)
+        mu['polar_ang'] = np.zeros(len(mapunit['polar_ang']), dtype=np.float64)
+        mu['redshift'] = np.zeros(len(mapunit['redshift']), dtype=np.float64)
+
+        mu['azim_ang1'] = np.zeros(len(mapunit['azim_ang1']), dtype=np.float64)
+        mu['polar_ang1'] = np.zeros(len(mapunit['polar_ang1']), dtype=np.float64)
+        mu['redshift1'] = np.zeros(len(mapunit['redshift1']), dtype=np.float64)
+
+
+        mu['azim_ang'][:] = mapunit['azim_ang'][:].astype(np.float64)
+        mu['polar_ang'][:] = mapunit['polar_ang'][:].astype(np.float64)
+        mu['redshift'][:] = mapunit['redshift'][:].astype(np.float64)
+
+        mu['azim_ang1'][:] = mapunit['azim_ang1'][:].astype(np.float64)
+        mu['polar_ang1'][:] = mapunit['polar_ang1'][:].astype(np.float64)
+        mu['redshift1'][:] = mapunit['redshift1'][:].astype(np.float64)
+
+
+        for f in self.mapkeys:
+            if ('polar_ang' in f) | ('azim_ang' in f) | ('redshift' in f) : continue
+            mu[f] = mapunit[f]
+
+        #sort second catalog by redshift since this is not
+        #done by default
+        zidx = mu['redshift1'].argsort()
+        for f in self.mapkeys:
+            if '1' in f:
+                mu[f] = mu[f][zidx]
+
+        if self.rsd:
+            z = self.addRSD(mu) / self.c
+        else:
+            z = mu['redshift']
+
+        if self.rsd1:
+            z1 = self.addRSD(mu, cat1=True) / self.c
+        else:
+            z1 = mu['redshift1']
+
+
+        for i in range(self.nzbins):
+            print('Finding redshift indices')
+
+            zlidx = z.searchsorted(self.zbins[i])
+            zhidx = z.searchsorted(self.zbins[i+1])
+
+            zlidx1 = z1.searchsorted(self.zbins[i])
+            zhidx1 = z1.searchsorted(self.zbins[i+1])
+
+            if (zlidx==zhidx) | (zlidx1==zhidx1):
+                print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
+                print('z: {}'.format(z))
+                print('z1: {}'.format(z1))
+
+                print("Min and max z: {0}, {1}".format(np.min(z), np.max(z)))
+                print("Min and max z1: {0}, {1}".format(np.min(z1), np.max(z1)))
+                continue
+
+            if self.ncbins>1:
+                if (self.splitcolor is None) & (self.bimodal_ccut):
+                    if self.colorcat==0:
+                        ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                    else:
+                        ccounts, cbins = np.histogram(clr[zlidx1:zhidx1], self.hcbins)
+                    self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
+
+                elif (self.splitcolor is None) & (self.percentile_ccut is not None):
+                    if self.colorcat==0:
+                        self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
+                    else:
+                        self.splitcolor = self.splitPercentile(clr[zlidx1:zhidx1], self.percentile_ccut)
+
+            for li, j in enumerate(self.minds):
+                if self.mcutind is not None:
+                    if self.upper_limit:
+                        lidx = mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j]
+                    else:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
+                else:
+                    if self.upper_limit:
+                        lidx = mu[self.mkey][zlidx:zhidx] < self.mbins[j]
+                    else:
+                        lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+
+                if self.centrals_only:
+                    lidx = lidx & (mu['central'][zlidx:zhidx]==1)
+
+                if (li==self.rand_ind) | (not self.same_rand):
+                    print('Generating Randoms')
+                    if len(z[zlidx:zhidx][lidx])==0:
+                        self.rand_ind+=1
+                        continue
+
+                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx], z[zlidx:zhidx][lidx])
+
+                for li1, j1 in enumerate(self.minds1):
+                    if self.mcutind1 is not None:
+                        if self.upper_limit1:
+                            lidx1 = mu[self.mkey1][zlidx1:zhidx1,self.mcutind1] < self.mbins1[j1]
+                        else:
+                            lidx1 = (self.mbins1[j1] <= mu[self.mkey1][zlidx1:zhidx1,self.mcutind1]) & (mu[self.mkey1][zlidx1:zhidx1,self.mcutind1] < self.mbins1[j1+1])
+                    else:
+                        if self.upper_limit1:
+                            lidx1 = mu[self.mkey1][zlidx1:zhidx1] < self.mbins1[j1]
+                        else:
+                            lidx1 = (self.mbins1[j1] <= mu[self.mkey1][zlidx1:zhidx1]) & (mu[self.mkey1][zlidx1:zhidx1] < self.mbins[j1+1])
+
+                    if self.centrals_only1:
+                        lidx1 = lidx1 & (mu['central1'][zlidx1:zhidx1]==1)
+
+                    if (li1==self.rand_ind1) | (not self.same_rand1):
+                        print('Generating Randoms')
+                        if len(z1[zlidx1:zhidx1][lidx1])==0:
+                            self.rand_ind1+=1
+                            continue
+
+                        rands1 = self.getRandoms(mu['azim_ang1'][zlidx1:zhidx1][lidx1],
+                                          mu['polar_ang1'][zlidx1:zhidx1][lidx1],z[zlidx1:zhidx1][lidx1])
+
+                    for k in range(self.ncbins):
+                        if self.ncbins == 1:
+                            cidx = lidx
+                        else:
+                            if k==0:
+                                cidx = lidx & (self.splitcolor < clr[zlidx:zhidx])
+                            else:
+                                cidx = lidx & (self.splitcolor >= clr[zlidx:zhidx])
+
+                        self.nd1[self.jcount,k,j,j1,i] = len(mu['azim_ang'][zlidx:zhidx][cidx])
+                        self.nd2[self.jcount,k,j,j1,i] = len(mu['azim_ang1'][zlidx1:zhidx1][lidx1])
+
+                        self.nr1[self.jcount,k,j,j1,i] = len(rands)
+                        self.nr2[self.jcount,k,j,j1,i] = len(rands1)
+
+                        print("Number of cat1 in this z/lum bin: {0}".format(self.nd1[self.jcount,k,j,j1,i]))
+                        print("Number of cat2 in this z/lum bin: {0}".format(self.nd2[self.jcount,k,j,j1,i]))
+
+                        print("Number of rands1 in this z/lum bin: {0}".format(self.nr1[self.jcount,k,j,j1,i]))
+                        print("Number of rands2 in this z/lum bin: {0}".format(self.nr2[self.jcount,k,j,j1,i]))
+
+                        #data data
+                        print('calculating data data pairs')
+                        sys.stdout.flush()
+                        if (self.nd1[self.jcount,k,j,j1,i]<2) | (self.nd2[self.jcount,k,j,j1,i]<2):
+                            continue
+
+                        ddresults = DDtheta_mocks(0, 1, self.binfilename,
+                                                mu['azim_ang'][zlidx:zhidx][cidx],
+                                                mu['polar_ang'][zlidx:zhidx][cidx],
+                                                RA2=mu['azim_ang1'][zlidx1:zhidx1][lidx1],
+                                                DEC2=mu['polar_ang1'][zlidx1:zhidx1][lidx1])
+
+
+                        self.dd[self.jcount,:,k,j,j1,i] = ddresults['npairs']
+
+                        #data randoms
+                        print('calculating data random pairs')
+                        sys.stdout.flush()
+                        drresults = DDtheta_mocks(0, 1, self.binfilename,
+                                                mu['azim_ang'][zlidx:zhidx][cidx],
+                                                mu['polar_ang'][zlidx:zhidx][cidx],
+                                                RA2=rands1['azim_ang'],
+                                                DEC2=rands1['polar_ang'])
+
+                        self.dr[self.jcount,:,k,j,j1,i] = drresults['npairs']
+
+                        print('calculating random data pairs')
+                        sys.stdout.flush()
+                        drresults = DDtheta_mocks(0, 1, self.binfilename,
+                                                mu['azim_ang1'][zlidx1:zhidx1][lidx1],
+                                                mu['polar_ang1'][zlidx1:zhidx1][lidx1],
+                                                RA2=rands['azim_ang'],
+                                                DEC2=rands['polar_ang'])
+
+                        self.rd[self.jcount,:,k,j,j1,i] = drresults['npairs']
+
+                        #randoms randoms
+                        print('calculating random random pairs')
+                        sys.stdout.flush()
+                        if (li==self.rand_ind) & (li1==self.rand_ind1) | (not self.same_rand):
+                            rrresults = DDtheta_mocks(0, 1, self.binfilename,
+                                                    rands['azim_ang'],
+                                                    rands['polar_ang'],
+                                                    rands1['azim_ang'],
+                                                    rands1['polar_ang'])
+
+
+                        self.rr[self.jcount,:,k,j,j1,i] = rrresults['npairs']
+
+
+    def reduce(self, rank=None, comm=None):
+
+        if rank is not None:
+            gnd1 = comm.gather(self.nd1, root=0)
+            gnr1 = comm.gather(self.nr1, root=0)
+            gnd2 = comm.gather(self.nd2, root=0)
+            gnr2 = comm.gather(self.nr2, root=0)
+
+            gdd = comm.gather(self.dd, root=0)
+            gdr = comm.gather(self.dr, root=0)
+            grd = comm.gather(self.rd, root=0)
+            grr = comm.gather(self.rr, root=0)
+
+
+            if rank==0:
+                nd1shape = [self.nd1.shape[i] for i in range(len(self.nd.shape))]
+                nr1shape = [self.nr1.shape[i] for i in range(len(self.nr.shape))]
+                nd2shape = [self.nd2.shape[i] for i in range(len(self.nd.shape))]
+                nr2shape = [self.nr2.shape[i] for i in range(len(self.nr.shape))]
+
+                ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+                drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
+                rdshape = [self.rd.shape[i] for i in range(len(self.rd.shape))]
+                rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+
+                nd1shape.insert(1,1)
+                nr1shape.insert(1,1)
+                nd2shape.insert(1,1)
+                nr2shape.insert(1,1)
+
+                nd1shape[0] = self.njacktot
+                nr1shape[0] = self.njacktot
+                nd2shape[0] = self.njacktot
+                nr2shape[0] = self.njacktot
+
+                ddshape[0] = self.njacktot
+                drshape[0] = self.njacktot
+                rdshape[0] = self.njacktot
+                rrshape[0] = self.njacktot
+
+                self.nd1 = np.zeros(nd1shape)
+                self.nr1 = np.zeros(nr1shape)
+                self.nd2 = np.zeros(nd2shape)
+                self.nr2 = np.zeros(nr2shape)
+
+                self.dd = np.zeros(ddshape)
+                self.dr = np.zeros(drshape)
+                self.rd = np.zeros(rdshape)
+                self.rr = np.zeros(rrshape)
+
+                jc = 0
+                for i, g in enumerate(gnd1):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.nd1[jc:jc+nj,0,:,:,:,:] = g
+                    self.nr1[jc:jc+nj,0,:,:,:,:] = gnr1[i]
+                    self.nd2[jc:jc+nj,0,:,:,:,:] = gnd2[i]
+                    self.nr2[jc:jc+nj,0,:,:,:,:] = gnr2[i]
+
+                    self.dd[jc:jc+nj,:,:,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:,:,:] = gdr[i]
+                    self.rd[jc:jc+nj,:,:,:,:,:] = grd[i]
+                    self.rr[jc:jc+nj,:,:,:,:,:] = grr[i]
+
+                    jc += nj
+
+                self.jwtheta = np.zeros(self.dd.shape)
+
+                self.jnd1 = self.jackknife(self.nd1, reduce_jk=False)
+                self.jnr1 = self.jackknife(self.nr1, reduce_jk=False)
+                self.jnd2 = self.jackknife(self.nd2, reduce_jk=False)
+                self.jnr2 = self.jackknife(self.nr2, reduce_jk=False)
+
+                self.jdd = self.jackknife(self.dd, reduce_jk=False)
+                self.jdr = self.jackknife(self.dr, reduce_jk=False)
+                self.jrd = self.jackknife(self.rd,reduce_jk=False)
+                self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+                self.jwxytheta = (self.jdd / (self.jnd1 * self.jnd2) + self.jdr / (self.jnd1 * self.jnr2) + self.jrd / (self.jnr1 * self.jnd2) - self.jrr / (self.jnr1 * self.jnr2)) / (self.rr / (self.jnr1 * self.jnr2))
+
+                self.wxytheta = np.sum(self.jwxytheta, axis=0) / self.njacktot
+
+                self.varwxytheta = np.sum((self.jwxytheta - self.wxytheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+        else:
+            self.jwtheta = np.zeros(self.dd.shape)
+
+            self.jnd1 = self.jackknife(self.nd1, reduce_jk=False).reshape(-1,1,self.ncbins,self.nmbins,self.nmbins1, self.nzbins)
+            self.jnr1 = self.jackknife(self.nr1, reduce_jk=False).reshape(-1,1,self.ncbins,self.nmbins,self.nmbins1, self.nzbins)
+            self.jnd2 = self.jackknife(self.nd2, reduce_jk=False).reshape(-1,1,self.ncbins,self.nmbins,self.nmbins1, self.nzbins)
+            self.jnr2 = self.jackknife(self.nr2, reduce_jk=False).reshape(-1,1,self.ncbins,self.nmbins,self.nmbins1, self.nzbins)
+
+            self.jdd = self.jackknife(self.dd, reduce_jk=False)
+            self.jdr = self.jackknife(self.dr, reduce_jk=False)
+            self.jrd = self.jackknife(self.rd,reduce_jk=False)
+            self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+            self.jwxytheta = (self.jdd / (self.jnd1 * self.jnd2) + self.jdr / (self.jnd1 * self.jnr2) + self.jrd / (self.jnr1 * self.jnd2) - self.jrr / (self.jnr1 * self.jnr2)) / (self.rr / (self.jnr1 * self.jnr2))
+
+            self.wxytheta = np.sum(self.jwxytheta, axis=0) / self.njacktot
+
+            self.varwxytheta = np.sum((self.jwxytheta - self.wxytheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+
+
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, usecolors=None, **kwargs):
+
+        if usecols is None:
+            usecols = range(self.nmbins)
+
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if usecolors is None:
+            usecolors = range(self.ncbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.abins[1:]+self.abins[:-1]) / 2
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                for k, c in enumerate(usecolors):
+                    ye = np.sqrt(self.varwxytheta[:,c,l,z])
+                    l1 = ax[j][i].plot(rmean, self.wtheta[:,c,l,z], **kwargs)
+                    ax[j][i].fill_between(rmean, self.wtheta[:,c,l,z]-ye, self.wtheta[:,c,l,z]+ye, alpha=0.5, **kwargs)
+
+                ax[j][i].set_xscale('log')
+                ax[j][i].set_yscale('log')
+
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_ylabel(r'$w(\theta)$', labelpad=20, fontsize=16)
+            sax.set_xlabel(r'$\theta \, [ degrees ]$',labelpad=20, fontsize=16)
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1[0]
+
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 usez=None, labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
 
 class WTheta(CorrelationFunction):
 
@@ -324,7 +991,7 @@ class WTheta(CorrelationFunction):
         self.homogenize_type = homogenize_type
         self.deevolve_mstar = deevolve_mstar
         self.faber = faber
-        
+
         if self.deevolve_mstar & (Q is None):
             raise(ValueError("Must provide Q is deevolve_mstar == True"))
         else:
@@ -412,11 +1079,11 @@ class WTheta(CorrelationFunction):
                                   self.nzbins))
             self.nr = np.zeros((self.njack, self.ncbins, self.nmbins,
                                   self.nzbins))
-            self.dd = np.zeros((self.njack, self.nabins, self.ncbins, 
+            self.dd = np.zeros((self.njack, self.nabins, self.ncbins,
                                   self.nmbins, self.nzbins))
-            self.dr = np.zeros((self.njack, self.nabins, self.ncbins, 
+            self.dr = np.zeros((self.njack, self.nabins, self.ncbins,
                                   self.nmbins, self.nzbins))
-            self.rr = np.zeros((self.njack, self.nabins, self.ncbins, 
+            self.rr = np.zeros((self.njack, self.nabins, self.ncbins,
                                   self.nmbins, self.nzbins))
 
         mu = {}
@@ -482,7 +1149,7 @@ class WTheta(CorrelationFunction):
                         self.rand_ind+=1
                         continue
 
-                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx])
+                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], mu['polar_ang'][zlidx:zhidx][lidx],z[zlidx:zhidx][lidx])
 
                 if (self.percentile_ccut is not None):
                     self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
@@ -749,7 +1416,7 @@ class WPrpLightcone(CorrelationFunction):
 
         self.deevolve_mstar = deevolve_mstar
         self.faber = faber
-        
+
         if self.deevolve_mstar & (Q is None):
             raise(ValueError("Must provide Q is deevolve_mstar == True"))
         else:
@@ -778,7 +1445,7 @@ class WPrpLightcone(CorrelationFunction):
                 self.cinds = [0,1]
             else:
                 self.cinds = cinds
-            
+
         self.pccolor = precompute_color
         self.centrals_only = centrals_only
         self.CMASS = CMASS
@@ -851,13 +1518,6 @@ class WPrpLightcone(CorrelationFunction):
         self.dr = None
         self.rr = None
 
-    def addRSD(self, mapunit):
-        rvec = hp.ang2vec(-(mapunit['polar_ang'] - 90) * np.pi / 180.,
-                            mapunit['azim_ang'] * np.pi / 180 )
-        vr   = np.sum(rvec * mapunit['velocity'], axis=1)
-
-        return vr + mapunit['redshift']*self.c
-
 
     @jackknifeMap
     def map(self, mapunit):
@@ -898,7 +1558,7 @@ class WPrpLightcone(CorrelationFunction):
 
         if (self.CMASS) & (self.mkey is not 'appmag'):
             mu['appmag'] = mapunit['appmag']
-                
+
         if self.deevolve_mstar:
             lum = self.deevolve_gal(mu, self.Q, faber=self.faber)
         else:
@@ -1295,7 +1955,7 @@ class WPrpSnapshot(CorrelationFunction):
         if self.rsd:
             self.mapkeys.append('velocity')
             self.unitmap['velocity'] = 'kms'
-        
+
         if self.centrals_only:
             self.mapkeys.append('central')
             self.unitmap['central'] = 'binary'
@@ -1381,7 +2041,7 @@ class WPrpSnapshot(CorrelationFunction):
                 rands = self.getCartesianRandoms(mu['px'][lidx], mu['py'][lidx], cz[lidx])
 
             for j in range(self.ncbins):
-                
+
                 if self.splitcolor is not None:
                     if j==0:
                         cidx = lidx & (clr>self.splitcolor)
@@ -1389,7 +2049,7 @@ class WPrpSnapshot(CorrelationFunction):
                         cidx = lidx & (clr<=self.splitcolor)
                 else:
                     cidx = lidx
-                                  
+
                 self.nd[self.jcount,j,i] = len(cz[cidx])
                 self.nr[self.jcount,j,i] = len(rands)
 
@@ -1782,7 +2442,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
             for f in self.mapkeys:
                 if (f=='px') | (f=='py') | (f=='pz') : continue
                 mu[f] = mapunit[f]
-            
+
             if self.rsd:
                 mu['velocity'] = np.zeros((len(mapunit['velocity']),3), dtype=np.float32)
                 mu['velocity'][:] = mapunit['velocity'][:]
@@ -1814,9 +2474,9 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
 
             if self.centrals_only:
                 lidx &= (mapunit['central']==1)
-                    
+
             for j in range(self.ncbins):
-                
+
                 if self.splitcolor is not None:
                     if j==0:
                         cidx = lidx & (clr>self.splitcolor)
@@ -2008,7 +2668,7 @@ class XiofR(CorrelationFunction):
             self.unitmap[self.mkey] = 'mag'
         elif self.mkey == 'halomass':
             self.unitmap[self.mkey] = 'msunh'
-            
+
         if self.centrals_only:
             self.mapkeys.append('central')
             self.unitmap['central'] = 'binary'
@@ -2498,14 +3158,14 @@ class XiofRAnalyticRandoms(CorrelationFunction):
             for f in self.mapkeys:
                 if (f=='px') | (f=='py') | (f=='pz'): continue
                 mu[f] = mapunit[f]
-            
+
         else:
             mu = mapunit
 
         for lj, j in enumerate(self.minds):
             print('Finding luminosity indices')
 
-            if not self.upper_limit: 
+            if not self.upper_limit:
                 if self.mcutind is not None:
                     lidx = (self.mbins[j] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[j+1])
                 elif (self.mcutind is None) and (self.mkey is not None):
@@ -2660,7 +3320,7 @@ class DDCounts(CorrelationFunction):
         CorrelationFunction.__init__(self, ministry, lightcone=lightcone,
                                       mbins=mbins, nrbins=nrbins,
                                       mcutind=mcutind, zbins=zbins,
-                                      inv_m=inv_m,catalog_type=catalog_type, 
+                                      inv_m=inv_m,catalog_type=catalog_type,
                                       tag=tag, **kwargs)
 
         self.logbins = logbins
@@ -2727,14 +3387,14 @@ class DDCounts(CorrelationFunction):
             for f in self.mapkeys:
                 if (f=='px') | (f=='py') | (f=='pz'): continue
                 mu[f] = mapunit[f]
-            
+
         else:
             mu = mapunit
 
         for lj, j in enumerate(self.minds):
             print('Finding luminosity indices')
 
-            if not self.upper_limit: 
+            if not self.upper_limit:
                 if self.mcutind is not None:
                     lidx = (self.mbins[j] <= mu[self.mkey][:,self.mcutind]) & (mu[self.mkey][:,self.mcutind] < self.mbins[j+1])
                 elif (self.mcutind is None) and (self.mkey is not None):
@@ -2811,7 +3471,7 @@ class DDCounts(CorrelationFunction):
 
             self.DD    = np.sum(self.jDD, axis=0) / self.njacktot
             self.varDD = np.sum((self.jDD - self.DD)**2, axis=0) * (self.njacktot - 1) / self.njacktot
-        
+
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
                     usez=None, compare=False, **kwargs):
@@ -3006,7 +3666,7 @@ class GalaxyRadialProfileBCC(Metric):
         self.nlumbins = len(self.lumbins)-1
 
         self.mcutind = mcutind
-        
+
         if massbins is None:
             self.massbins = np.logspace(np.log10(5e12),15,5)
         else:
@@ -3040,7 +3700,7 @@ class GalaxyRadialProfileBCC(Metric):
         if self.rcounts is None:
             self.rcounts = np.zeros((self.njack, self.nrbins,
                                      self.ncbins, self.nlumbins,
-                                     self.nmassbins,                                      
+                                     self.nmassbins,
                                      self.nzbins))
             self.hcounts = np.zeros((self.njack, self.nmassbins,
                                      self.nzbins))
@@ -3052,12 +3712,12 @@ class GalaxyRadialProfileBCC(Metric):
             for i, z in enumerate(self.zbins[:-1]):
                 zlidx = mapunit['redshift'].searchsorted(self.zbins[i])
                 zhidx = mapunit['redshift'].searchsorted(self.zbins[i+1])
-            
+
                 for j, m in enumerate(self.massbins[:-1]):
                     midx = ((self.massbins[j] < mapunit['halomass'][zlidx:zhidx])
                             & (mapunit['halomass'][zlidx:zhidx] <= self.massbins[j+1])).reshape(zhidx-zlidx)
                     self.hcounts[self.jcount,j,i] += len(np.unique(mapunit['haloid'][zlidx:zhidx]))
-                
+
                     for k, l in enumerate(self.lumbins[:-1]):
                         if self.mcutind is not None:
                             lidx = ((self.lumbins[k]<mapunit['luminosity'][zlidx:zhidx,self.mcutind])
@@ -3083,7 +3743,7 @@ class GalaxyRadialProfileBCC(Metric):
                 midx = ((self.massbins[j] < mapunit['halomass'][:])
                         & (mapunit['halomass'][:] <= self.massbins[j+1])).reshape(len(mapunit['halomass']))
                 self.hcounts[self.jcount,j,0] += len(np.unique(mapunit['haloid'][:]))
-                
+
                 for k, l in enumerate(self.lumbins[:-1]):
                     if self.mcutind is not None:
                         lidx = ((self.lumbins[k]<mapunit['luminosity'][:,self.mcutind])
@@ -3100,10 +3760,10 @@ class GalaxyRadialProfileBCC(Metric):
                                 cidx = lidx & (color[:]>=self.splitcolor)
                         else:
                             cidx = lidx
-                            
+
                         c, e = np.histogram(mapunit['rhalo'][:][midx&cidx], bins=self.rbins)
                         self.rcounts[self.jcount,:,n,k,j,0] += c
-            
+
 
     def reduce(self, rank=None, comm=None):
 
@@ -3144,7 +3804,7 @@ class GalaxyRadialProfileBCC(Metric):
                 self.rprof    = np.sum(self.jrprof, axis=0) / self.njacktot
                 self.varrprof = (np.sum((self.jrprof - self.rprof)**2, axis=0) * (self.njacktot - 1)
                                    / self.njacktot)
-                
+
         else:
             self.rmean = (self.rbins[1:] + self.rbins[:-1]) / 2
             vol = 4 * np.pi * (self.rmean**3) / 3
@@ -3162,7 +3822,7 @@ class GalaxyRadialProfileBCC(Metric):
 
     def visualize(self, plotname=None, f=None, ax=None,
                   compare=False, usecols=None, usez=None,
-                  uselum=None, usecolor=None, xlabel=None, 
+                  uselum=None, usecolor=None, xlabel=None,
                   ylabel=None, logx=True, logy=True, **kwargs):
 
         if usez is None:
@@ -3275,4 +3935,3 @@ class GalaxyRadialProfileBCC(Metric):
             plt.savefig(plotname)
 
         return f, ax
-
