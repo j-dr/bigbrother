@@ -194,7 +194,6 @@ class Ministry:
             #fields as specified by the catalog's field map
 
             mk  = copy(metric.mapkeys)
-            print(mk)
             mk.extend(cat.necessaries)
 
             if cat.jtype == 'subbox':
@@ -209,7 +208,6 @@ class Ministry:
                     mk.extend(['polar_ang', 'azim_ang'])
 
             mk = np.unique(mk)
-            print(mk)
 
             for mapkey in mk:
                 if mapkey not in valid.keys():
@@ -574,18 +572,17 @@ class Ministry:
             idx2 = np.in1d(g2, g1)
 
             g1 = g1[idx1]
-            fgroups1 = [fgroups1[i] for i in idx1]
+            fgroups1 = [fgroups1[i] for i in np.where(idx1)[0]]
 
             g2 = g2[idx2]
-            fgroups2 = [fgroups2[i] for i in idx2]
+            fgroups2 = [fgroups2[i] for i in np.where(idx2)[0]]
+
 
             idx = g1.argsort()
             g1  = g1[idx]
             g2  = g2[idx]
 
             assert(len(g1)==len(g2))
-
-            print('jackknife groups: {}'.format(g1))
 
             fgroups1 = [fgroups1[i] for i in idx]
             fgroups2 = [fgroups2[i] for i in idx]
@@ -607,33 +604,38 @@ class Ministry:
 
 
         for i, fg in enumerate(zip(fgroups1, fgroups2)):
+            for k, ft in enumerate(filetypes):
+                if ft in fs1.keys():
+                    for fc, j in enumerate(fg[0]):
 
-            for fc, j1 in enumerate(fg[0]):
-                j2 = fg[1][fc]
+                        if (fc==0) & (k==0):
+                            root = Mappable(fs1[ft][j], ft, jtype=jt,
+                                            gnside=gn, nbox=nb, grp=g1[i])
+                            last = root
+                        else:
+                            node = Mappable(fs1[ft][j], ft, jtype=jt,
+                                            gnside=gn, nbox=nb, grp=g1[i])
+                            last.children.append(node)
+                            last = node
 
-                for k, ft in enumerate(filetypes):
+                elif ft in fs2.keys():
+                    for fc, j in enumerate(fg[1]):
 
-                    if ft in fs1.keys():
-                        fs = fs1
-                        j  = j1
-                    else:
-                        fs = fs2
-                        j  = j2
-
-                    if (fc==0) & (k==0):
-                        root = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g1[i])
-                        last = root
-                    else:
-                        node = Mappable(fs[ft][j], ft, jtype=jt,
-                                      gnside=gn, nbox=nb, grp=g1[i])
-                        last.children.append(node)
-                        last = node
+                        if (fc==0) & (k==0):
+                            root = Mappable(fs2[ft][j], ft, jtype=jt,
+                                            gnside=gn, nbox=nb, grp=g1[i])
+                            last = root
+                        else:
+                            node = Mappable(fs2[ft][j], ft, jtype=jt,
+                                            gnside=gn, nbox=nb, grp=g1[i])
+                            last.children.append(node)
+                            last = node
+                else:
+                    raise(ValueError('Key {} is not in either filestruct'.format(ft)))
 
             mappables.append(root)
 
         return mappables
-
 
     def getIntersection(self, aschema, p1, p2, nside=8, nest=True):
         """
@@ -859,9 +861,9 @@ class Ministry:
 
         if 'redshift1' in dk:
             idx = mapunit['redshift1'].argsort()
-
-            if (len(mapunit[k])==len(idx)):
-                mapunit[k] = mapunit[k][idx]
+            for k in dk:
+                if (len(mapunit[k])==len(idx)):
+                    mapunit[k] = mapunit[k][idx]
 
         return mapunit
 
@@ -871,7 +873,7 @@ class Ministry:
 
         if mappable.jtype == 'healpix':
             if mappable.gnside == 0:
-                return mapunit
+                return None
 
             tp = np.zeros((len(mapunit[azim_ang_key]),2))
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
@@ -964,7 +966,7 @@ class Ministry:
 
         elif mappable.jtype == 'subbox':
             if mappable.nbox == 0:
-                return mapunit
+                return None
 
             tp = np.zeros((len(px_key),3))
             if self.galaxycatalog is not None:
@@ -1145,23 +1147,6 @@ class Ministry:
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
 
-                elif sbz & ((aschema == 'galaxygalaxy')
-                  | (aschema == 'halohalo')
-                  | (aschema == 'particleparticle')):
-                    mapunit = self.dcListToDict(mapunit)
-                    pidx = self.maskMappable(mapunit, mappable)
-
-                    if pidx is not None:
-                        mu = {}
-                        for k in mapunit.keys():
-                            mu[k] = mapunit[k][pidx]
-
-                        mapunit = mu
-
-                    mapunit = self.convert(mapunit, ms)
-                    mapunit = self.filter(mapunit)
-                    if sbz:
-                        mapunit = self.sortMapunitByZ(mapunit)
                 elif ((aschema == 'galaxygalaxy')
                         | (aschema == 'halohalo')
                         | (aschema == 'particleparticle')):
@@ -1170,6 +1155,10 @@ class Ministry:
 
                     #mask the first catalog
                     pidx = self.maskMappable(mapunit, mappable)
+                    
+                    print('pidx: {}'.format(pidx))
+                    print('mapunit: {}'.format(mapunit))
+
                     if pidx is not None:
                         mu = {}
                         for k in mapunit.keys():

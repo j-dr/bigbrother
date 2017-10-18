@@ -89,17 +89,17 @@ class ParticleCatalog(BaseCatalog):
 	data = self.readGadgetBlock(fname, fields, lgadget=True, downsample=self.downsample_factor)
 
 	for mapkey in fieldmap[ft].keys():
-            if mapkey=='px':
+            if 'px' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,0]
-            elif mapkey=='py':
+            elif 'py' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,1]
-            elif mapkey=='pz':
+            elif 'pz' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,2]
-            elif mapkey=='vx':
+            elif 'vx' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,0]
-            elif mapkey=='vy':
+            elif 'vy' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,1]
-            elif mapkey=='vz':
+            elif 'vz' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,2]
             else:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]]
