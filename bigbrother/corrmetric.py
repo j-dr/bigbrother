@@ -381,7 +381,7 @@ class CorrelationFunction(Metric):
 
 class CrossCorrelationFunction(CorrelationFunction):
 
-    def __init__(self, ministry, mbins1=None, mcutind1=None,
+    def __init__(self, ministry, zbins1=None, mbins1=None, mcutind1=None,
                     upper_limit1=False, randname1=None, inv_m1=False,
                     clustercatalog=False, rand_azim_ang_field1=None,
                     rand_polar_ang_field1=None, weight_field1=None,
@@ -394,6 +394,18 @@ class CrossCorrelationFunction(CorrelationFunction):
         self.randname1 = randname1
         self.inv_m1 = inv_m1
         self.upper_limit1 = upper_limit1
+        
+        if zbins1 is None:
+            self.zbins1 = self.zbins
+            self.same_zbins = True
+        else:
+            self.zbins1 = zbins1
+            self.same_zbins = False
+
+        if lightcone & (self.zbins1 is not None):
+            self.nzbins1 = len(self.zbins1)-1
+        else:
+            self.nzbins1 = 1
 
         self.clustercatalog = clustercatalog
 
@@ -3639,12 +3651,10 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
                     ddout = np.array(ddout)
 
                     self.dd[:,k,j,j1] = ddout['npairs']
-                    self.RR[:,k,j,j1] = 4 * np.pi / 3 * self.nd1[k,j,j1] * self.nd2[k,j,j1] * np.array([ddout['rmax'][i]**3 - ddout['rmin'][i]**3 for i in range(len(ddout))])
+                    self.RR[:,k,j,j1] = 4 * np.pi / 3 * self.nd1[k,j,j1] * self.nd2[k,j,j1] * np.array([ddout['rmax'][i]**3 - ddout['rmin'][i]**3 for i in range(len(ddout))]) / self.ministry.boxsize ** 3
 
     def reduce(self, rank=None, comm=None):
-        DD        = self.dd / (self.nd1 * self.nd2).reshape(-1,self.ncbins,self.nmbins,self.nmbins1)
-
-        self.xi    = ((DD - self.RR) / self.RR).reshape(self.nrbins,self.ncbins,self.nmbins,self.nmbins1,1)
+        self.xi    = ((self.dd - self.RR) / self.RR).reshape(self.nrbins,self.ncbins,self.nmbins,self.nmbins1,1)
 
         self.varxi = np.zeros_like(self.xi)
 
