@@ -78,7 +78,7 @@ class CorrelationFunction(Metric):
 
         elif (mbins is None) & (self.catalog_type == ['halocatalog']):
             self.mbins = np.array([10**7, 10**17])
-        elif self.catalog_type == ['particlecatalog']:
+        elif self.catalog_type[0] == 'particlecatalog':
             self.mbins = [0,1]
         else:
             self.mbins = mbins
@@ -385,9 +385,9 @@ class CrossCorrelationFunction(CorrelationFunction):
                     upper_limit1=False, randname1=None, inv_m1=False,
                     clustercatalog=False, rand_azim_ang_field1=None,
                     rand_polar_ang_field1=None, weight_field1=None,
-                    redshift_field1=None, **kwargs):
+                    redshift_field1=None, lightcone=True, **kwargs):
 
-        CorrelationFunction.__init__(self, ministry, **kwargs)
+        CorrelationFunction.__init__(self, ministry, lightcone=lightcone, **kwargs)
 
         self.mcutind1 = mcutind1
         self.mbins1   = mbins1
@@ -3419,7 +3419,7 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
 
     def __init__(self, ministry, mbins=None, zbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
-                  lightcone=False, catalog_type=None, tag=None,
+                  catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
                   centrals_only=False, centrals_only1=False, 
                   rsd=False, rsd1=False, pccolor=False,
@@ -3429,12 +3429,12 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
         Real space 3-d cross correlation function, xi_xy(r), for use with periodic
         data.
         """
-        CrossCorrelationFunction.__init__(self, ministry, lightcone=lightcone,
+        CrossCorrelationFunction.__init__(self, ministry,
                                       mbins=mbins, nrbins=nrbins,
                                       mcutind=mcutind, zbins=zbins,
                                       same_rand=same_rand, inv_m=inv_m,
                                       catalog_type=catalog_type, tag=tag,
-                                      **kwargs)
+                                      lightcone=False, **kwargs)
 
         self.logbins = logbins
         self.c = 299792.458
