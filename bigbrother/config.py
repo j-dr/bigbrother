@@ -14,7 +14,7 @@ import bigbrother.lineofsight     as lsm
 import bigbrother.healpix_utils   as hpm
 import bigbrother.densitymetric   as dnm
 
-_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 'rbins']
+_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 'rbins', 'mbins1', 'zbins1']
 
 def readCfg(filename):
 
