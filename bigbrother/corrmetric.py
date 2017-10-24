@@ -37,7 +37,8 @@ class CorrelationFunction(Metric):
                    upper_limit=False, appmag=False,
                    rand_azim_ang_field='RA', rand_polar_ang_field='DEC',
                    weight_field=None, redshift_field=None, 
-                   clustercatalog=None, **kwargs):
+                   clustercatalog=None, nthreads=1, 
+                   weights=False, **kwargs):
         """
         Generic correlation function.
         """
@@ -51,6 +52,8 @@ class CorrelationFunction(Metric):
         self.lightcone = lightcone
         self.upper_limit = upper_limit
         self.appmag    = appmag
+
+        self.nthreads = nthreads
 
         #random file stuff
         self.rand_azim_ang_field  = rand_azim_ang_field
@@ -1287,33 +1290,79 @@ class WTheta(CorrelationFunction):
                     if (self.nd[self.jcount,k,j,i]<2) | (self.nr[self.jcount,k,j,i]<2):
                         continue
 
-                    ddresults = DDtheta_mocks(1, 1, self.binfilename,
-                                            mu['azim_ang'][zlidx:zhidx][cidx],
-                                            mu['polar_ang'][zlidx:zhidx][cidx])
+                    if self.weights:
+                        ddresults = DDtheta_mocks(1, self.nthreads, self.binfilename,
+                                                  mu['azim_ang'][zlidx:zhidx][cidx],
+                                                  mu['polar_ang'][zlidx:zhidx][cidx]
+                                                  weight1=mu['weight'][zlidx:zhidx][cidx])
+                        self.dd[self.jcount,:,k,j,i] = ddresults['npairs'] * ddresults['weightavg']
+                    else:
+                        ddresults = DDtheta_mocks(1, self.nthreads, self.binfilename,
+                                                  mu['azim_ang'][zlidx:zhidx][cidx],
+                                                  mu['polar_ang'][zlidx:zhidx][cidx])
+                        self.dd[self.jcount,:,k,j,i] = ddresults['npairs']
 
-                    self.dd[self.jcount,:,k,j,i] = ddresults['npairs']
 
                     #data randoms
                     print('calculating data random pairs')
                     sys.stdout.flush()
-                    drresults = DDtheta_mocks(0, 1, self.binfilename,
-                                            mu['azim_ang'][zlidx:zhidx][cidx],
-                                            mu['polar_ang'][zlidx:zhidx][cidx],
-                                            RA2=rands['azim_ang'],
-                                            DEC2=rands['polar_ang'])
+                    if (self.weight_field) & (self.weights):
+                        drresults = DDtheta_mocks(0, self.nthreads, self.binfilename,
+                                                  mu['azim_ang'][zlidx:zhidx][cidx],
+                                                  mu['polar_ang'][zlidx:zhidx][cidx],
+                                                  weight1=mu['weight'][zlidx:zhidx][cidx],
+                                                  RA2=rands['azim_ang'],
+                                                  DEC2=rands['polar_ang'],
+                                                  weight2=rands['weight'])
 
-                    self.dr[self.jcount,:,k,j,i] = drresults['npairs']
+                        self.dr[self.jcount,:,k,j,i] = drresults['npairs'] * drresults['weightavg']
+                    elif self.weights:
+                        drresults = DDtheta_mocks(0, self.nthreads, self.binfilename,
+                                                  mu['azim_ang'][zlidx:zhidx][cidx],
+                                                  mu['polar_ang'][zlidx:zhidx][cidx],
+                                                  weight1=mu['weight'][zlidx:zhidx][cidx],
+                                                  RA2=rands['azim_ang'],
+                                                  DEC2=rands['polar_ang'])
+
+                        self.dr[self.jcount,:,k,j,i] = drresults['npairs'] * drresults['weightavg']
+                    elif self.weight_field:
+                        drresults = DDtheta_mocks(0, self.nthreads, self.binfilename,
+                                                  mu['azim_ang'][zlidx:zhidx][cidx],
+                                                  mu['polar_ang'][zlidx:zhidx][cidx],
+                                                  RA2=rands['azim_ang'],
+                                                  DEC2=rands['polar_ang'],
+                                                  weight2=rands['weight'])
+
+                        self.dr[self.jcount,:,k,j,i] = drresults['npairs'] * drresults['weightavg']
+                        
+                    else:
+                        drresults = DDtheta_mocks(0, self.nthreads, self.binfilename,
+                                                  mu['azim_ang'][zlidx:zhidx][cidx],
+                                                  mu['polar_ang'][zlidx:zhidx][cidx],
+                                                  RA2=rands['azim_ang'],
+                                                  DEC2=rands['polar_ang'])
+
+
+                        self.dr[self.jcount,:,k,j,i] = drresults['npairs']
 
                     #randoms randoms
                     print('calculating random random pairs')
                     sys.stdout.flush()
                     if (li==0) | (not self.same_rand):
-                        rrresults = DDtheta_mocks(1, 1, self.binfilename,
-                                                rands['azim_ang'],
-                                                rands['polar_ang'])
+                        if self.weight_field:
+                            rrresults = DDtheta_mocks(1, self.nthreads, self.binfilename,
+                                                      rands['azim_ang'],
+                                                      rands['polar_ang'],
+                                                      weight1=rands['weight'])
+                        else:
+                            rrresults = DDtheta_mocks(1, self.nthreads, self.binfilename,
+                                                      rands['azim_ang'],
+                                                      rands['polar_ang'])
 
-                    self.rr[self.jcount,:,k,j,i] = rrresults['npairs']
-
+                    if self.weight_field:
+                        self.rr[self.jcount,:,k,j,i] = rrresults['npairs'] * rrresults['weightavg']
+                    else:
+                        self.rr[self.jcount,:,k,j,i] = rrresults['npairs']
 
     def reduce(self, rank=None, comm=None):
 
@@ -1758,7 +1807,7 @@ class WPrpLightcone(CorrelationFunction):
                     print(cz[zlidx:zhidx][cidx])
 
                     ddresults = DDrppi_mocks(1,
-                                            self.cosmology_flag, 1,
+                                            self.cosmology_flag, self.nthreads,
                                             self.pimax,
                                             self.binfilename,
                                             mu['azim_ang'][zlidx:zhidx][cidx],
@@ -1771,7 +1820,7 @@ class WPrpLightcone(CorrelationFunction):
                     #data randoms
                     print('calculating data random pairs')
                     sys.stdout.flush()
-                    drresults = DDrppi_mocks(0, self.cosmology_flag, 1,
+                    drresults = DDrppi_mocks(0, self.cosmology_flag, self.nthreads,
                                             self.pimax,
                                             self.binfilename,
                                             mu['azim_ang'][zlidx:zhidx][cidx],
@@ -1787,7 +1836,7 @@ class WPrpLightcone(CorrelationFunction):
                     print('calculating random random pairs')
                     sys.stdout.flush()
                     if (li==0) | (not self.same_rand):
-                        rrresults = DDrppi_mocks(1, self.cosmology_flag, 1,
+                        rrresults = DDrppi_mocks(1, self.cosmology_flag, self.nthreads,
                                             self.pimax,
                                             self.binfilename,
                                             rands['azim_ang'],
@@ -2173,7 +2222,7 @@ class WPrpSnapshot(CorrelationFunction):
                 print('calculating data data pairs')
 
                 sys.stdout.flush()
-                ddout = DDrppi(1,1,self.pimax,
+                ddout = DDrppi(1,self.nthreads,self.pimax,
                                self.binfilename,
                                mu['px'][cidx],
                                mu['py'][cidx],
@@ -2187,7 +2236,7 @@ class WPrpSnapshot(CorrelationFunction):
                 print('calculating data random pairs')
                 sys.stdout.flush()
 
-                drout = DDrppi(0,1,self.pimax,
+                drout = DDrppi(0,self.nthreads,self.pimax,
                                self.binfilename,
                                mu['px'][cidx],
                                mu['py'][cidx],
@@ -2205,7 +2254,7 @@ class WPrpSnapshot(CorrelationFunction):
                 sys.stdout.flush()
 
                 if (li==0) | (not self.same_rand):
-                    rrout = DDrppi(1,1,self.pimax,
+                    rrout = DDrppi(1,self.nthreads,self.pimax,
                                    self.binfilename,
                                    rands['px'],
                                    rands['py'],
@@ -2605,7 +2654,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
 
                 results = wp(self.ministry.boxsize,
                              self.pimax,
-                             1,
+                             self.nthreads,
                              self.binfilename,
                              mu['px'][cidx],
                              mu['py'][cidx],
@@ -2867,7 +2916,7 @@ class XiofR(CorrelationFunction):
                     print('calculating data data pairs')
                     sys.stdout.flush()
 
-                    ddout = DD(1,1,
+                    ddout = DD(1,self.nthreads,
                                  self.binfilename,
                                  mu['px'][zlidx:zhidx][lidx],
                                  mu['py'][zlidx:zhidx][lidx],
@@ -2882,7 +2931,7 @@ class XiofR(CorrelationFunction):
                     print('calculating data random pairs')
                     sys.stdout.flush()
 
-                    drout = DD(0,1,
+                    drout = DD(0,self.nthreads,
                                  self.binfilename,
                                  mu['px'][zlidx:zhidx][lidx],
                                  mu['py'][zlidx:zhidx][lidx],
@@ -2899,7 +2948,7 @@ class XiofR(CorrelationFunction):
                     sys.stdout.flush()
 
                     if (lj==0) | (not self.same_rand):
-                        rrout = DD(1,1,
+                        rrout = DD(1,self.nthreads,
                                      self.binfilename,
                                      rands['px'],
                                      rands['py'],
@@ -2942,7 +2991,7 @@ class XiofR(CorrelationFunction):
                 print('calculating data data pairs')
                 sys.stdout.flush()
 
-                ddout = DD(1,1,
+                ddout = DD(1,self.nthreads,
                              self.binfilename,
                              mu['px'][lidx],
                              mu['py'][lidx],
@@ -2955,7 +3004,7 @@ class XiofR(CorrelationFunction):
                 print('calculating data random pairs')
                 sys.stdout.flush()
 
-                drout = DD(0,1,
+                drout = DD(0,self.nthreads,
                              self.binfilename,
                              mu['px'][lidx],
                              mu['py'][lidx],
@@ -2972,7 +3021,7 @@ class XiofR(CorrelationFunction):
                 sys.stdout.flush()
 
                 if (lj==0) | (not self.same_rand):
-                    rrout = DD(1,1,
+                    rrout = DD(1,self.nthreads,
                                  self.binfilename,
                                  rands['px'],
                                  rands['py'],
@@ -3297,7 +3346,7 @@ class XiofRAnalyticRandoms(CorrelationFunction):
             print('calculating xi(r)')
 
             sys.stdout.flush()
-            ddout = xi(self.ministry.boxsize, 1,
+            ddout = xi(self.ministry.boxsize, self.nthreads,
                        self.binfilename,
                        mu['px'][lidx],
                        mu['py'][lidx],
@@ -3581,7 +3630,7 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
                     self.splitcolor = self.splitPercentile(clr[:], self.percentile_ccut)
 
         for li, j in enumerate(self.minds):
-            if self.mbins is not None:
+            if (self.mkey is not None) & (self.mbins is not None):
                 if self.mcutind is not None:
                     if self.upper_limit:
                         lidx = mu[self.mkey][:,self.mcutind] < self.mbins[j]
