@@ -21,7 +21,7 @@ class GalaxyCatalog(BaseCatalog):
 
     def __init__(self, ministry, filestruct, zbins=None, zp=None,
                  Q=None,appmagcut=None, appmagcutind=None, sigma=None,
-                 **kwargs):
+                 lumcut=None, lumcutind=None, **kwargs):
 
 
         self.ctype = 'galaxycatalog'
@@ -30,7 +30,10 @@ class GalaxyCatalog(BaseCatalog):
         self.Q  = Q
         self.appmagcut = appmagcut
         self.appmagcutind = appmagcutind
+        self.lumcut = lumcut
+        self.lumcutind = lumcutind
         self.sigma = sigma
+        
 
         if self.sigma is not None:
             necessaries = kwargs.pop('necessaries', [])
@@ -129,6 +132,7 @@ class GalaxyCatalog(BaseCatalog):
                 comm = MPI.COMM_WORLD
                 rank = comm.Get_rank()
                 size = comm.Get_size()
+                print('Number of tasks: {}'.format(size))
 
                 mappables = mappables[rank::size]
 
@@ -270,6 +274,22 @@ class GalaxyCatalog(BaseCatalog):
 
         return (mapunit['wlflag']==2) | (mapunit['wlflag']==3)
 
+    def filterLuminosity(self, mapunit):
+        
+        print('filtering luminosity')
+
+        if self.lumcut is not None:
+            if len(self.lumcut)!=2: raise(ValueError('lumcut must be a bin in luminosity'))
+            if self.lumcutind is not None:
+                idx = ((self.lumcut[0]<mapunit['luminosity'][:,self.lumcutind]) &
+                       (mapunit['luminosity'][:,self.lumcutind]<=self.lumcut[1]))
+            else:
+                idx = ((self.lumcut[0]<mapunit['luminosity']) &
+                       (mapunit['luminosity']<=self.lumcut[1]))
+        else:
+            idx = np.ones(len(mapunit['luminosity']), dtype=np.bool)
+
+        return idx
 
 
 class BCCCatalog(GalaxyCatalog):

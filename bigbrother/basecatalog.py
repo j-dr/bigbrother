@@ -198,6 +198,7 @@ class BaseCatalog:
         """
 
         if self.jtype == 'healpix':
+            print('Grouping files according to nside={}'.format(self.groupnside))
 
             fpix = self.getFilePixels(self.groupnside)
             upix = np.unique(np.array([p for sublist in fpix for p in sublist]))
@@ -213,6 +214,7 @@ class BaseCatalog:
             raise(NotImplementedError)
 
         elif self.jtype == 'subbox':
+            print('Grouping files into n={} subboxes'.format(self.nbox**3))
 
             fsbox = self.getFileSubBoxes(self.nbox, [self.ctype])
 
@@ -223,7 +225,6 @@ class BaseCatalog:
                 fgrps.append([i for i in range(len(fsbox)) if b in fsbox[i]])
 
             return ubox, fgrps
-
 
     def readFITSMappable(self, mappable, fieldmap):
         """
@@ -277,6 +278,8 @@ class BaseCatalog:
                 comm = MPI.COMM_WORLD
                 rank = comm.Get_rank()
                 size = comm.Get_size()
+                
+                print('Number of tasks: {}'.format(size))
 
                 mappables = mappables[rank::size]
 

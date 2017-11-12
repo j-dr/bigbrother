@@ -13,6 +13,7 @@ import bigbrother.corrmetric      as crm
 import bigbrother.lineofsight     as lsm
 import bigbrother.healpix_utils   as hpm
 import bigbrother.densitymetric   as dnm
+import bigbrother.velocity        as vlm
 
 _eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 'rbins', 'mbins1', 'zbins1']
 
@@ -176,6 +177,10 @@ def parseConfig(cfg):
                 mtr = getattr(hpm, m)
             elif hasattr(dnm, m):
                 mtr = getattr(dnm, m)
+            elif hasattr(vlm, m):
+                mtr = getattr(vlm, m)
+            else:
+                raise(AttributeError('No metric {}'.format(m)))
 
             for k in cmetrics[m]:
                 if cmetrics[m][k] == 'None':

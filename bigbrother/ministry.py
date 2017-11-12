@@ -46,7 +46,6 @@ class Mappable(object):
 
     def recursive_delete(self):
 
-        print(self.children)
         for k in self.data.keys():
             del self.data[k]
 
@@ -474,6 +473,7 @@ class Ministry:
         in file struct are the same
         """
 
+        print('Generating single type mappables')
         filetypes = fieldmap.keys()
         mappables = []
 
@@ -542,6 +542,8 @@ class Ministry:
 
 
     def doubleTypeMappable(self, fieldmap, ct1, ct2, jtype):
+
+        print('Generating double type mappables')
 
         filetypes = fieldmap.keys()
         mappables = []
@@ -886,7 +888,6 @@ class Ministry:
 
                 if (self.halocatalog is not None):
                     if azim_ang_key in self.halocatalog.unitmap.keys():
-                        print('unitmap')
                         um = self.halocatalog.unitmap
                         nest = self.halocatalog.nest
 
@@ -968,7 +969,7 @@ class Ministry:
             if mappable.nbox == 0:
                 return None
 
-            tp = np.zeros((len(px_key),3))
+            tp = np.zeros((len(mapunit[px_key]),3))
             if self.galaxycatalog is not None:
                 if px_key in self.galaxycatalog.unitmap.keys():
                     um = self.galaxycatalog.unitmap
@@ -1058,6 +1059,7 @@ class Ministry:
         #get rid of metrics that don't need to be mapped
         metrics = [m for m in metrics if not m.nomap]
 
+        print('Grouping metrics')
         self.metric_groups = self.genMetricGroups(metrics)
 
         #metric group w/ Area in it should be first
@@ -1089,6 +1091,7 @@ class Ministry:
             comm = MPI.COMM_WORLD
             size = comm.Get_size()
             rank = comm.Get_rank()
+            print("Number of tasks: {}".format(size))
         else:
             rank = None
             comm = None
@@ -1101,6 +1104,7 @@ class Ministry:
                 if 'redshift' in fm[ft].keys():
                     sbz = True
 
+            print('Getting mappables')
             mappables = self.genMappables(mg)
 
             if nmap is not None:
@@ -1136,9 +1140,9 @@ class Ministry:
                 elif ('only' in aschema) & (mappable.jtype is not None):
                     mapunit = self.dcListToDict(mapunit)
 
-                    if pidx is not None:
-                        pidx = self.maskMappable(mapunit, mappable)
+                    pidx = self.maskMappable(mapunit, mappable)
 
+                    if pidx is not None:
                         for k in mapunit.keys():
                             mapunit[k] = mapunit[k][pidx]
 
@@ -1156,9 +1160,6 @@ class Ministry:
                     #mask the first catalog
                     pidx = self.maskMappable(mapunit, mappable)
                     
-                    print('pidx: {}'.format(pidx))
-                    print('mapunit: {}'.format(mapunit))
-
                     if pidx is not None:
                         mu = {}
                         for k in mapunit.keys():
@@ -1169,6 +1170,9 @@ class Ministry:
 
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
+                    if sbz:
+                        mapunit = self.sortMapunitByZ(mapunit)
+
 
                 elif ((aschema == 'galaxyhalo')
                         | (aschema == 'galaxyparticle')
