@@ -1045,10 +1045,10 @@ class WxyTheta(CrossCorrelationFunction):
 
 
             if rank==0:
-                nd1shape = [self.nd1.shape[i] for i in range(len(self.nd.shape))]
-                nr1shape = [self.nr1.shape[i] for i in range(len(self.nr.shape))]
-                nd2shape = [self.nd2.shape[i] for i in range(len(self.nd.shape))]
-                nr2shape = [self.nr2.shape[i] for i in range(len(self.nr.shape))]
+                nd1shape = [self.nd1.shape[i] for i in range(len(self.nd1.shape))]
+                nr1shape = [self.nr1.shape[i] for i in range(len(self.nr1.shape))]
+                nd2shape = [self.nd2.shape[i] for i in range(len(self.nd2.shape))]
+                nr2shape = [self.nr2.shape[i] for i in range(len(self.nr2.shape))]
 
                 ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
                 drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
@@ -1127,6 +1127,30 @@ class WxyTheta(CrossCorrelationFunction):
                 self.wxytheta = np.sum(self.jwxytheta, axis=0) / self.njacktot
 
                 self.varwxytheta = np.sum((self.jwxytheta - self.wxytheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+                
+                print('sizes of jnd1, jdd, wxytheta: {}, {}, {}'.format(self.jnd1.shape, self.jdd.shape, self.wxytheta.shape))
+                if self.compute_sigma_g:
+
+                    self.zmid = (self.zbins1[1:] + self.zbins1[:-1]) / 2            
+                    W = self.jrr*(self.jnd1/self.jnr1*self.jnd2/self.jnr2)
+            
+                    if self.jtype is not None:
+                        area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(-1,1)
+                    else:
+                        area = self.ministry.galaxycatalog.getArea(jackknife=False).reshape(-1,1)
+
+                    area_mpch = area*((np.pi/180.)**2
+                                      *(self.ministry.cosmo.comoving_distance(self.zmid).value * self.ministry.h)**2).reshape(1,-1)
+
+                    try:
+                        self.jave_gdens  = self.jnd1 / area_mpch.reshape(self.njacktot, 1, 1, 1, 1, self.nzbins1)
+                        jdens            = np.sum(self.jave_gdens * self.jnd2 / np.sum(self.jnd2, axis=5), axis=5)
+                        self.jsigma_g    = np.sum(self.jwxytheta * W, axis=-1) / np.sum(W, axis=-1) * jdens
+                
+                        self.sigma_g     = np.sum(self.jsigma_g, axis=1) / self.njacktot
+                        self.varsigma_g = np.sum((self.jsigma_g - self.sigma_g)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+                    except:
+                        pass
 
         else:
             self.jwtheta = np.zeros(self.dd.shape)
@@ -1161,27 +1185,26 @@ class WxyTheta(CrossCorrelationFunction):
 
             self.varwxytheta = np.sum((self.jwxytheta - self.wxytheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
+            if self.compute_sigma_g:
 
-
-        if self.compute_sigma_g:
-
-            self.zmid = (self.zbins1[1:] + self.zbins1[:-1]) / 2            
-            W = self.jrr*(self.jnd1/self.jnr1*self.jnd2/self.jnr2)
+                self.zmid = (self.zbins1[1:] + self.zbins1[:-1]) / 2            
+                W = self.jrr*(self.jnd1/self.jnr1*self.jnd2/self.jnr2)
             
-            if self.jtype is not None:
-                area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(-1,1)
-            else:
-                area = self.ministry.galaxycatalog.getArea(jackknife=False).reshape(-1,1)
+                if self.jtype is not None:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(-1,1)
+                else:
+                    area = self.ministry.galaxycatalog.getArea(jackknife=False).reshape(-1,1)
 
-            area_mpch = area*((np.pi/180.)**2
-                              *(self.ministry.cosmo.comoving_distance(self.zmid).value * self.ministry.h)**2).reshape(1,-1)
+                area_mpch = area*((np.pi/180.)**2
+                                  *(self.ministry.cosmo.comoving_distance(self.zmid).value * self.ministry.h)**2).reshape(1,-1)
 
-            self.jave_gdens  = self.jnd1 / area_mpch.reshape(self.njacktot, 1, 1, 1, 1, self.nzbins1)
-            jdens            = np.sum(self.jave_gdens * self.jnd2 / np.sum(self.jnd2, axis=5), axis=5)
-            self.jsigma_g    = np.sum(self.jwxytheta * W, axis=-1) / np.sum(W, axis=-1) * jdens
+                self.jave_gdens  = self.jnd1 / area_mpch.reshape(self.njacktot, 1, 1, 1, 1, self.nzbins1)
+                jdens            = np.sum(self.jave_gdens * self.jnd2 / np.sum(self.jnd2, axis=5), axis=5)
+                self.jsigma_g    = np.sum(self.jwxytheta * W, axis=-1) / np.sum(W, axis=-1) * jdens
+                
+                self.sigma_g     = np.sum(self.jsigma_g, axis=1) / self.njacktot
+                self.varsigma_g = np.sum((self.jsigma_g - self.sigma_g)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
-            self.sigma_g     = np.sum(self.jsigma_g, axis=1) / self.njacktot
-            self.varsigma_g = np.sum((self.jsigma_g - self.sigma_g)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
