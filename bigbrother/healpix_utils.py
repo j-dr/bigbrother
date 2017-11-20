@@ -212,6 +212,8 @@ class Area(Metric):
             pix_area = hp.nside2pixarea(self.nside_mask, degrees=True)
 
             self.jarea[self.jcount] += pix_area * npix
+            
+        del pix, upix
 
 
     def reduce(self, rank=None, comm=None):
@@ -234,10 +236,12 @@ class Area(Metric):
 
                 self.area = np.sum(self.jarea)
                 self.jarea, _, self.vararea = self.jackknife(self.jarea)
+                del self.mask
 
         else:
             self.area = np.sum(self.jarea)
             self.jarea, _, self.vararea = self.jackknife(self.jarea)
+            del self.mask
 
 
     def visualize(self):
