@@ -23,7 +23,8 @@ from .corrmetric import CrossCorrelationFunction
 class ShearShear(CrossCorrelationFunction):
 
     def __init__(self, ministry, min_sep=1, max_sep=400, 
-                 nabins=100, sep_units='arcmin', **kwargs):
+                 nabins=100, sep_units='arcmin', bin_slop=1.0,
+                 **kwargs):
         """
         Shear-shear correlation function
         """
@@ -32,6 +33,8 @@ class ShearShear(CrossCorrelationFunction):
         self.max_sep = max_sep
         self.nabins  = nabins
         self.sep_units = sep_units
+        self.bin_slop = bin_slop
+        self.amean = None
 
         self.mapkeys = ['gamma1', 'gamma2', 'azim_ang', 'polar_ang', 'redshift']
         self.unitmap = {'polar_ang':'dec', 'azim_ang':'ra', 'redshift':'z',
@@ -152,9 +155,15 @@ class ShearShear(CrossCorrelationFunction):
 
                     print('processing shear-shear correlation')
                     gg = treecorr.GGCorrelation(min_sep=self.min_sep, max_sep=self.max_sep, nbins=self.nabins, 
-                                                sep_units=self.sep_units)
+                                                sep_units=self.sep_units, bin_slop=self.bin_slop)
 
                     gg.process_cross(cat1, cat2, num_threads=self.nthreads)
+                    
+                    if self.amean is None:
+                        if (gg.meanlogr!=0.0).any():
+                            self.amean = np.exp(gg.meanlogr)
+                        else:
+                            self.amean = np.exp(gg.logr)                        
 
                     self.unxi_p[self.jcount,:,j,j1,i] = gg.xip
                     self.unxi_m[self.jcount,:,j,j1,i] = gg.xim
