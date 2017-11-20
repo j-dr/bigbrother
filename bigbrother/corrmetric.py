@@ -420,8 +420,6 @@ class CorrelationFunction(Metric):
             else:
                 dtype = np.dtype([('azim_ang', dt), ('polar_ang', dt), ('redshift', dt)])
 
-            rand = np.zeros(ngal*rand_factor, dtype=dtype)
-
             if redshift_field:
                 if zmin is None:
                     zmin = np.min(z)
@@ -438,7 +436,15 @@ class CorrelationFunction(Metric):
                 idx = np.in1d(pix, cpix)
                 r   = r[idx]
 
-            idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor, replace=False)
+            if len(r)>=ngal*rand_factor:
+                nrand = ngal*rand_factor
+            else:
+                nrand = len(r)
+                print('Not enough randoms. Wanted {}, using {}'.format(ngal*rand_factor, nrand))
+
+            rand = np.zeros(nrand, dtype=dtype)
+
+            idx = np.random.choice(np.arange(len(r)), size=nrand, replace=False)
             rand['azim_ang']  = r[azim_ang_field][idx]
             rand['polar_ang'] = r[polar_ang_field][idx]
 
@@ -448,7 +454,7 @@ class CorrelationFunction(Metric):
                 rand['redshift']  = r[redshift_field][idx]
 
         if (z is not None) & (redshift_field is not None):
-            rand['redshift'] = np.random.choice(z, size=ngal*rand_factor)
+            rand['redshift'] = np.random.choice(z, size=nrand)
 
         return rand
 
