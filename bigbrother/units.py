@@ -15,6 +15,12 @@ def dec2rad(mapunit, mapkey):
 
     return theta
 
+def ra2mra(mapunit, mapkey):
+    return 360 - mapunit[mapkey]
+
+def mra2ra(mapunit, mapkey):
+    return 360 - mapunit[mapkey]
+
 def flux2mag(mapunit, mapkey, zp=30.0):
     print('zp : {0}'.format(zp))
     return zp - 2.5*np.log10(mapunit[mapkey])
