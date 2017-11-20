@@ -211,9 +211,9 @@ class ShearShear(CrossCorrelationFunction):
                     self.varg2[jc:jc+nj,0,:,:,:] = gvarg2[i]
 
 
-                    self.weights[jc:jc+nj,:,:,:,:] = gdd[i]
-                    self.unxi_p[jc:jc+nj,:,:,:,:] = gdr[i]
-                    self.unxi_m[jc:jc+nj,:,:,:,:] = grd[i]
+                    self.weights[jc:jc+nj,:,:,:,:] = gweights[i]
+                    self.unxi_p[jc:jc+nj,:,:,:,:] = gunxi_p[i]
+                    self.unxi_m[jc:jc+nj,:,:,:,:] = gunxi_m[i]
 
                     jc += nj
 
@@ -223,6 +223,11 @@ class ShearShear(CrossCorrelationFunction):
                 
                 self.jxip     = self.jackknife(self.unxi_p, reduce_jk=False) / self.jweights
                 self.jxim     = self.jackknife(self.unxi_m, reduce_jk=False) / self.jweights
+
+                self.jvarg1   = self.jackknife(self.varg1, reduce_jk=False)
+                self.jvarg2   = self.jackknife(self.varg2, reduce_jk=False)
+                self.varg1     = np.sum(self.jvarg1) / self.njacktot
+                self.varg2     = np.sum(self.jvarg2) / self.njacktot
 
                 self.xip     = np.sum(self.jxip, axis=0) / self.njacktot
                 self.xim     = np.sum(self.jxim, axis=0) / self.njacktot
@@ -239,6 +244,11 @@ class ShearShear(CrossCorrelationFunction):
                 
             self.jxip     = self.jackknife(self.unxi_p, reduce_jk=False) / self.jweights
             self.jxim     = self.jackknife(self.unxi_m, reduce_jk=False) / self.jweights
+
+            self.jvarg1   = self.jackknife(self.varg1, reduce_jk=False)
+            self.jvarg2   = self.jackknife(self.varg2, reduce_jk=False)
+            self.varg1    = np.sum(self.jvarg1, axis=0) / self.njacktot
+            self.varg2    = np.sum(self.jvarg2, axis=0) / self.njacktot
 
             self.xip     = np.sum(self.jxip, axis=0) / self.njacktot
             self.xim     = np.sum(self.jxim, axis=0) / self.njacktot
