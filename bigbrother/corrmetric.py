@@ -41,7 +41,7 @@ class CorrelationFunction(Metric):
                    clustercatalog=None, nthreads=1, 
                    weights=False, no_mkey=False, 
                    rand_nside=None, rand_nest=True, 
-                   **kwargs):
+                   rr_rand_factor=1.0, **kwargs):
         """
         Generic correlation function.
         """
@@ -113,7 +113,8 @@ class CorrelationFunction(Metric):
         self.inv_m = inv_m
         self.randname = randname
         self.rand_factor = rand_factor
-
+        self.rr_rand_factor = rr_rand_factor
+        
         if nrbins is None:
             self.nrbins = 15
         else:
@@ -184,8 +185,15 @@ class CorrelationFunction(Metric):
 
     def generateCartesianRandoms(self, x, y, z, rand_fact=10):
         rsize = len(x)*rand_fact
-        rdtype = np.dtype([('px', np.float32), ('py', np.float32),
-                           ('pz', np.float32)])
+        
+        if self.rand_nside:
+            rdtype = np.dtype([('px', np.float32), ('py', np.float32),
+                               ('pz', np.float32), ('redshift', np.float32)])
+           
+        else:
+            rdtype = np.dtype([('px', np.float32), ('py', np.float32),
+                               ('pz', np.float32)])
+
         gr = np.zeros(rsize, dtype=rdtype)
 
         if self.rand_nside is None:
@@ -200,7 +208,8 @@ class CorrelationFunction(Metric):
                                          high=np.max(z),
                                          size=rsize)
         else:
-            
+            print('generating randoms using nside {}'.format(self.rand_nside))
+            print('Nest ordering : {}'.format(self.rand_nest))
             r  = np.sqrt(x**2 + y**2 + z**2)
             rr = np.random.choice(r, size=rsize)
             
@@ -222,6 +231,7 @@ class CorrelationFunction(Metric):
             gr['px']   = pos[:,0]
             gr['py']   = pos[:,1]
             gr['pz']   = pos[:,2]
+            gr['redshift'] = rr
 
         return gr
             
@@ -258,7 +268,15 @@ class CorrelationFunction(Metric):
         print('rmin: {}'.format(rmin))
         print('rmax: {}'.format(rmax))
 
+        if (np.max(rr)<rmax) | (np.min(rr)>rmin):
+            print("Randoms dont span same radial range as data! Not computing CF")
+            return None
+
         gr = gr[(rmin<rr) & (rr<=rmax)]
+
+        if len(gr)<(len(x)*rand_fact):
+            print('Not enough randoms in this bin! Not computing CF')
+            return None
 
         if weight_field:
             rdtype = np.dtype([('px', np.float32), ('py', np.float32),
@@ -307,7 +325,7 @@ class CorrelationFunction(Metric):
 
         rsize = len(aza)*urand_factor
 
-        cpix = hp.ang2pix(nside, (pla+90)*np.pi/180., aza*np.pi/180., nest=self.rand_nest)
+        cpix = hp.ang2pix(nside, (90-pla)*np.pi/180., aza*np.pi/180., nest=self.rand_nest)
         cpix = np.unique(cpix)
         pmap = np.zeros(12 * nside ** 2)
 
@@ -1147,7 +1165,7 @@ class WxyTheta(CrossCorrelationFunction):
                         jdens            = np.sum(self.jave_gdens * self.jnd2 / np.sum(self.jnd2, axis=5), axis=5)
                         self.jsigma_g    = np.sum(self.jwxytheta * W, axis=-1) / np.sum(W, axis=-1) * jdens
                 
-                        self.sigma_g     = np.sum(self.jsigma_g, axis=1) / self.njacktot
+                        self.sigma_g     = np.sum(self.jsigma_g, axis=0) / self.njacktot
                         self.varsigma_g = np.sum((self.jsigma_g - self.sigma_g)**2, axis=0) * (self.njacktot - 1) / self.njacktot
                     except:
                         pass
@@ -1202,7 +1220,7 @@ class WxyTheta(CrossCorrelationFunction):
                 jdens            = np.sum(self.jave_gdens * self.jnd2 / np.sum(self.jnd2, axis=5), axis=5)
                 self.jsigma_g    = np.sum(self.jwxytheta * W, axis=-1) / np.sum(W, axis=-1) * jdens
                 
-                self.sigma_g     = np.sum(self.jsigma_g, axis=1) / self.njacktot
+                self.sigma_g     = np.sum(self.jsigma_g, axis=0) / self.njacktot
                 self.varsigma_g = np.sum((self.jsigma_g - self.sigma_g)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
 
@@ -2044,7 +2062,6 @@ class WPrpLightcone(CorrelationFunction):
                     if (self.nd[self.jcount,k,j,i]<2) | (self.nr[self.jcount,k,j,i]<2):
                         continue
 
-                    print('test')
                     print(mu['azim_ang'][zlidx:zhidx][cidx])
                     print(cz[zlidx:zhidx][cidx])
 
@@ -2442,6 +2459,8 @@ class WPrpSnapshot(CorrelationFunction):
                     continue
 
                 rands = self.getCartesianRandoms(mu['px'][lidx], mu['py'][lidx], cz[lidx])
+                if rands is None:
+                    continue
 
             for j in range(self.ncbins):
 
@@ -3020,7 +3039,10 @@ class XiofR(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   lightcone=True, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  centrals_only=False, losbins='redshift', **kwargs):
+                  centrals_only=False, losbins='redshift', 
+                  cbins=None, splitcolor=None, bimodal_ccut=False,
+                  percentile_ccut=None, pccolor=False, cinds=None, 
+                  **kwargs):
 
         """
         Real space 3-d correlation function, xi(r), for use with non-periodic
@@ -3062,6 +3084,30 @@ class XiofR(CorrelationFunction):
         self.centrals_only = centrals_only
         self.losbins       = losbins
 
+        self.cbins = cbins
+        self.splitcolor = splitcolor
+        self.bimodal_ccut = bimodal_ccut
+
+        if self.bimodal_ccut:
+            self.hcbins = kwargs.pop('hcbins', np.linspace(-1,1,100))
+
+        self.percentile_ccut = percentile_ccut
+
+        if self.cbins is None:
+            self.ncbins = 1
+        else:
+            self.ncbins = len(cbins) - 1
+
+            if cinds is None:
+                self.cinds = [0,1]
+            else:
+                self.cinds = cinds
+
+        self.pccolor = pccolor
+
+        if self.pccolor:
+            self.mapkeys.append('color')
+
         if self.lightcone:
             if self.losbins=='redshift':
                 self.mapkeys.append('redshift')
@@ -3090,12 +3136,17 @@ class XiofR(CorrelationFunction):
 
         if self.dd is None:
             self.writeCorrfuncBinFile(self.rbins)
-            self.dd = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
-            self.dr = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
-            self.rr = np.zeros((self.njack, self.nrbins, self.nmbins, self.nzbins))
-            self.nd = np.zeros((self.njack, self.nmbins, self.nzbins))
-            self.nr = np.zeros((self.njack, self.nmbins, self.nzbins))
+            self.dd = np.zeros((self.njack, self.nrbins, self.nmbins, self.ncbins, self.nzbins))
+            self.dr = np.zeros((self.njack, self.nrbins, self.nmbins, self.ncbins, self.nzbins))
+            self.rr = np.zeros((self.njack, self.nrbins, self.nmbins, self.ncbins, self.nzbins))
+            self.nd = np.zeros((self.njack, self.nmbins, self.ncbins, self.nzbins))
+            self.nr = np.zeros((self.njack, self.nmbins, self.ncbins, self.nzbins))
 
+        if (self.ncbins > 1) & (not self.pccolor):
+            clr = mapunit[self.mkey][:,self.cinds[0]] - mapunit[self.mkey][:,self.cinds[1]]
+
+        elif self.pccolor:
+            clr = mapunit['color']
 
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
             mu = {}
@@ -3121,12 +3172,29 @@ class XiofR(CorrelationFunction):
             for f in self.mapkeys:
                 mu[f] = mu[f][zidx]
 
+                
+
+
         if self.lightcone:
             for i in range(self.nzbins):
                 print('Finding redshift indices')
 
                 zlidx = mu['redshift'].searchsorted(self.zbins[i])
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
+
+                if self.ncbins>1:
+                    if (self.splitcolor is None) & (self.bimodal_ccut):
+                        if self.colorcat==0:
+                            ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                        else:
+                            ccounts, cbins = np.histogram(clr[zlidx1:zhidx1], self.hcbins)
+                        self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
+
+                    elif (self.splitcolor is None) & (self.percentile_ccut is not None):
+                        if self.colorcat==0:
+                            self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
+                        else:
+                            self.splitcolor = self.splitPercentile(clr[zlidx1:zhidx1], self.percentile_ccut)
 
                 if zlidx==zhidx:
                     print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
@@ -3152,7 +3220,7 @@ class XiofR(CorrelationFunction):
 
                     if self.centrals_only:
                         lidx &= (mapunit['central']==1)
-                    
+
                     if (lj==self.rand_ind) | (not self.same_rand):
                         print('Generating Randoms')
                         if len(mu['pz'][zlidx:zhidx][lidx])==0:
@@ -3162,96 +3230,114 @@ class XiofR(CorrelationFunction):
                         rands = self.getCartesianRandoms(mu['px'][zlidx:zhidx][lidx],
                                                          mu['py'][zlidx:zhidx][lidx],
                                                          mu['pz'][zlidx:zhidx][lidx])
+                        if rands is None:
+                            continue
 
+                    for k in range(self.ncbins):
+                        if self.ncbins == 1:
+                            cidx = lidx
+                        else:
+                            if self.splitcolor:
+                                if k==0:
+                                    cidx = lidx & (self.splitcolor < clr[zlidx:zhidx])
+                                else:
+                                    cidx = lidx & (self.splitcolor >= clr[zlidx:zhidx])
+                            else:
+                                cidx = lidx & (self.cbins[k] < clr[zlidx:zhidx]) & (clr[zlidx:zhidx] <= self.cbins[k+1])
+                        
 
-                    self.nd[self.jcount,j,i] = len(mu['pz'][zlidx:zhidx][lidx])
-                    self.nr[self.jcount,j,i] = len(rands)
+                        self.nd[self.jcount,j,k,i] = len(mu['pz'][zlidx:zhidx][lidx])
+                        self.nr[self.jcount,j,k,i] = len(rands)
 
-                    print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,i]))
-                    print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,j,i]))
+                        print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,k,i]))
+                        print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,j,k,i]))
 
-                    if self.nd[self.jcount,j,i]<2: continue
-                    #data data
-                    print('calculating data data pairs')
-                    sys.stdout.flush()
+                        if self.nd[self.jcount,j,k,i]<2: continue
+                        #data data
+                        print('calculating data data pairs')
+                        sys.stdout.flush()
 
-                    ddout = DD(1,self.nthreads,
-                                 self.binfilename,
-                                 mu['px'][zlidx:zhidx][lidx],
-                                 mu['py'][zlidx:zhidx][lidx],
-                                 mu['pz'][zlidx:zhidx][lidx],
-                                 periodic=False)
-
-                    ddout = np.array(ddout)
-
-                    self.dd[self.jcount,:,j,i] = ddout['npairs']
-
-                    print('calculating data random pairs')
-                    sys.stdout.flush()
-
-                    if 'weight' in rands.dtype.names:
-                        drout = DD(0,self.nthreads,
+                        ddout = DD(1,self.nthreads,
                                    self.binfilename,
-                                   mu['px'][zlidx:zhidx][lidx],
-                                   mu['py'][zlidx:zhidx][lidx],
-                                   mu['pz'][zlidx:zhidx][lidx],
-                                   weights1=np.ones(len(mu['pz'][zlidx:zhidx][lidx]),dtype=np.float32),
-                                   periodic=False,
-                                   X2=rands['px'],
-                                   Y2=rands['py'],
-                                   Z2=rands['pz'],
-                                   weights2=rands['weight'])
-                        drout = np.array(drout)
-                        self.dr[self.jcount,:,j,i] = drout['npairs'] * drout['weightavg']
+                                   mu['px'][zlidx:zhidx][cidx],
+                                   mu['py'][zlidx:zhidx][cidx],
+                                   mu['pz'][zlidx:zhidx][cidx],
+                                   periodic=False)
 
-                    else:
-                        drout = DD(0,self.nthreads,
-                                   self.binfilename,
-                                   mu['px'][zlidx:zhidx][lidx],
-                                   mu['py'][zlidx:zhidx][lidx],
-                                   mu['pz'][zlidx:zhidx][lidx],
-                                   periodic=False,
-                                   X2=rands['px'],
-                                   Y2=rands['py'],
-                                   Z2=rands['pz'])
+                        ddout = np.array(ddout)
+                        
+                        self.dd[self.jcount,:,j,k,i] = ddout['npairs']
 
-                        drout = np.array(drout)
-                        self.dr[self.jcount,:,j,i] = drout['npairs']
+                        print('calculating data random pairs')
+                        sys.stdout.flush()
 
-                    print('calculating random random pairs')
-                    sys.stdout.flush()
-
-                    if (lj==0) | (not self.same_rand):
                         if 'weight' in rands.dtype.names:
-                            rrout = DD(1,self.nthreads,
+                            drout = DD(0,self.nthreads,
                                        self.binfilename,
-                                       X1=rands['px'],
-                                       Y1=rands['py'],
-                                       Z1=rands['pz'],
-                                       weights1=rands['weight'],
-#                                       X2=rands['px'],
-#                                       Y2=rands['py'],
-#                                       Z2=rands['pz'],
-#                                       weights2=rands['weight'],
+                                       mu['px'][zlidx:zhidx][cidx],
+                                       mu['py'][zlidx:zhidx][cidx],
+                                       mu['pz'][zlidx:zhidx][cidx],
+                                       weights1=np.ones(len(mu['pz'][zlidx:zhidx][cidx]),dtype=np.float32),
                                        periodic=False,
-                                       weight_type='pair_product')
-
-                            rrout = np.array(rrout)
-                            rrout['npairs'] = rrout['npairs'] * rrout['weightavg']
-                            print('rrout[weightavg]: {}'.format(rrout['weightavg']))
-                            print('np.min(weight), np.max(weight): {}, {}'.format(np.min(rands['weight']), np.max(rands['weight'])))
+                                       X2=rands['px'],
+                                       Y2=rands['py'],
+                                       Z2=rands['pz'],
+                                       weights2=rands['weight'])
+                            drout = np.array(drout)
+                            self.dr[self.jcount,:,j,k,i] = drout['npairs'] * drout['weightavg']
 
                         else:
-                            rrout = DD(1,self.nthreads,
+                            drout = DD(0,self.nthreads,
                                        self.binfilename,
-                                       rands['px'],
-                                       rands['py'],
-                                       rands['pz'],
-                                       periodic=False)
-                            
-                            rrout = np.array(rrout)
+                                       mu['px'][zlidx:zhidx][cidx],
+                                       mu['py'][zlidx:zhidx][cidx],
+                                       mu['pz'][zlidx:zhidx][cidx],
+                                       periodic=False,
+                                       X2=rands['px'],
+                                       Y2=rands['py'],
+                                       Z2=rands['pz'])
 
-                    self.rr[self.jcount,:,j,i] = rrout['npairs']
+                            drout = np.array(drout)
+                            self.dr[self.jcount,:,j,k,i] = drout['npairs']
+
+                        print('calculating random random pairs')
+                        sys.stdout.flush()
+                    
+                        if self.rr_rand_factor<1:
+                            idx = np.random.choice(np.arange(len(rands)), 
+                                                   size=self.rr_rand_factor*len(rands), 
+                                                   replace=False)
+                            r = rands[idx]
+                        else:
+                            r = rands
+
+                        if (lj==0) | (not self.same_rand):
+                            if 'weight' in rands.dtype.names:
+                                rrout = DD(1,self.nthreads,
+                                           self.binfilename,
+                                           X1=r['px'],
+                                           Y1=r['py'],
+                                           Z1=r['pz'],
+                                           weights1=r['weight'],
+                                           periodic=False,
+                                           weight_type='pair_product')
+
+                                rrout = np.array(rrout)
+                                rrout['npairs'] = rrout['npairs'] * rrout['weightavg']
+                                print('rrout[weightavg]: {}'.format(rrout['weightavg']))
+                                print('np.min(weight), np.max(weight): {}, {}'.format(np.min(r['weight']), np.max(r['weight'])))
+
+                            else:
+                                rrout = DD(1,self.nthreads,
+                                           self.binfilename,
+                                           r['px'],
+                                           r['py'],
+                                           r['pz'],
+                                           periodic=False)
+                            
+                                rrout = np.array(rrout)
+
+                        self.rr[self.jcount,:,j,k,i] = rrout['npairs']
 
         else:
             i=0
@@ -3280,95 +3366,118 @@ class XiofR(CorrelationFunction):
                     rands = self.getCartesianRandoms(mu['px'][lidx],
                                                      mu['py'][lidx],
                                                      mu['pz'][lidx])
+                    if rands is None:
+                        continue
+
+                    for k in rangee(self.ncbins):
+                        if self.ncbins == 1:
+                            cidx = lidx
+                        else:
+                            if self.splitcolor:
+                                if k==0:
+                                    cidx = lidx & (self.splitcolor < clr[:])
+                                else:
+                                    cidx = lidx & (self.splitcolor >= clr[:])
+                            else:
+                                cidx = lidx & (self.cbins[k] < clr[:]) & (clr[:] <= self.cbins[k+1])
 
 
-                self.nd[self.jcount,j,i] = len(mu['pz'][lidx])
-                self.nr[self.jcount,j,i] = len(rands)
+                        self.nd[self.jcount,j,k,i] = len(mu['pz'][cidx])
+                        self.nr[self.jcount,j,k,i] = len(rands)
 
-                print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,i]))
-                print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,j,i]))
+                        print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,k,i]))
+                        print("Number of randoms in this z/lum bin: {0}".format(self.nr[self.jcount,j,k,i]))
 
-                if self.nd[self.jcount,j,i]<2: continue
-                #data data
-                print('calculating data data pairs')
-                sys.stdout.flush()
+                        if self.nd[self.jcount,j,k,i]<2: continue
+                        #data data
+                        print('calculating data data pairs')
+                        sys.stdout.flush()
 
-                ddout = DD(1,self.nthreads,
-                             self.binfilename,
-                             mu['px'][lidx],
-                             mu['py'][lidx],
-                             mu['pz'][lidx],
-                             periodic=False)
+                        ddout = DD(1,self.nthreads,
+                                   self.binfilename,
+                                   mu['px'][cidx],
+                                   mu['py'][cidx],
+                                   mu['pz'][cidx],
+                                   periodic=False)
 
-                ddout = np.array(ddout)
+                        ddout = np.array(ddout)
 
-                self.dd[self.jcount,:,j,i] = ddout['npairs']
-                print('calculating data random pairs')
-                sys.stdout.flush()
+                        self.dd[self.jcount,:,j,k,i] = ddout['npairs']
+                        print('calculating data random pairs')
+                        sys.stdout.flush()
 
-                if 'weight' in rands.dtype.names:
-                    drout = DD(0,self.nthreads,
-                               self.binfilename,
-                               mu['px'][lidx],
-                               mu['py'][lidx],
-                               mu['pz'][lidx],
-                               weights1=np.ones(len(mu['pz'][lidx]),dtype=np.float32),
-                               periodic=False,
-                               X2=rands['px'],
-                               Y2=rands['py'],
-                               Z2=rands['pz'],
-                               weights2=rands['weight'])
+                        if 'weight' in rands.dtype.names:
+                            drout = DD(0,self.nthreads,
+                                       self.binfilename,
+                                       mu['px'][cidx],
+                                       mu['py'][cidx],
+                                       mu['pz'][cidx],
+                                       weights1=np.ones(len(mu['pz'][cidx]),dtype=np.float32),
+                                       periodic=False,
+                                       X2=rands['px'],
+                                       Y2=rands['py'],
+                                       Z2=rands['pz'],
+                                       weights2=rands['weight'])
 
-                    drout = np.array(drout)
-                    self.dr[self.jcount,:,j,i] = drout['npairs'] * drout['weightavg']
+                            drout = np.array(drout)
+                            self.dr[self.jcount,:,j,k,i] = drout['npairs'] * drout['weightavg']
 
-                else:
-                    drout = DD(0,self.nthreads,
-                               self.binfilename,
-                               mu['px'][lidx],
-                               mu['py'][lidx],
-                               mu['pz'][lidx],
-                               periodic=False,
-                               X2=rands['px'],
-                               Y2=rands['py'],
-                               Z2=rands['pz'])
+                        else:
+                            drout = DD(0,self.nthreads,
+                                       self.binfilename,
+                                       mu['px'][cidx],
+                                       mu['py'][cidx],
+                                       mu['pz'][cidx],
+                                       periodic=False,
+                                       X2=rands['px'],
+                                       Y2=rands['py'],
+                                       Z2=rands['pz'])
 
-                    drout = np.array(drout)
-                    self.dr[self.jcount,:,j,i] = drout['npairs']
+                            drout = np.array(drout)
+                            self.dr[self.jcount,:,j,k,i] = drout['npairs']
                     
-                print('calculating random random pairs')
-                sys.stdout.flush()
+                        print('calculating random random pairs')
+                        sys.stdout.flush()
 
-                if (lj==0) | (not self.same_rand):
-                    if 'weight' in rands.dtype.names:
-                        rrout = DD(1,self.nthreads,
-                                   self.binfilename,
-                                   rands['px'],
-                                   rands['py'],
-                                   rands['pz'],
-                                   weights1=np.ones(len(rands['pz']),dtype=np.float32),
-                                   periodic=False,
-                                   X2=rands['px'],
-                                   Y2=rands['py'],
-                                   Z2=rands['pz'],
-                                   weights2=rands['weight'])
+                        if self.rr_rand_factor<1:
+                            idx = np.random.choice(np.arange(len(rands)), 
+                                                   size=self.rr_rand_factor*len(rands), 
+                                                   replace=False)
+                            r = rands[idx]
+                        else:
+                            r = rands
 
-                        rrout = np.array(rrout)
-                        rrout['npairs'] *= rrout['weightavg']
-                    else:
-                        rrout = DD(1,self.nthreads,
-                                   self.binfilename,
-                                   rands['px'],
-                                   rands['py'],
-                                   rands['pz'],
-                                   periodic=False,
-                                   X2=rands['px'],
-                                   Y2=rands['py'],
-                                   Z2=rands['pz'])
+                            
+                        if (lj==0) | (not self.same_rand):
+                            if 'weight' in rands.dtype.names:
+                                rrout = DD(1,self.nthreads,
+                                           self.binfilename,
+                                           r['px'],
+                                           r['py'],
+                                           r['pz'],
+                                           weights1=np.ones(len(r['pz']),dtype=np.float32),
+                                           periodic=False,
+                                           X2=r['px'],
+                                           Y2=r['py'],
+                                           Z2=r['pz'],
+                                           weights2=r['weight'])
 
-                        rrout = np.array(rrout)
+                                rrout = np.array(rrout)
+                                rrout['npairs'] *= rrout['weightavg']
+                            else:
+                                rrout = DD(1,self.nthreads,
+                                           self.binfilename,
+                                           r['px'],
+                                           r['py'],
+                                           r['pz'],
+                                           periodic=False,
+                                           X2=r['px'],
+                                           Y2=r['py'],
+                                           Z2=r['pz'])
 
-                self.rr[self.jcount,:,j,i] = rrout['npairs']
+                                rrout = np.array(rrout)
+
+                        self.rr[self.jcount,:,j,k,i] = rrout['npairs']
 
 
     def reduce(self, rank=None, comm=None):
@@ -3407,11 +3516,11 @@ class XiofR(CorrelationFunction):
                 for i, g in enumerate(gnd):
                     if g is None: continue
                     nj = g.shape[0]
-                    self.nd[i::len(gnd),0,:,:] = g
-                    self.nr[i::len(gnd),0,:,:] = gnr[i]
-                    self.dd[i::len(gnd),:,:,:] = gdd[i]
-                    self.dr[i::len(gnd),:,:,:] = gdr[i]
-                    self.rr[i::len(gnd),:,:,:] = grr[i]
+                    self.nd[i::len(gnd),0,:,:,:] = g
+                    self.nr[i::len(gnd),0,:,:,:] = gnr[i]
+                    self.dd[i::len(gnd),:,:,:,:] = gdd[i]
+                    self.dr[i::len(gnd),:,:,:,:] = gdr[i]
+                    self.rr[i::len(gnd),:,:,:,:] = grr[i]
 
                     jc += nj
 
@@ -3424,17 +3533,18 @@ class XiofR(CorrelationFunction):
                 self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
                 for i in xrange(self.njacktot):
-                    for j in xrange(self.nmbins):
-                        for k in xrange(self.nzbins):
-                            if self.jnd[i,0,j,k]<1: continue 
-                            self.jxi[i,:,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,k],
-                                                                        self.jnd[i,0,j,k],
-                                                                        self.jnr[i,0,j,k],
-                                                                        self.jnr[i,0,j,k],
-                                                                        self.jdd[i,:,j,k],
-                                                                        self.jdr[i,:,j,k],
-                                                                        self.jdr[i,:,j,k],
-                                                                        self.jrr[i,:,j,k])
+                    for l in xrange(self.ncbins):
+                        for j in xrange(self.nmbins):
+                            for k in xrange(self.nzbins):
+                                if self.jnd[i,0,l,j,k]<1: continue 
+                                self.jxi[i,:,l,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,l,j,k],
+                                                                            self.jnd[i,0,l,j,k],
+                                                                            self.jnr[i,0,l,j,k],
+                                                                            self.jnr[i,0,l,j,k],
+                                                                            self.jdd[i,:,l,j,k],
+                                                                            self.jdr[i,:,l,j,k],
+                                                                            self.jdr[i,:,l,j,k],
+                                                                            self.jrr[i,:,l,j,k])
 
                 self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
                 self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
@@ -3454,17 +3564,18 @@ class XiofR(CorrelationFunction):
             self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
             for i in xrange(self.njacktot):
-                for j in xrange(self.nmbins):
-                    for k in xrange(self.nzbins):
-                        if self.jnd[i,0,j,k]<1: continue 
-                        self.jxi[i,:,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,k],
-                                                                      self.jnd[i,0,j,k],
-                                                                      self.jnr[i,0,j,k],
-                                                                      self.jnr[i,0,j,k],
-                                                                      self.jdd[i,:,j,k],
-                                                                      self.jdr[i,:,j,k],
-                                                                      self.jdr[i,:,j,k],
-                                                                      self.jrr[i,:,j,k])
+                for l in xrange(self.ncbins):
+                    for j in xrange(self.nmbins):
+                        for k in xrange(self.nzbins):
+                            if self.jnd[i,0,l,j,k]<1: continue 
+                            self.jxi[i,:,l,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,l,j,k],
+                                                                          self.jnd[i,0,l,j,k],
+                                                                          self.jnr[i,0,l,j,k],
+                                                                          self.jnr[i,0,l,j,k],
+                                                                          self.jdd[i,:,l,j,k],
+                                                                          self.jdr[i,:,l,j,k],
+                                                                          self.jdr[i,:,l,j,k],
+                                                                          self.jrr[i,:,l,j,k])
 
             self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
             self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
@@ -3643,8 +3754,6 @@ class XiofRAnalyticRandoms(CorrelationFunction):
         if self.xi is None:
             self.writeCorrfuncBinFile(self.rbins)
             self.xi = np.zeros((self.nrbins, self.nmbins, 1))
-
-        print(mapunit.keys())
 
         mu = {}
         mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float64)
@@ -4007,10 +4116,13 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
                     if self.ncbins == 1:
                         cidx = lidx
                     else:
-                        if k==0:
-                            cidx = lidx & (self.splitcolor < clr[:])
+                        if self.splitcolor:
+                            if k==0:
+                                cidx = lidx & (self.splitcolor < clr[:])
+                            else:
+                                cidx = lidx & (self.splitcolor >= clr[:])
                         else:
-                            cidx = lidx & (self.splitcolor >= clr[:])
+                            cidx = lidx & (self.cbins[k] < clr[:]) & (clr[:] <= self.cbins[k+1])
 
                     self.nd1[k,j,j1] = np.sum(cidx)
                     self.nd2[k,j,j1] = np.sum(lidx1)
@@ -4093,6 +4205,690 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
             sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
             sax.set_ylabel(r'$\xi(r)$', fontsize=16, labelpad=20)
             sax.set_xlabel(r'$r \, [ Mpc h^{-1}]$', fontsize=16, labelpad=20)
+
+        if (plotname is not None) & (not compare):
+            plt.savefig(plotname)
+
+        return f, ax, l1[0]
+
+
+    def compare(self, othermetrics, plotname=None, usecols=None,
+                 usez=None, labels=None, **kwargs):
+
+        tocompare = [self]
+        tocompare.extend(othermetrics)
+
+        if usecols is not None:
+            if not hasattr(usecols[0], '__iter__'):
+                usecols = [usecols]*len(tocompare)
+            else:
+                assert(len(usecols)==len(tocompare))
+        else:
+            usecols = [None]*len(tocompare)
+
+        if usez is not None:
+            if not hasattr(usez[0], '__iter__'):
+                usez = [usez]*len(tocompare)
+            else:
+                assert(len(usez)==len(tocompare))
+        else:
+            usez = [None]*len(tocompare)
+
+
+        if labels is None:
+            labels = [None]*len(tocompare)
+
+        lines = []
+
+        for i, m in enumerate(tocompare):
+            if usecols[i] is not None:
+                assert(len(usecols[0])==len(usecols[i]))
+            if i==0:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          **kwargs)
+            else:
+                f, ax, l1 = m.visualize(usecols=usecols[i], usez=usez[i],
+                                          compare=True, color=Metric._color_list[i],
+                                          f=f, ax=ax, **kwargs)
+            lines.append(l1)
+
+        if labels[0]!=None:
+            f.legend(lines, labels)
+
+        if plotname is not None:
+            plt.savefig(plotname)
+
+        return f, ax
+
+
+class XiXY(CrossCorrelationFunction):
+
+    def __init__(self, ministry, mbins=None, zbins=None, rbins=None,
+                  minr=None, maxr=None, logbins=True, nrbins=None,
+                  catalog_type=None, tag=None,
+                  mcutind=None, same_rand=False, 
+                  same_rand1=False, inv_m=True,
+                  centrals_only=False, centrals_only1=False, 
+                  rsd=False, rsd1=False, pccolor=False,
+                  cbins=None, losbins='redshift', cosmology_flag=None,
+                  colorcat=None, splitcolor=None, bimodal_ccut=False,
+                  percentile_ccut=None, **kwargs):
+
+        """
+        Real space 3-d cross correlation function, xi_xy(r), for use with periodic
+        data.
+        """
+        CrossCorrelationFunction.__init__(self, ministry,
+                                      mbins=mbins, nrbins=nrbins,
+                                      mcutind=mcutind, zbins=zbins,
+                                      same_rand=same_rand, inv_m=inv_m,
+                                      catalog_type=catalog_type, tag=tag,
+                                      **kwargs)
+
+        self.logbins = logbins
+        self.c = 299792.458
+
+        if (rbins is None) & ((minr is None) | (maxr is None) | (nrbins is None)):
+            self.minr = 1e-1
+            self.maxr = 25
+            self.nrbins = 15
+            self.rbins = self.genbins(self.minr, self.maxr, self.nrbins)
+        elif ((minr is not None) & (maxr is not None) & (nrbins is not None)):
+            self.minr = minr
+            self.maxr = maxr
+            self.nrbins = nrbins
+            self.rbins = self.genbins(minr, maxr, nrbins)
+        else:
+            self.rbins = rbins
+            self.minr = rbins[0]
+            self.maxr = rbins[1]
+            self.nrbins = len(rbins)-1
+
+        self.mapkeys = ['px', 'py', 'pz', 
+                        'px1', 'py1', 'pz1']
+
+
+        if self.mkey is not None:
+            self.mapkeys.append(self.mkey)
+        
+        if self.mkey1 is not None:
+            self.mapkeys.append(self.mkey1)
+
+        self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch',
+                        'px1':'mpch', 'py1':'mpch', 'pz1':'mpch'}
+                 
+        self.losbins = losbins 
+
+        if losbins=='redshift':
+            self.mapkeys.extend(['redshift', 'redshift1'])
+            self.unitmap['redshift'] = 'z'
+            self.unitmap['redshift1'] = 'z'
+
+        if (self.mkey == 'appmag') | (self.mkey=='luminosity'):
+            self.unitmap[self.mkey] = 'mag'
+        if (self.mkey == 'halomass'):
+            self.unitmap[self.mkey] = 'msunh'
+
+        if (self.mkey1 == 'appmag') | (self.mkey1=='luminosity'):
+            self.unitmap[self.mkey1] = 'mag'
+        if (self.mkey1 == 'halomass'):
+            self.unitmap[self.mkey1] = 'msunh'
+
+        self.rsd  = rsd
+        self.rsd1 = rsd1
+
+        self.centrals_only  = centrals_only
+        self.centrals_only1 = centrals_only1
+
+        self.same_rand1 = same_rand1
+        
+        self.cbins = cbins
+        self.colorcat = colorcat
+        self.splitcolor = splitcolor
+        self.bimodal_ccut = bimodal_ccut
+        self.percentile_ccut = percentile_ccut
+
+        if self.cbins is None:
+            self.ncbins = 1
+        else:
+            self.ncbins = len(cbins) - 1
+            if self.colorcat is None:
+                if ('galaxy' in self.catalog_type[0]) & ('galaxy' not in self.catalog_type[1]):
+                    self.colorcat = 0
+                elif ('galaxy' not in self.catalog_type[0]) & ('galaxy' in self.catalog_type[1]):
+                    self.colorcat = 1
+                else:
+                    #if both galaxy catalogs, then use first
+                    self.colorcat = 0
+
+        self.pccolor = pccolor
+
+        if self.rsd:
+            self.mapkeys.append('velocity')
+            self.unitmap['velocity'] = 'kms'
+
+        if self.rsd1:
+            self.mapkeys.append('velocity1')
+            self.unitmap['velocity1'] = 'kms'
+
+        if self.centrals_only:
+            self.mapkeys.append('central')
+            self.unitmap['central'] = 'binary'
+
+        if self.centrals_only1:
+            self.mapkeys.append('central1')
+            self.unitmap['central1'] = 'binary'
+
+        if self.pccolor:
+            self.mapkeys.append('color')
+
+        if cosmology_flag is None:
+            self.cosmology_flag = 2
+        else:
+            self.cosmology_flag = cosmology_flag
+
+        self.jcount = 0
+        self.rand_ind = 0
+        self.rand_ind1 = 0
+
+        self.nd1 = None
+        self.nr1 = None
+        self.nd2 = None
+        self.nr2 = None
+
+        self.dd = None
+        self.dr = None
+        self.rd = None
+        self.rr = None
+
+    def getWeights(self, z0, z1):
+        
+        zmin = np.min(z1)
+        zmax = np.max(z1)
+        zbins = np.linspace(zmin, zmax, 100)
+
+        nz0, _ = np.histogram(z0, zbins, normed=True)
+        nz1, _ = np.histogram(z1, zbins, normed=True)
+
+        bin_weights = nz1 / nz0
+        bin_weights[~np.isfinite(bin_weights)] = 1.0
+
+        idx = np.digitize(z1, zbins)
+        
+        weights = np.ones_like(z1)
+        weights[(idx>0)&(idx<len(zbins))] = bin_weights[idx[(idx>0)&(idx<len(zbins))]-1]
+
+        return weights
+
+        
+
+    @jackknifeMap
+    def map(self, mapunit):
+        if (self.ncbins > 1) & (~self.pccolor):
+            if self.colorcat==0:
+                clr = mapunit[self.mkey][:,self.cinds[0]] - mapunit[self.mkey][:,self.cinds[1]]
+            else:
+                clr = mapunit[self.mkey1][:,self.cinds[0]] - mapunit[self.mkey1][:,self.cinds[1]]
+        elif self.pccolor:
+            clr = mapunit['color']
+
+        if self.nd1 is None:
+            self.writeCorrfuncBinFile(self.rbins, binfilename='angular_bins')
+            self.nd1 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins * self.nzbins1))
+            self.nr1 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins * self.nzbins1))
+            self.nd2 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins * self.nzbins1))
+            self.nr2 = np.zeros((self.njack, self.ncbins, self.nmbins,
+                                  self.nmbins1, self.nzbins * self.nzbins1))
+
+            self.dd = np.zeros((self.njack, self.nrbins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins * self.nzbins1))
+            self.dr = np.zeros((self.njack, self.nrbins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins * self.nzbins1))
+            self.rd = np.zeros((self.njack, self.nrbins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins * self.nzbins1))
+            self.rr = np.zeros((self.njack, self.nrbins, self.ncbins,
+                                  self.nmbins, self.nmbins1, self.nzbins * self.nzbins1))
+
+        mu = {}
+        mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float32)
+        mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float32)
+        mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float32)
+
+        mu['px1'] = np.zeros(len(mapunit['px1']), dtype=np.float32)
+        mu['py1'] = np.zeros(len(mapunit['py1']), dtype=np.float32)
+        mu['pz1'] = np.zeros(len(mapunit['pz1']), dtype=np.float32)
+
+        mu['px'][:] = mapunit['px'][:].astype(np.float32)
+        mu['py'][:] = mapunit['py'][:].astype(np.float32)
+        mu['pz'][:] = mapunit['pz'][:].astype(np.float32)
+
+        mu['px1'][:] = mapunit['px1'][:].astype(np.float32)
+        mu['py1'][:] = mapunit['py1'][:].astype(np.float32)
+        mu['pz1'][:] = mapunit['pz1'][:].astype(np.float32)
+
+
+        for f in self.mapkeys:
+            if ('px' in f) | ('py' in f) | ('pz' in f) : continue
+            mu[f] = mapunit[f]
+
+        if self.losbins=='radius':
+            mu['redshift'] = np.sqrt(mu['px']**2 + mu['py']**2 + mu['pz']**2)
+            mu['redshift1'] = np.sqrt(mu['px1']**2 + mu['py1']**2 + mu['pz1']**2)
+
+            zidx           = mu['redshift'].argsort()
+            mu['redshift'] = mu['redshift'][zidx]
+
+            for f in self.mapkeys:
+                if len(mu[f])==len(mu['redshift']):
+                    mu[f] = mu[f][zidx]
+
+            zidx           = mu['redshift1'].argsort()
+            mu['redshift1'] = mu['redshift1'][zidx]
+
+            for f in self.mapkeys:
+                if len(mu[f])==len(mu['redshift1']):
+                    mu[f] = mu[f][zidx]
+
+        if self.rsd:
+            z = self.addRSD(mu) / self.c
+        else:
+            z = mu['redshift']
+
+        if self.rsd1:
+            z1 = self.addRSD(mu, cat1=True) / self.c
+        else:
+            z1 = mu['redshift1']
+
+        for i in range(self.nzbins):
+            print('Finding redshift indices')
+
+            zlidx = z.searchsorted(self.zbins[i])
+            zhidx = z.searchsorted(self.zbins[i+1])
+
+            for i1 in range(self.nzbins1):
+                if self.same_zbins:
+                    zlidx1 = z1.searchsorted(self.zbins[i])
+                    zhidx1 = z1.searchsorted(self.zbins[i+1])
+                else:
+                    zlidx1 = z1.searchsorted(self.zbins1[i1])
+                    zhidx1 = z1.searchsorted(self.zbins1[i1+1])
+
+                if (zlidx==zhidx):
+                    print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
+                    print('z: {}'.format(z))
+
+                    print("Min and max z: {0}, {1}".format(np.min(z), np.max(z)))
+                    continue
+                elif (zlidx1==zhidx1):
+                    print("No galaxies in redshift bin {0} to {1}".format(self.zbins1[i], self.zbins1[i+1]))
+                    print('z1: {}'.format(z1))
+
+                    print("Min and max z1: {0}, {1}".format(np.min(z1), np.max(z1)))
+                    continue
+
+                if self.ncbins>1:
+                    if (self.splitcolor is None) & (self.bimodal_ccut):
+                        if self.colorcat==0:
+                            ccounts, cbins = np.histogram(clr[zlidx:zhidx], self.hcbins)
+                        else:
+                            ccounts, cbins = np.histogram(clr[zlidx1:zhidx1], self.hcbins)
+                        self.splitcolor = self.splitBimodal(cbins[:-1], ccounts)
+
+                    elif (self.splitcolor is None) & (self.percentile_ccut is not None):
+                        if self.colorcat==0:
+                            self.splitcolor = self.splitPercentile(clr[zlidx:zhidx], self.percentile_ccut)
+                        else:
+                            self.splitcolor = self.splitPercentile(clr[zlidx1:zhidx1], self.percentile_ccut)
+
+                for li, j in enumerate(self.minds):
+                    if self.mcutind is not None:
+                        if self.upper_limit:
+                            lidx = mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j]
+                        else:
+                            lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) & (mu[self.mkey][zlidx:zhidx,self.mcutind] < self.mbins[j+1])
+                    else:
+                        if self.upper_limit:
+                            lidx = mu[self.mkey][zlidx:zhidx] < self.mbins[j]
+                        else:
+                            lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
+
+                    if self.centrals_only:
+                        lidx = lidx & (mu['central'][zlidx:zhidx]==1)
+
+                    if (li==self.rand_ind) | (not self.same_rand):
+                        print('Generating Randoms')
+                        if len(z[zlidx:zhidx][lidx])==0:
+                            self.rand_ind+=1
+                            continue
+
+                        rands = self.getCartesianRandoms(mu['px'][zlidx:zhidx][lidx], 
+                                                         mu['py'][zlidx:zhidx][lidx], 
+                                                         mu['pz'][zlidx:zhidx][lidx])
+
+                    for li1, j1 in enumerate(self.minds1):
+                        if self.mbins1 is None:
+                            lidx1 = np.ones(zhidx1-zlidx1, dtype=np.bool)
+                        else:
+                            if self.mcutind1 is not None:
+                                if self.upper_limit1:
+                                    lidx1 = mu[self.mkey1][zlidx1:zhidx1,self.mcutind1] < self.mbins1[j1]
+                                else:
+                                    lidx1 = (self.mbins1[j1] <= mu[self.mkey1][zlidx1:zhidx1,self.mcutind1]) & (mu[self.mkey1][zlidx1:zhidx1,self.mcutind1] < self.mbins1[j1+1])
+                            else:
+                                if self.upper_limit1:
+                                    lidx1 = mu[self.mkey1][zlidx1:zhidx1] < self.mbins1[j1]
+                                else:
+                                    lidx1 = (self.mbins1[j1] <= mu[self.mkey1][zlidx1:zhidx1]) & (mu[self.mkey1][zlidx1:zhidx1] < self.mbins1[j1+1])
+
+                        if self.centrals_only1:
+                            lidx1 = lidx1 & (mu['central1'][zlidx1:zhidx1]==1)
+
+                        if (li1==self.rand_ind1) | (not self.same_rand1):
+                            print('Generating Randoms')
+                            if len(z1[zlidx1:zhidx1][lidx1])==0:
+                                self.rand_ind1+=1
+                                continue
+
+                            rands1 = self.getCartesianRandoms(mu['px1'][zlidx1:zhidx1][lidx1], 
+                                                              mu['py1'][zlidx1:zhidx1][lidx1], 
+                                                              mu['pz1'][zlidx1:zhidx1][lidx1])
+                            
+                        for k in range(self.ncbins):
+                            if self.ncbins == 1:
+                                cidx = lidx
+                            else:
+                                if self.splitcolor:
+                                    if k==0:
+                                        cidx = lidx & (self.splitcolor < clr[zlidx:zhidx])
+                                    else:
+                                        cidx = lidx & (self.splitcolor >= clr[zlidx:zhidx])
+                                else:
+                                    cidx = lidx & (self.cbins[k] < clr[zlidx:zhidx]) & (clr[zlidx:zhidx] <= self.cbins[k+1])
+
+                            print('i*self.nzbins1 + i1: {}'.format(i*self.nzbins1 + i1))
+
+                            self.nd1[self.jcount,k,j,j1,i*self.nzbins1 + i1] = len(mu['px'][zlidx:zhidx][cidx])
+                            self.nd2[self.jcount,k,j,j1,i*self.nzbins1 + i1] = len(mu['px1'][zlidx1:zhidx1][lidx1])
+
+                            self.nr1[self.jcount,k,j,j1,i*self.nzbins1 + i1] = len(rands)
+                            self.nr2[self.jcount,k,j,j1,i*self.nzbins1 + i1] = len(rands1)
+
+                            print("Number of cat1 in this z/lum bin: {0}".format(self.nd1[self.jcount,k,j,j1,i*self.nzbins1 + i1]))
+                            print("Number of cat2 in this z/lum bin: {0}".format(self.nd2[self.jcount,k,j,j1,i*self.nzbins1 + i1]))
+
+                            print("Number of rands1 in this z/lum bin: {0}".format(self.nr1[self.jcount,k,j,j1,i*self.nzbins1 + i1]))
+                            print("Number of rands2 in this z/lum bin: {0}".format(self.nr2[self.jcount,k,j,j1,i*self.nzbins1 + i1]))
+
+                            #data data
+                            print('calculating data data pairs')
+                            sys.stdout.flush()
+                            if (self.nd1[self.jcount,k,j,j1,i*self.nzbins1 +i1]<2) | (self.nd2[self.jcount,k,j,j1,i*self.nzbins1 + i1]<2):
+                                continue
+
+                            weights = self.getWeights(mu['redshift'][zlidx:zhidx][lidx], mu['redshift1'][zlidx1:zhidx1][lidx1])
+                            rweights = self.getWeights(mu['redshift'][zlidx:zhidx][lidx], rands1['redshift'])
+
+                            ddout = DD(0,self.nthreads,
+                                       self.binfilename,
+                                       mu['px'][zlidx:zhidx][lidx],
+                                       mu['py'][zlidx:zhidx][lidx],
+                                       mu['pz'][zlidx:zhidx][lidx],
+                                       weights1=np.ones(len(mu['pz'][zlidx:zhidx][lidx]),dtype=np.float32),
+                                       periodic=False,
+                                       X2=mu['px1'][zlidx1:zhidx1][lidx1],
+                                       Y2=mu['py1'][zlidx1:zhidx1][lidx1],
+                                       Z2=mu['pz1'][zlidx1:zhidx1][lidx1],
+                                       weights2=weights.astype(np.float32),
+                                       weight_type='pair_product')
+                            ddout = np.array(ddout)
+                            self.dd[self.jcount,:,k,j,j1,i*self.nzbins1 + i1] = ddout['npairs'] * ddout['weightavg']
+
+                            #data randoms
+                            print('calculating data random pairs')
+                            sys.stdout.flush()
+                            drout = DD(0,self.nthreads,
+                                       self.binfilename,
+                                       mu['px'][zlidx:zhidx][lidx],
+                                       mu['py'][zlidx:zhidx][lidx],
+                                       mu['pz'][zlidx:zhidx][lidx],
+                                       weights1=np.ones(len(mu['pz'][zlidx:zhidx][lidx]),dtype=np.float32),
+                                       periodic=False,
+                                       X2=rands1['px'],
+                                       Y2=rands1['py'],
+                                       Z2=rands1['pz'],
+                                       weights2=rweights.astype(np.float32),
+                                       weight_type='pair_product')
+                            drout = np.array(drout)
+                            self.dr[self.jcount,:,k,j,j1,i*self.nzbins1 + i1] = drout['npairs'] * drout['weightavg']
+
+
+                            print('calculating data random pairs')
+                            sys.stdout.flush()
+                            drout = DD(0,self.nthreads,
+                                       self.binfilename,
+                                       mu['px1'][zlidx1:zhidx1][lidx1],
+                                       mu['py1'][zlidx1:zhidx1][lidx1],
+                                       mu['pz1'][zlidx1:zhidx1][lidx1],
+                                       weights1=weights.astype(np.float32),
+                                       periodic=False,
+                                       X2=rands['px'],
+                                       Y2=rands['py'],
+                                       Z2=rands['pz'],
+                                       weights2=np.ones(len(rands['px']),dtype=np.float32),
+                                       weight_type='pair_product')
+                            drout = np.array(drout)
+                            self.rd[self.jcount,:,k,j,j1,i*self.nzbins1 + i1] = drout['npairs'] * drout['weightavg']
+
+                            #randoms randoms
+                            print('calculating random random pairs')
+                            sys.stdout.flush()
+                            if (li==self.rand_ind) & (li1==self.rand_ind1) | (not self.same_rand):
+                                rrout = DD(0,self.nthreads,
+                                           self.binfilename,
+                                           rands['px'],
+                                           rands['py'],
+                                           rands['pz'],
+                                           weights1=np.ones(len(rands['px']),dtype=np.float32),
+                                           periodic=False,
+                                           X2=rands1['px'],
+                                           Y2=rands1['py'],
+                                           Z2=rands1['pz'],
+                                           weights2=rweights.astype(np.float32),
+                                           weight_type='pair_product')
+                                rrout = np.array(rrout)
+
+                            self.rr[self.jcount,:,k,j,j1,i*self.nzbins1 + i1] = rrout['npairs'] * rrout['weightavg']
+
+
+    def reduce(self, rank=None, comm=None):
+
+        if rank is not None:
+            gnd1 = comm.gather(self.nd1, root=0)
+            gnr1 = comm.gather(self.nr1, root=0)
+            gnd2 = comm.gather(self.nd2, root=0)
+            gnr2 = comm.gather(self.nr2, root=0)
+
+            gdd = comm.gather(self.dd, root=0)
+            gdr = comm.gather(self.dr, root=0)
+            grd = comm.gather(self.rd, root=0)
+            grr = comm.gather(self.rr, root=0)
+
+
+            if rank==0:
+                nd1shape = [self.nd1.shape[i] for i in range(len(self.nd1.shape))]
+                nr1shape = [self.nr1.shape[i] for i in range(len(self.nr1.shape))]
+                nd2shape = [self.nd2.shape[i] for i in range(len(self.nd2.shape))]
+                nr2shape = [self.nr2.shape[i] for i in range(len(self.nr2.shape))]
+
+                ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
+                drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
+                rdshape = [self.rd.shape[i] for i in range(len(self.rd.shape))]
+                rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+
+                nd1shape.insert(1,1)
+                nr1shape.insert(1,1)
+                nd2shape.insert(1,1)
+                nr2shape.insert(1,1)
+
+                nd1shape[0] = self.njacktot
+                nr1shape[0] = self.njacktot
+                nd2shape[0] = self.njacktot
+                nr2shape[0] = self.njacktot
+
+                ddshape[0] = self.njacktot
+                drshape[0] = self.njacktot
+                rdshape[0] = self.njacktot
+                rrshape[0] = self.njacktot
+
+                self.nd1 = np.zeros(nd1shape)
+                self.nr1 = np.zeros(nr1shape)
+                self.nd2 = np.zeros(nd2shape)
+                self.nr2 = np.zeros(nr2shape)
+
+                self.dd = np.zeros(ddshape)
+                self.dr = np.zeros(drshape)
+                self.rd = np.zeros(rdshape)
+                self.rr = np.zeros(rrshape)
+
+                jc = 0
+                for i, g in enumerate(gnd1):
+                    if g is None: continue
+                    nj = g.shape[0]
+                    self.nd1[jc:jc+nj,0,:,:,:,:] = g
+                    self.nr1[jc:jc+nj,0,:,:,:,:] = gnr1[i]
+                    self.nd2[jc:jc+nj,0,:,:,:,:] = gnd2[i]
+                    self.nr2[jc:jc+nj,0,:,:,:,:] = gnr2[i]
+
+                    self.dd[jc:jc+nj,:,:,:,:,:] = gdd[i]
+                    self.dr[jc:jc+nj,:,:,:,:,:] = gdr[i]
+                    self.rd[jc:jc+nj,:,:,:,:,:] = grd[i]
+                    self.rr[jc:jc+nj,:,:,:,:,:] = grr[i]
+
+                    jc += nj
+
+                self.jnd1 = self.jackknife(self.nd1, reduce_jk=False)
+                self.jnr1 = self.jackknife(self.nr1, reduce_jk=False)
+                self.jnd2 = self.jackknife(self.nd2, reduce_jk=False)
+                self.jnr2 = self.jackknife(self.nr2, reduce_jk=False)
+
+                self.jdd = self.jackknife(self.dd, reduce_jk=False)
+                self.jdr = self.jackknife(self.dr, reduce_jk=False)
+                self.jrd = self.jackknife(self.rd,reduce_jk=False)
+                self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+                self.jxixy = np.zeros_like(self.jdd)
+
+                for i in xrange(self.njacktot):
+                    for j in xrange(self.ncbins):
+                        for k in xrange(self.nmbins):
+                            for l in xrange(self.nmbins1):
+                                for m in xrange(self.nzbins*self.nzbins1):
+                                    if (self.jnd1[i,0,j,k,l,m]<1) | (self.jnd2[i,0,j,k,l,m]<1): continue 
+                                    self.jxixy[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
+                                                                                      self.jnd2[i,0,j,k,l,m],
+                                                                                      self.jnr1[i,0,j,k,l,m],
+                                                                                      self.jnr2[i,0,j,k,l,m],
+                                                                                      self.jdd[i,:,j,k,l,m],
+                                                                                      self.jdr[i,:,j,k,l,m],
+                                                                                      self.jrd[i,:,j,k,l,m],
+                                                                                      self.jrr[i,:,j,k,l,m])
+                
+                self.xixy = np.sum(self.jxixy, axis=0) / self.njacktot
+
+                self.varxixy = np.sum((self.jxixy - self.xixy)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+                
+                print('sizes of jnd1, jdd, wxytheta: {}, {}, {}'.format(self.jnd1.shape, self.jdd.shape, self.xixy.shape))
+
+        else:
+            self.jnd1 = self.jackknife(self.nd1, reduce_jk=False)
+            self.jnr1 = self.jackknife(self.nr1, reduce_jk=False)
+            self.jnd2 = self.jackknife(self.nd2, reduce_jk=False)
+            self.jnr2 = self.jackknife(self.nr2, reduce_jk=False)
+
+            self.jdd = self.jackknife(self.dd, reduce_jk=False)
+            self.jdr = self.jackknife(self.dr, reduce_jk=False)
+            self.jrd = self.jackknife(self.rd,reduce_jk=False)
+            self.jrr = self.jackknife(self.rr, reduce_jk=False)
+
+            self.jxixy = np.zeros_like(self.jdd)
+            
+            for i in xrange(self.njacktot):
+                for j in xrange(self.ncbins):
+                    for k in xrange(self.nmbins):
+                        for l in xrange(self.nmbins1):
+                            for m in xrange(self.nzbins*self.nzbins1):
+                                self.jxixy[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
+                                                                                  self.jnd2[i,0,j,k,l,m],
+                                                                                  self.jnr1[i,0,j,k,l,m],
+                                                                                  self.jnr2[i,0,j,k,l,m],
+                                                                                  self.jdd[i,:,j,k,l,m],
+                                                                                  self.jdr[i,:,j,k,l,m],
+                                                                                  self.jrd[i,:,j,k,l,m],
+                                                                                  self.jrr[i,:,j,k,l,m])
+                
+            self.xixy = np.sum(self.jxixy, axis=0) / self.njacktot
+
+            self.varxixy = np.sum((self.jxixy - self.xixy)**2, axis=0) * (self.njacktot - 1) / self.njacktot
+            print('sizes of jnd1, jdd, wxytheta: {}, {}, {}'.format(self.jnd1.shape, self.jdd.shape, self.xixy.shape))
+
+
+    def visualize(self, plotname=None, f=None, ax=None, usecols=None,
+                    usez=None, compare=False, usecolors=None, **kwargs):
+
+        if usecols is None:
+            usecols = range(self.nmbins)
+
+        if usez is None:
+            usez = range(self.nzbins)
+
+        if usecolors is None:
+            usecolors = range(self.ncbins)
+
+        if f is None:
+            f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
+                                    sharey=True, figsize=(8,8))
+            ax = np.array(ax)
+            ax = ax.reshape(len(usez), len(usecols))
+            newaxes = True
+        else:
+            newaxes = False
+
+        if hasattr(self, 'rmean'):
+            if self.rmean is not None:
+                rmean = self.rmean
+        else:
+            rmean = (self.rbins[1:]+self.rbins[:-1]) / 2
+
+        for i, l in enumerate(usecols):
+            for j, z in enumerate(usez):
+                for k, c in enumerate(usecolors):
+                    ye = np.sqrt(self.varxixy[:,c,l,0,z])
+                    l1 = ax[j][i].plot(rmean, self.xixy[:,c,l,0,z], **kwargs)
+                    ax[j][i].fill_between(rmean, self.xixy[:,c,l,0,z]-ye, self.xixy[:,c,l,0,z]+ye, alpha=0.5, **kwargs)
+
+                ax[j][i].set_xscale('log')
+                ax[j][i].set_yscale('log')
+
+
+        if newaxes:
+            sax = f.add_subplot(111)
+            plt.setp(sax.get_xticklines(), visible=False)
+            plt.setp(sax.get_yticklines(), visible=False)
+            plt.setp(sax.get_xticklabels(), visible=False)
+            plt.setp(sax.get_yticklabels(), visible=False)
+            sax.patch.set_alpha(0.0)
+            sax.patch.set_facecolor('none')
+            sax.spines['top'].set_color('none')
+            sax.spines['bottom'].set_color('none')
+            sax.spines['left'].set_color('none')
+            sax.spines['right'].set_color('none')
+            sax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+            sax.set_ylabel(r'$\xi(r)$', labelpad=20, fontsize=16)
+            sax.set_xlabel(r'$r \, [ Mpc\/h^{-1} ]$',labelpad=20, fontsize=16)
 
         if (plotname is not None) & (not compare):
             plt.savefig(plotname)

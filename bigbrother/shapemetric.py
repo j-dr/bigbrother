@@ -72,7 +72,7 @@ class ShearShear(CrossCorrelationFunction):
     @jackknifeMap
     def map(self, mapunit):
 
-        if not self.unxi_m:
+        if self.unxi_m is None:
             self.unxi_m   = np.zeros((self.njack, self.nabins, self.nmbins,
                                      self.nmbins1, self.nzbins))
             self.unxi_p   = np.zeros((self.njack, self.nabins, self.nmbins,
@@ -399,6 +399,7 @@ class CountShear(CrossCorrelationFunction):
         self.rbins = rbins
         if self.rbins is not None:
             self.abins = np.zeros((len(self.rbins),self.nzbins))
+            self.nabins = len(self.rbins)-1
         else:
             self.abins = np.zeros((self.nabins+1,self.nzbins))
             self.abins[:,:] = np.logspace(np.log10(self.min_sep), np.log10(self.max_sep),self.nabins+1).reshape(-1,1)
@@ -424,20 +425,24 @@ class CountShear(CrossCorrelationFunction):
         if (self.mkey1 == 'halomass'):
             self.unitmap[self.mkey1] = 'msunh'
 
+        self.nofzbins = np.linspace(0.0,3.0,201)
+
         self.jsamples = 0
         
         self.gt           = None
         self.gt_rand      = None
         self.weights      = None
         self.weights_rand = None
-        self.varg        = None
+        self.varg         = None
         self.nd1          = None
         self.nd2          = None 
+        self.nz1          = None
+        self.nz2          = None
 
     @jackknifeMap
     def map(self, mapunit):
 
-        if not self.gt:
+        if self.gt is None:
             self.gt  = np.zeros((self.njack, self.nabins, self.nmbins,
                                      self.nmbins1, self.nzbins*self.nzbins1))
             self.gt_rand  = np.zeros((self.njack, self.nabins, self.nmbins,
@@ -449,6 +454,12 @@ class CountShear(CrossCorrelationFunction):
 
             self.varg = np.zeros((self.njack, self.nmbins,
                                      self.nmbins1, self.nzbins*self.nzbins1))
+
+            self.nzd1     = np.zeros((self.njack, 200, self.nmbins,
+                                      1, self.nzbins))
+
+            self.nzd2     = np.zeros((self.njack, 200, 1,
+                                      self.nmbins1, self.nzbins1))
 
             self.nd1      = np.zeros((self.njack, self.nmbins,
                                       self.nmbins1, self.nzbins*self.nzbins1))
@@ -469,13 +480,15 @@ class CountShear(CrossCorrelationFunction):
                     zlidx1 = mapunit['redshift1'].searchsorted(self.zbins1[i1])
                     zhidx1 = mapunit['redshift1'].searchsorted(self.zbins1[i1+1])
 
-                if self.rbins:
+                if self.rbins is not None:
                     if self.same_zbins:
                         zm = (self.zbins[i] + self.zbins[i+1]) / 2 
                     else:
                         zm = (self.zbins1[i] + self.zbins1[i+1]) / 2 
 
                     self.abins[:,i] = self.computeAngularBinsFromRadii(self.rbins, zm)
+                    if self.sep_units == 'arcmin':
+                        self.abins[:,i]*=60
 
                 if (zlidx==zhidx):
                     print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
@@ -527,12 +540,15 @@ class CountShear(CrossCorrelationFunction):
 
                         rands = self.getRandoms(mapunit['azim_ang1'][zlidx1:zhidx1][lidx1], 
                                                 mapunit['polar_ang1'][zlidx1:zhidx1][lidx1], 
-                                                mapunit['redshift'][zlidx1:zhidx1][lidx1], 
+                                                mapunit['redshift1'][zlidx1:zhidx1][lidx1], 
                                                 zmin=self.zbins1[i1], zmax=self.zbins1[i1+1])
 
 
                         self.nd1[self.jcount,j,j1,i*self.nzbins1 + i1] = len(mapunit['azim_ang'][zlidx:zhidx][lidx])
                         self.nd2[self.jcount,j,j1,i*self.nzbins1 + i1] = len(mapunit['azim_ang'][zlidx1:zhidx1][lidx1])
+
+                        self.nzd1[self.jcount,:,j,0,i], _ = np.histogram(mapunit['redshift'][zlidx:zhidx][lidx], self.nofzbins)
+                        self.nzd2[self.jcount,:,0,j1,i1], _ = np.histogram(mapunit['redshift'][zlidx1:zhidx1][lidx1], self.nofzbins)
 
                         print("Number of cat1 in this z/lum bin: {0}".format(np.sum(lidx)))
                         print("Number of cat2 in this z/lum bin: {0}".format(np.sum(lidx1)))
@@ -559,6 +575,10 @@ class CountShear(CrossCorrelationFunction):
                         ng = treecorr.NGCorrelation(min_sep=self.abins[0,i], max_sep=self.abins[-1,i], 
                                                     nbins=self.nabins, 
                                                     sep_units=self.sep_units, bin_slop=self.bin_slop)
+                        print('min(ra), max(ra), min(dec), max(dec): {}, {}, {}, {}'.format(np.min(mapunit['azim_ang']),
+                                                                                            np.max(mapunit['azim_ang']),
+                                                                                            np.min(mapunit['polar_ang']),
+                                                                                            np.max(mapunit['polar_ang'])))
 
                         ng.process_cross(cat2, cat1, num_threads=self.nthreads)
 
@@ -569,6 +589,11 @@ class CountShear(CrossCorrelationFunction):
                         rg = treecorr.NGCorrelation(min_sep=self.abins[0,i], max_sep=self.abins[-1,i], 
                                                     nbins=self.nabins, 
                                                     sep_units=self.sep_units, bin_slop=self.bin_slop)
+
+                        print('min(rand_ra), max(rand_ra), min(rand_dec), max(rand_dec): {}, {}, {}, {}'.format(np.min(rands['azim_ang']),
+                                                                                                                np.max(rands['azim_ang']),
+                                                                                                                np.min(rands['polar_ang']),
+                                                                                                                np.max(rands['polar_ang'])))
 
                         rg.process_cross(rand_cat, cat1, num_threads=self.nthreads)
                         self.gt_rand[self.jcount,:,j,j1,i*self.nzbins+i1] = rg.xi
@@ -585,6 +610,8 @@ class CountShear(CrossCorrelationFunction):
         if rank is not None:
             gnd1 = comm.gather(self.nd1, root=0)
             gnd2 = comm.gather(self.nd2, root=0)
+            gnzd1 = comm.gather(self.nzd1, root=0)
+            gnzd2 = comm.gather(self.nzd2, root=0)
             gweights = comm.gather(self.weights, root=0)
             gweights_rand = comm.gather(self.weights_rand, root=0)
             gvarg = comm.gather(self.varg, root=0)
@@ -593,17 +620,22 @@ class CountShear(CrossCorrelationFunction):
             ggt_rand = comm.gather(self.gt_rand, root=0)
 
             if rank==0:
-                nd1shape = [self.nd.shape[i] for i in range(len(self.nd.shape))]
+                nd1shape = [self.nd1.shape[i] for i in range(len(self.nd1.shape))]
+                nzd1shape = [self.nzd1.shape[i] for i in range(len(self.nzd1.shape))]
+                nzd2shape = [self.nzd2.shape[i] for i in range(len(self.nzd2.shape))]
                 xishape = [self.gt.shape[i] for i in range(len(self.gt.shape))]
 
-                ndshape.insert(1,1)
+                nd1shape.insert(1,1)
 
-                ndshape[0] = self.njacktot
+                nd1shape[0] = self.njacktot
                 xishape[0] = self.njacktot
 
-                self.nd1 = np.zeros(ndshape)
-                self.nd2 = np.zeros(ndshape)
-                self.varg = np.zeros(ndshape)
+                self.nd1 = np.zeros(nd1shape)
+                self.nd2 = np.zeros(nd1shape)
+                self.nzd1 = np.zeros(nzd1shape)
+                self.nzd2 = np.zeros(nzd2shape)
+
+                self.varg = np.zeros(nd1shape)
 
                 self.gt = np.zeros(xishape)
                 self.gt_rand = np.zeros(xishape)
@@ -615,7 +647,10 @@ class CountShear(CrossCorrelationFunction):
                     if g is None: continue
                     nj = g.shape[0]
                     self.nd1[jc:jc+nj,0,:,:,:] = g
-                    self.nd2[jc:jc+nj,0,:,:,:] = gnd2
+                    self.nd2[jc:jc+nj,0,:,:,:] = gnd2[i]
+                    self.nzd1[jc:jc+nj,:,:,:,:] = gnzd1[i]
+                    self.nzd2[jc:jc+nj,:,:,:,:] = gnzd2[i]
+
                     self.varg[jc:jc+nj,0,:,:,:] = gvarg[i]
 
                     self.weights[jc:jc+nj,:,:,:,:] = gweights[i]
@@ -627,12 +662,21 @@ class CountShear(CrossCorrelationFunction):
 
                 self.jnd1     = self.jackknife(self.nd1, reduce_jk=False)
                 self.jnd2     = self.jackknife(self.nd2, reduce_jk=False)
+                self.jnzd1     = self.jackknife(self.nzd1, reduce_jk=False)
+                self.jnzd2     = self.jackknife(self.nzd2, reduce_jk=False)
+
                 self.jweights = self.jackknife(self.weights, reduce_jk=False)
                 self.jweights_rand = self.jackknife(self.weights_rand, reduce_jk=False)
                 
                 self.jgt       = self.jackknife(self.gt, reduce_jk=False) / self.jweights
                 self.jgt_rand  = self.jackknife(self.gt_rand, reduce_jk=False) / self.jweights_rand
                 self.jvarg     = self.jackknife(self.varg, reduce_jk=False) 
+                
+                self.nzd1 = np.sum(self.jnzd1, axis=0) / self.njacktot
+                self.nzd2 = np.sum(self.jnzd2, axis=0) / self.njacktot
+
+                self.varnzd1 = np.sum((self.jnzd1 - self.nzd1) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
+                self.varnzd2 = np.sum((self.jnzd2 - self.nzd2) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
                 
                 self.varg      = np.sum(self.jvarg*self.jnd1, axis=0) / np.sum(self.jnd1, axis=0)
 
@@ -645,9 +689,18 @@ class CountShear(CrossCorrelationFunction):
         else:
             self.jnd1     = self.jackknife(self.nd1, reduce_jk=False)
             self.jnd2     = self.jackknife(self.nd2, reduce_jk=False)
+            self.jnzd1     = self.jackknife(self.nzd1, reduce_jk=False)
+            self.jnzd2     = self.jackknife(self.nzd2, reduce_jk=False)
+
             self.jweights = self.jackknife(self.weights, reduce_jk=False)
             self.jweights_rand = self.jackknife(self.weights_rand, reduce_jk=False)                
 
+            self.nzd1 = np.sum(self.jnzd1, axis=0) / self.njacktot
+            self.nzd2 = np.sum(self.jnzd2, axis=0) / self.njacktot
+
+            self.varnzd1 = np.sum((self.jnzd1 - self.nzd1) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
+            self.varnzd2 = np.sum((self.jnzd2 - self.nzd2) ** 2, axis=0) * (self.njacktot - 1 ) / self.njacktot
+  
             self.jgt       = self.jackknife(self.gt, reduce_jk=False) / self.jweights
             self.jgt_rand  = self.jackknife(self.gt_rand, reduce_jk=False) / self.jweights_rand
             self.jvarg     = self.jackknife(self.varg, reduce_jk=False) 

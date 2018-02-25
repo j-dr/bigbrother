@@ -14,7 +14,7 @@ class BaseCatalog:
     Base class for catalog type
     """
 
-    _valid_reader_types = ['fits', 'rockstar', 'ascii', 'lgadget']
+    _valid_reader_types = ['fits', 'rockstar', 'ascii', 'lgadget', 'addgalstxt']
 
     def __init__(self, ministry, filestruct, fieldmap=None,
                  unitmap=None,  filters=None, goodpix=None,
@@ -104,8 +104,7 @@ class BaseCatalog:
         fpix = []
 
         #BCC catalogs have pixels in filenames
-        if (('BCC' in self.__class__.__name__) &
-          (self.filenside is not None) & (self.filenside>=self.groupnside)):
+        if (self.filenside is not None) & (self.filenside>=self.groupnside):
             fk = self.filestruct.keys()
 
             for f in self.filestruct[fk[0]]:
@@ -245,6 +244,12 @@ class BaseCatalog:
                     fields.extend([val])
 
         data = fitsio.read(fname, columns=fields)
+
+        if hasattr(self, 'downsample_factor'):
+            if self.downsample_factor is not None:
+                idx  = np.random.choice(np.arange(len(data)), size=len(data)//self.downsample_factor)
+                data = data[idx]
+
         for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
             if hasattr(fieldmap[ft][mapkey], '__iter__'):

@@ -4,8 +4,12 @@ from .massmetric import SimpleHOD, MassFunction, OccMass
 from .healpix_utils import PixMetric
 from .basecatalog     import BaseCatalog
 from astropy.cosmology import z_at_value
-
-from helpers import SimulationAnalysis
+try:
+    from halotools.sim_manager import TabularAsciiReader
+    hashalotools = True
+except:
+    hashalotools = False
+    from helpers import SimulationAnalysis
 import astropy.units as u
 import numpy as np
 import healpy as hp
@@ -64,8 +68,7 @@ class HaloCatalog(BaseCatalog):
         fpix = []
 
         #BCC catalogs have pixels in filenames
-        if (('BCC' in self.__class__.__name__) &
-          (self.filenside is not None) & (self.filenside>=self.groupnside)):
+        if (self.filenside is not None) & (self.filenside>=self.groupnside):
             fk = self.filestruct.keys()
 
             for f in self.filestruct[fk[0]]:
@@ -202,15 +205,31 @@ class HaloCatalog(BaseCatalog):
 
         fields = list(np.unique(fields))
 
-	data = SimulationAnalysis.readHlist(fname, fields)
+        
+        if hashalotools:
+            with open(fname, 'r') as fp:
+                filefields = fp.readline()
+
+            filefields = filefields[1:].split(' ')
+            colnums    = [filefields.index(f) for f in fields]
+            cdict      = dict(zip(fields, zip(colnums,(np.float32,)*len(colnums))))
+
+            reader = TabularAsciiReader(fname, cdict)
+            data   = reader.read_ascii()
+        else:
+            data   = SimulationAnalysis.readHlist(fname, fields)
+
 
 	for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
             if hasattr(fieldmap[ft][mapkey], '__iter__'):
-                dt = mapunit[mapkey].dtype[0]
-                ne = len(mapunit[mapkey])
-                nf = len(fieldmap[ft][mapkey])
-                mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
+                dt    = mapunit[mapkey].dtype[0]
+                ne    = len(mapunit[mapkey])
+                fnums = [data.dtype.names.index(f) for f in fieldmap[ft][mapkey]]
+                nft = len(fields)
+                mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nft))[:,fnums]
+
+            print('{}: {}'.format(mapkey, mapunit[mapkey]))
 
 	return mapunit
 

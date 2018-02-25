@@ -64,8 +64,61 @@ class ParticleCatalog(BaseCatalog):
             mapunit = self.readFITSMappable(mappable, fieldmap)
         if self.reader=='lgadget':
             mapunit = self.readLGadgetMappable(mappable, fieldmap)
+        if self.reader=='addgalstxt':
+            mapunit = self.readAddgalsTxtMappable(mappable, fieldmap)
 
         return mapunit
+
+    def readAddgalsTxtMappable(self, mappable, fieldmap):
+        """
+        Takes in a mappable object, and a fieldmap and spits out a mappable
+        """
+        nativefields = ['px', 'py', 'pz', 'vx', 'vy', 'vz', 'redshift', 'pid']
+
+	mapunit = {}
+	ft      = mappable.dtype
+	fname   = mappable.name
+
+	for f in fieldmap.keys():
+	    fields = []
+	    for val in fieldmap[ft].values():
+	        if hasattr(val, '__iter__'):
+	            fields.extend(val)
+	        else:
+	            fields.extend([val])
+
+        fields = list(np.unique(fields))
+        
+	data  = np.genfromtxt(fname, names=nativefields)
+        npart = len(data)
+
+        if self.downsample_factor:
+            try:
+                idx = np.random.choice(np.arange(npart), 
+                                       size=int(npart/self.downsample_factor),
+                                       replace=False)
+            except RuntimeError as e:
+                sys.setrecursionlimit(10000)
+                print(e)
+                print('Failed on file {}'.format(fname))
+                print('Number of particles in this file, and downsampled: {}, {}'.format(npart, int(npart/self.downsample_factor)))
+
+                idx = np.random.choice(np.arange(npart), 
+                                       size=int(npart/self.downsample_factor), 
+                                       replace=False)
+
+            data = data[idx]
+
+	for mapkey in fieldmap[ft].keys():
+            mapunit[mapkey] = data[fieldmap[ft][mapkey]]
+
+            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+                dt = mapunit[mapkey].dtype[0]
+                ne = len(mapunit[mapkey])
+                nf = len(fieldmap[ft][mapkey])
+                mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
+            
+	return mapunit
 
     def readLGadgetMappable(self, mappable, fieldmap):
         """
@@ -110,6 +163,7 @@ class ParticleCatalog(BaseCatalog):
                     mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
             
 	return mapunit
+
 
     def readGadgetBlock(self, filename, fields, print_header=False, single_type=-1, 
                         lgadget=False, downsample=None):
@@ -232,7 +286,7 @@ class ParticleCatalog(BaseCatalog):
                     if downsample:
                         try:
                             idx = np.random.choice(np.arange(npart_this), 
-                                                   size=npart_this/downsample, 
+                                                   size=npart_this//downsample, 
                                                    replace=False)
                         except RuntimeError as e:
                             sys.setrecursionlimit(10000)
@@ -241,7 +295,7 @@ class ParticleCatalog(BaseCatalog):
                             print('Number of particles in this file, and downsampled: {}, {}'.format(npart_this, npart_this/downsample))
 
                             idx = np.random.choice(np.arange(npart_this), 
-                                                   size=npart_this/downsample, 
+                                                   size=npart_this//downsample, 
                                                    replace=False)
 
                         data = data[idx,:]

@@ -7,6 +7,7 @@ import yaml
 from .ministry import Ministry
 from .galaxy   import GalaxyCatalog
 from .halo     import HaloCatalog
+from .particle import ParticleCatalog
 import bigbrother.magnitudemetric as mam
 import bigbrother.massmetric      as msm
 import bigbrother.corrmetric      as crm

@@ -87,8 +87,7 @@ class GalaxyCatalog(BaseCatalog):
         fpix = []
 
         #BCC catalogs have pixels in filenames
-        if (('BCC' in self.__class__.__name__) &
-          (self.filenside is not None) & (self.filenside>=self.groupnside)):
+        if (self.filenside is not None) & (self.filenside>=self.groupnside):
             fk = self.filestruct.keys()
 
             for f in self.filestruct[fk[0]]:

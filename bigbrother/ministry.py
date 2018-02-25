@@ -157,17 +157,6 @@ class Ministry:
         elif catalog_type == "PlaceHolder":
             self.galaxycatalog = PlaceHolder(self, None)
 
-    def setHaloCatalog(self, catalog_type, filestruct, goodpix=1, **kwargs):
-        """
-        Fill in the halo catalog information
-        """
-
-        if catalog_type == "redmapper":
-            self.clustercatalog = RedmapperCatalog(self, filestruct, **kwargs)
-
-        elif catalog_type == "PlaceHolder":
-            self.clustercatalog = PlaceHolder(self, None)
-
     def setParticleCatalog(self, catalog_type, filestruct, **kwargs):
 
         if catalog_type == "LGadgetSnapshot":
@@ -205,6 +194,9 @@ class Ministry:
                     pass
                 else:
                     mk.extend(['polar_ang', 'azim_ang'])
+                
+                if len(metric.catalog_type)>1:
+                    mk.extend(['polar_ang1', 'azim_ang1'])
 
             mk = np.unique(mk)
 
@@ -891,6 +883,12 @@ class Ministry:
                         um = self.halocatalog.unitmap
                         nest = self.halocatalog.nest
 
+                if (self.particlecatalog is not None):
+                    if azim_ang_key in self.particlecatalog.unitmap.keys():
+                        um = self.particlecatalog.unitmap
+                        nest = self.particlecatalog.nest
+
+
                 conversion = getattr(units, '{0}2{1}'.format(um[key],'rad'))
 
                 tp[:,i] = conversion(mapunit, key)
@@ -1036,7 +1034,7 @@ class Ministry:
         return mapunit
 
     def validate(self, nmap=None, metrics=None, verbose=False, parallel=False,
-                    debug_mapunit=False):
+                    debug_mapunit=False, mask=False):
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
@@ -1158,8 +1156,11 @@ class Ministry:
                     mapunit = self.dcListToDict(mapunit)
 
                     #mask the first catalog
-                    pidx = self.maskMappable(mapunit, mappable)
-                    
+                    if mask:
+                        pidx = self.maskMappable(mapunit, mappable)
+                    else:
+                        pidx = None
+
                     if pidx is not None:
                         mu = {}
                         for k in mapunit.keys():
@@ -1170,6 +1171,7 @@ class Ministry:
 
                     mapunit = self.convert(mapunit, ms)
                     mapunit = self.filter(mapunit)
+
                     if sbz:
                         mapunit = self.sortMapunitByZ(mapunit)
 
