@@ -23,7 +23,9 @@ class BaseCatalog:
                  maskfile=None, maskcomp=None, maskval=None,
                  necessaries=None, jackknife_area=None,
                  polar_ang_key='polar_ang', azim_ang_key='azim_ang',
-                 px_key='px', py_key='py', pz_key='pz'):
+                 px_key='px', py_key='py', pz_key='pz', 
+                 azim_ang_lims=None, polar_ang_lims=None,
+                 redshift_lims=None):
 
         self.ministry = ministry
         self.filestruct = filestruct
@@ -35,6 +37,10 @@ class BaseCatalog:
         self.px_key = px_key
         self.py_key = py_key
         self.pz_key = pz_key
+
+        self.polar_ang_lims = polar_ang_lims
+        self.azim_ang_lims  = azim_ang_lims
+        self.redshift_lims = redshift_lims
 
         if filters is not None:
             self.filters = filters
@@ -102,7 +108,7 @@ class BaseCatalog:
         sorted correctly by parseFileStruct
         """
         fpix = []
-
+        print('Test')
         #BCC catalogs have pixels in filenames
         if (self.filenside is not None) & (self.filenside>=self.groupnside):
             fk = self.filestruct.keys()
@@ -150,6 +156,7 @@ class BaseCatalog:
                 size = comm.Get_size()
 
                 mappables = mappables[rank::size]
+                print('{} Grouping files, num mappables: {}'.format(rank, len(mappables)))
 
             for i, mappable in enumerate(mappables):
 
@@ -251,12 +258,14 @@ class BaseCatalog:
                 data = data[idx]
 
         for mapkey in fieldmap[ft].keys():
-            mapunit[mapkey] = data[fieldmap[ft][mapkey]]
+
             if hasattr(fieldmap[ft][mapkey], '__iter__'):
-                dt = mapunit[mapkey].dtype[0]
-                ne = len(mapunit[mapkey])
-                nf = len(fieldmap[ft][mapkey])
-                mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
+                idx = np.array([data.dtype.names.index(fieldmap[ft][mapkey][i]) 
+                                for i in range(len(fieldmap[ft][mapkey]))])
+                dt = data[fieldmap[ft][mapkey]].dtype[0]
+                mapunit[mapkey] = data.view((dt, len(fields)))[:,idx]
+            else:
+                mapunit[mapkey] = data[fieldmap[ft][mapkey]]
 
         return mapunit
 
@@ -534,6 +543,25 @@ class BaseCatalog:
                     mapunit[key] = mapunit[key][idx]
 
         return mapunit
+
+    def filterazim_ang(self, mapunit):
+        print('Filtering azim ang')
+        idx = ( self.azim_ang_lims[0] < mapunit['azim_ang'] ) & ( mapunit['azim_ang'] < self.azim_ang_lims[1])
+        
+        return idx
+
+    def filterpolar_ang(self, mapunit):
+        print('Filtering polar ang')
+        idx = ( self.polar_ang_lims[0] < mapunit['polar_ang'] ) & ( mapunit['polar_ang'] < self.polar_ang_lims[1])
+
+        return idx
+
+    def filterredshift(self, mapunit):
+        print('Filtering redshift')
+        
+        idx = (self.redshift_lims[0] < mapunit['redshift']) & (mapunit['redshift'] < self.redshift_lims[1])
+
+        return idx
 
     def getArea(self, jackknife=False):
 

@@ -210,9 +210,14 @@ class HaloCatalog(BaseCatalog):
             with open(fname, 'r') as fp:
                 filefields = fp.readline()
 
-            filefields = filefields[1:].split(' ')
-            colnums    = [filefields.index(f) for f in fields]
-            cdict      = dict(zip(fields, zip(colnums,(np.float32,)*len(colnums))))
+            try:
+                filefields = filefields[1:].split(' ')
+                filefields[-1] = filefields[-1][:-1]
+                colnums    = [filefields.index(f) for f in fields]
+                cdict      = dict(zip(fields, zip(colnums,(np.float32,)*len(colnums))))
+            except ValueError as e:
+                print(e)
+                print('filefields :{}'.format(filefields))
 
             reader = TabularAsciiReader(fname, cdict)
             data   = reader.read_ascii()

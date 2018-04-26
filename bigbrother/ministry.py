@@ -719,10 +719,18 @@ class Ministry:
         print('Reading {}'.format(mappable.name))
         if (self.halocatalog is not None) and (mappable.dtype in self.halocatalog.filetypes):
             mappable.data = self.halocatalog.readMappable(mappable, fieldmap)
+            if len(self.halocatalog.filetypes)==1:
+                mappable.data = self.halocatalog.filter(mappable.data, self.halocatalog.fieldmap)
+
         elif (self.galaxycatalog is not None) and (mappable.dtype in self.galaxycatalog.filetypes):
             mappable.data = self.galaxycatalog.readMappable(mappable, fieldmap)
+            if len(self.galaxycatalog.filetypes)==1:
+                mappable.data = self.galaxycatalog.filter(mappable.data, self.galaxycatalog.fieldmap)
+
         elif (self.particlecatalog is not None) and (mappable.dtype in self.particlecatalog.filetypes):
             mappable.data = self.particlecatalog.readMappable(mappable, fieldmap)
+            if len(self.particlecatalog.filetypes)==1:
+                mappable.data = self.particlecatalog.filter(mappable.data, self.particlecatalog.fieldmap)
 
         if len(mappable.children)>0:
             for child in mappable.children:
@@ -1030,11 +1038,15 @@ class Ministry:
             mapunit = self.galaxycatalog.filter(mapunit, self.galaxycatalog.fieldmap)
         if (self.halocatalog is not None):
             mapunit = self.halocatalog.filter(mapunit, self.halocatalog.fieldmap)
+        if (self.particlecatalog is not None):
+            mapunit = self.particlecatalog.filter(mapunit, self.particlecatalog.fieldmap)
+
+
 
         return mapunit
 
     def validate(self, nmap=None, metrics=None, verbose=False, parallel=False,
-                    debug_mapunit=False, mask=False):
+                    debug_mapunit=False, mask=True):
         """
         Run all validation metrics by iterating over only the files we
         need at a given time, mapping catalogs to relevant statistics
@@ -1112,6 +1124,7 @@ class Ministry:
 
             if parallel:
                 mappables = mappables[rank::size]
+                print('{} Num mappables: {}'.format(rank, len(mappables)))
 
             self.njack = len(mappables)
 

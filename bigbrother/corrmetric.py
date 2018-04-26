@@ -41,7 +41,10 @@ class CorrelationFunction(Metric):
                    clustercatalog=None, nthreads=1, 
                    weights=False, no_mkey=False, 
                    rand_nside=None, rand_nest=True, 
-                   rr_rand_factor=1.0, **kwargs):
+                   rr_rand_factor=1.0, rand_ra_lims=None,
+                   rand_dec_lims=None, ra_lims=None,
+                   dec_lims=None, calc_weighted_x = False, 
+                   **kwargs):
         """
         Generic correlation function.
         """
@@ -69,6 +72,12 @@ class CorrelationFunction(Metric):
         self.rand_px_field = rand_px_field
         self.rand_py_field = rand_py_field
         self.rand_pz_field = rand_pz_field
+
+        self.rand_ra_lims  = rand_ra_lims
+        self.rand_dec_lims = rand_dec_lims
+
+        self.ra_lims  = ra_lims
+        self.dec_lims = dec_lims
 
         if (zbins is None) & lightcone:
             self.zbins = np.linspace(self.ministry.minz, self.ministry.maxz, 4)
@@ -114,6 +123,7 @@ class CorrelationFunction(Metric):
         self.randname = randname
         self.rand_factor = rand_factor
         self.rr_rand_factor = rr_rand_factor
+        self.calc_weighted_x = calc_weighted_x
         
         if nrbins is None:
             self.nrbins = 15
@@ -225,6 +235,30 @@ class CorrelationFunction(Metric):
                 hmap      = hu.DensityMap('ring', hmap)
 
             theta, phi = hmap.genrand(rsize, system='ang')
+
+            if (self.rand_ra_lims is not None):
+                ra = phi * 180. / np.pi
+                idx = (self.rand_ra_lims[0] < ra ) & (ra < self.rand_ra_lims[1])
+
+                theta = theta[idx]
+                phi   = phi[idx]
+                rr    = rr[idx]
+                gr    = gr[idx]
+
+                del ra, idx
+
+            if (self.rand_dec_lims is not None):
+                dec = 90. - theta * 180. / np.pi
+                idx = (self.rand_dec_lims[0] < dec ) & (dec < self.rand_dec_lims[1])
+                print(gr.shape)
+                theta = theta[idx]
+                phi   = phi[idx]
+                rr    = rr[idx]
+                gr    = gr[idx]
+
+                del dec, idx
+                print(gr.shape)
+                
             pos        = hp.ang2vec(theta, phi)
             pos       *= rr.reshape(-1,1)
 
@@ -3113,6 +3147,13 @@ class XiofR(CorrelationFunction):
                 self.mapkeys.append('redshift')
                 self.unitmap['redshift'] = 'z'
 
+
+        if (self.ra_lims is not None) | (self.dec_lims is not None):
+            self.mapkeys.append('polar_ang')
+            self.mapkeys.append('azim_ang')
+            self.unitmap['polar_ang'] = 'dec'
+            self.unitmap['azim_ang'] = 'ra'
+
         if self.mkey == 'luminosity':
             self.unitmap[self.mkey] = 'mag'
         elif self.mkey == 'halomass':
@@ -3141,18 +3182,24 @@ class XiofR(CorrelationFunction):
             self.rr = np.zeros((self.njack, self.nrbins, self.nmbins, self.ncbins, self.nzbins))
             self.nd = np.zeros((self.njack, self.nmbins, self.ncbins, self.nzbins))
             self.nr = np.zeros((self.njack, self.nmbins, self.ncbins, self.nzbins))
+            if self.calc_weighted_x:
+                self.rm = np.zeros((self.njack, self.nrbins, self.nmbins, self.ncbins, self.nzbins))
 
         if (self.ncbins > 1) & (not self.pccolor):
             clr = mapunit[self.mkey][:,self.cinds[0]] - mapunit[self.mkey][:,self.cinds[1]]
 
         elif self.pccolor:
             clr = mapunit['color']
-
+        
+        print('mapunit shape: {}'.format(mapunit['px'].shape))
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
+            newmu = True
             mu = {}
             mu['px'] = np.zeros(len(mapunit['px']), dtype=np.float32)
             mu['py'] = np.zeros(len(mapunit['py']), dtype=np.float32)
             mu['pz'] = np.zeros(len(mapunit['pz']), dtype=np.float32)
+
+            print('mu shape: {}'.format(mu['px'].shape))
 
             mu['px'][:] = mapunit['px'][:]
             mu['py'][:] = mapunit['py'][:]
@@ -3162,7 +3209,22 @@ class XiofR(CorrelationFunction):
                 if (f=='px') | (f=='py') | (f=='pz') : continue
                 mu[f] = mapunit[f]
         else:
+            newmu=False
             mu = mapunit
+
+        if self.ra_lims is not None:
+            aidx = (self.ra_lims[0] < mu['azim_ang']) & (mu['azim_ang'] < self.ra_lims[1])
+            aidx &= (self.dec_lims[0] < mu['polar_ang']) & (mu['polar_ang'] < self.dec_lims[1])
+
+            if not newmu:
+                mu = {}
+                for f in self.mapkeys:
+                    mu[f] = mapunit[f][aidx]
+            else:
+                mu[f] = mu[f][aidx]
+
+            del aidx 
+
 
         if self.losbins=='radius':
             mu['redshift'] = np.sqrt(mu['px']**2 + mu['py']**2 + mu['pz']**2)
@@ -3221,17 +3283,6 @@ class XiofR(CorrelationFunction):
                     if self.centrals_only:
                         lidx &= (mapunit['central']==1)
 
-                    if (lj==self.rand_ind) | (not self.same_rand):
-                        print('Generating Randoms')
-                        if len(mu['pz'][zlidx:zhidx][lidx])==0:
-                            self.rand_ind+=1
-                            continue
-
-                        rands = self.getCartesianRandoms(mu['px'][zlidx:zhidx][lidx],
-                                                         mu['py'][zlidx:zhidx][lidx],
-                                                         mu['pz'][zlidx:zhidx][lidx])
-                        if rands is None:
-                            continue
 
                     for k in range(self.ncbins):
                         if self.ncbins == 1:
@@ -3244,9 +3295,21 @@ class XiofR(CorrelationFunction):
                                     cidx = lidx & (self.splitcolor >= clr[zlidx:zhidx])
                             else:
                                 cidx = lidx & (self.cbins[k] < clr[zlidx:zhidx]) & (clr[zlidx:zhidx] <= self.cbins[k+1])
-                        
 
-                        self.nd[self.jcount,j,k,i] = len(mu['pz'][zlidx:zhidx][lidx])
+                        if (k==self.rand_ind) | (not self.same_rand):
+                            print('Generating Randoms')
+                            if len(mu['pz'][zlidx:zhidx][lidx])==0:
+                                self.rand_ind+=1
+                                continue
+
+                            rands = self.getCartesianRandoms(mu['px'][zlidx:zhidx][cidx],
+                                                             mu['py'][zlidx:zhidx][cidx],
+                                                             mu['pz'][zlidx:zhidx][cidx])
+                        if rands is None:
+                            continue
+
+                        
+                        self.nd[self.jcount,j,k,i] = len(mu['pz'][zlidx:zhidx][cidx])
                         self.nr[self.jcount,j,k,i] = len(rands)
 
                         print("Number of galaxies in this z/lum bin: {0}".format(self.nd[self.jcount,j,k,i]))
@@ -3258,22 +3321,26 @@ class XiofR(CorrelationFunction):
                         sys.stdout.flush()
 
                         ddout = DD(1,self.nthreads,
-                                   self.binfilename,
+                                   self.rbins,
                                    mu['px'][zlidx:zhidx][cidx],
                                    mu['py'][zlidx:zhidx][cidx],
                                    mu['pz'][zlidx:zhidx][cidx],
-                                   periodic=False)
+                                   periodic=False,
+                                   output_ravg=self.calc_weighted_x)
 
                         ddout = np.array(ddout)
                         
                         self.dd[self.jcount,:,j,k,i] = ddout['npairs']
+                        
+                        if self.calc_weighted_x:
+                            self.rm[self.jcount,:,j,k,i] = ddout['ravg']
 
                         print('calculating data random pairs')
                         sys.stdout.flush()
 
                         if 'weight' in rands.dtype.names:
                             drout = DD(0,self.nthreads,
-                                       self.binfilename,
+                                       self.rbins,
                                        mu['px'][zlidx:zhidx][cidx],
                                        mu['py'][zlidx:zhidx][cidx],
                                        mu['pz'][zlidx:zhidx][cidx],
@@ -3283,12 +3350,13 @@ class XiofR(CorrelationFunction):
                                        Y2=rands['py'],
                                        Z2=rands['pz'],
                                        weights2=rands['weight'])
+#                                       output_ravg=self.calc_weighted_x)
                             drout = np.array(drout)
                             self.dr[self.jcount,:,j,k,i] = drout['npairs'] * drout['weightavg']
 
                         else:
                             drout = DD(0,self.nthreads,
-                                       self.binfilename,
+                                       self.rbins,
                                        mu['px'][zlidx:zhidx][cidx],
                                        mu['py'][zlidx:zhidx][cidx],
                                        mu['pz'][zlidx:zhidx][cidx],
@@ -3296,6 +3364,7 @@ class XiofR(CorrelationFunction):
                                        X2=rands['px'],
                                        Y2=rands['py'],
                                        Z2=rands['pz'])
+#                                       output_ravg=self.calc_weighted_x)
 
                             drout = np.array(drout)
                             self.dr[self.jcount,:,j,k,i] = drout['npairs']
@@ -3314,13 +3383,14 @@ class XiofR(CorrelationFunction):
                         if (lj==0) | (not self.same_rand):
                             if 'weight' in rands.dtype.names:
                                 rrout = DD(1,self.nthreads,
-                                           self.binfilename,
+                                           self.rbins,
                                            X1=r['px'],
                                            Y1=r['py'],
                                            Z1=r['pz'],
                                            weights1=r['weight'],
                                            periodic=False,
                                            weight_type='pair_product')
+#                                           output_ravg=self.calc_weighted_x)
 
                                 rrout = np.array(rrout)
                                 rrout['npairs'] = rrout['npairs'] * rrout['weightavg']
@@ -3329,15 +3399,20 @@ class XiofR(CorrelationFunction):
 
                             else:
                                 rrout = DD(1,self.nthreads,
-                                           self.binfilename,
+                                           self.rbins,
                                            r['px'],
                                            r['py'],
                                            r['pz'],
                                            periodic=False)
+#                                           output_ravg=self.calc_weighted_x)
                             
                                 rrout = np.array(rrout)
 
                         self.rr[self.jcount,:,j,k,i] = rrout['npairs']
+
+#                        if self.calc_weighted_x:
+#                            self.rm[self.jcount,:,j,k,i,2] = rrout['ravg']
+
 
         else:
             i=0
@@ -3369,7 +3444,7 @@ class XiofR(CorrelationFunction):
                     if rands is None:
                         continue
 
-                    for k in rangee(self.ncbins):
+                    for k in range(self.ncbins):
                         if self.ncbins == 1:
                             cidx = lidx
                         else:
@@ -3394,21 +3469,25 @@ class XiofR(CorrelationFunction):
                         sys.stdout.flush()
 
                         ddout = DD(1,self.nthreads,
-                                   self.binfilename,
+                                   self.rbins,
                                    mu['px'][cidx],
                                    mu['py'][cidx],
                                    mu['pz'][cidx],
-                                   periodic=False)
+                                   periodic=False,
+                                   output_ravg=self.calc_weighted_x)
 
                         ddout = np.array(ddout)
 
                         self.dd[self.jcount,:,j,k,i] = ddout['npairs']
+                        if self.calc_weighted_x:
+                            self.rm[self.jcount,:,j,k,i] = ddout['ravg']
+
                         print('calculating data random pairs')
                         sys.stdout.flush()
 
                         if 'weight' in rands.dtype.names:
                             drout = DD(0,self.nthreads,
-                                       self.binfilename,
+                                       self.rbins,
                                        mu['px'][cidx],
                                        mu['py'][cidx],
                                        mu['pz'][cidx],
@@ -3418,13 +3497,14 @@ class XiofR(CorrelationFunction):
                                        Y2=rands['py'],
                                        Z2=rands['pz'],
                                        weights2=rands['weight'])
+#                                       output_ravg=self.calc_weighted_x)
 
                             drout = np.array(drout)
                             self.dr[self.jcount,:,j,k,i] = drout['npairs'] * drout['weightavg']
 
                         else:
                             drout = DD(0,self.nthreads,
-                                       self.binfilename,
+                                       self.rbins,
                                        mu['px'][cidx],
                                        mu['py'][cidx],
                                        mu['pz'][cidx],
@@ -3432,9 +3512,13 @@ class XiofR(CorrelationFunction):
                                        X2=rands['px'],
                                        Y2=rands['py'],
                                        Z2=rands['pz'])
+ #                                      output_ravg=self.calc_weighted_x)
 
                             drout = np.array(drout)
                             self.dr[self.jcount,:,j,k,i] = drout['npairs']
+
+#                        if self.calc_weighted_x:
+#                            self.rm[self.jcount,:,j,k,i,1] = drout['ravg']
                     
                         print('calculating random random pairs')
                         sys.stdout.flush()
@@ -3451,7 +3535,7 @@ class XiofR(CorrelationFunction):
                         if (lj==0) | (not self.same_rand):
                             if 'weight' in rands.dtype.names:
                                 rrout = DD(1,self.nthreads,
-                                           self.binfilename,
+                                           self.rbins,
                                            r['px'],
                                            r['py'],
                                            r['pz'],
@@ -3461,12 +3545,13 @@ class XiofR(CorrelationFunction):
                                            Y2=r['py'],
                                            Z2=r['pz'],
                                            weights2=r['weight'])
+#                                           output_ravg=self.calc_weighted_x)
 
                                 rrout = np.array(rrout)
                                 rrout['npairs'] *= rrout['weightavg']
                             else:
                                 rrout = DD(1,self.nthreads,
-                                           self.binfilename,
+                                           self.rbins,
                                            r['px'],
                                            r['py'],
                                            r['pz'],
@@ -3474,10 +3559,14 @@ class XiofR(CorrelationFunction):
                                            X2=r['px'],
                                            Y2=r['py'],
                                            Z2=r['pz'])
+#                                           output_ravg=self.calc_weighted_x)
 
                                 rrout = np.array(rrout)
 
                         self.rr[self.jcount,:,j,k,i] = rrout['npairs']
+#                        if self.calc_weighted_x:
+#                            self.rm[self.jcount,:,j,k,i,2] = rrout['ravg']
+
 
 
     def reduce(self, rank=None, comm=None):
@@ -3488,6 +3577,8 @@ class XiofR(CorrelationFunction):
             gdd = comm.gather(self.dd, root=0)
             gdr = comm.gather(self.dr, root=0)
             grr = comm.gather(self.rr, root=0)
+            if self.calc_weighted_x:
+                grm = comm.gather(self.rm, root=0)
 
 
             if rank==0:
@@ -3496,6 +3587,8 @@ class XiofR(CorrelationFunction):
                 ddshape = [self.dd.shape[i] for i in range(len(self.dd.shape))]
                 drshape = [self.dr.shape[i] for i in range(len(self.dr.shape))]
                 rrshape = [self.rr.shape[i] for i in range(len(self.rr.shape))]
+                if self.calc_weighted_x:
+                    rmshape = [self.rr.shape[i] for i in range(len(self.rm.shape))]
 
                 ndshape.insert(1,1)
                 nrshape.insert(1,1)
@@ -3505,12 +3598,16 @@ class XiofR(CorrelationFunction):
                 ddshape[0] = self.njacktot
                 drshape[0] = self.njacktot
                 rrshape[0] = self.njacktot
+                if self.calc_weighted_x:
+                    rmshape[0] = self.njacktot
 
                 self.nd = np.zeros(ndshape)
                 self.nr = np.zeros(nrshape)
                 self.dd = np.zeros(ddshape)
                 self.dr = np.zeros(drshape)
                 self.rr = np.zeros(rrshape)
+                if self.calc_weighted_x:
+                    self.rm = np.zeros(rmshape)
 
                 jc = 0
                 for i, g in enumerate(gnd):
@@ -3521,6 +3618,8 @@ class XiofR(CorrelationFunction):
                     self.dd[i::len(gnd),:,:,:,:] = gdd[i]
                     self.dr[i::len(gnd),:,:,:,:] = gdr[i]
                     self.rr[i::len(gnd),:,:,:,:] = grr[i]
+                    if self.calc_weighted_x:
+                        self.rm[i::len(gnd),:,:,:,:] = grm[i]
 
                     jc += nj
 
@@ -3531,57 +3630,62 @@ class XiofR(CorrelationFunction):
                 self.jdd = self.jackknife(self.dd, reduce_jk=False)
                 self.jdr = self.jackknife(self.dr, reduce_jk=False)
                 self.jrr = self.jackknife(self.rr, reduce_jk=False)
+                
+                if self.calc_weighted_x:
+                    self.jrm = self.jackknife(self.rm, reduce_jk=False)
+
 
                 for i in xrange(self.njacktot):
                     for l in xrange(self.ncbins):
                         for j in xrange(self.nmbins):
                             for k in xrange(self.nzbins):
-                                if self.jnd[i,0,l,j,k]<1: continue 
-                                self.jxi[i,:,l,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,l,j,k],
-                                                                            self.jnd[i,0,l,j,k],
-                                                                            self.jnr[i,0,l,j,k],
-                                                                            self.jnr[i,0,l,j,k],
-                                                                            self.jdd[i,:,l,j,k],
-                                                                            self.jdr[i,:,l,j,k],
-                                                                            self.jdr[i,:,l,j,k],
-                                                                            self.jrr[i,:,l,j,k])
+                                if self.jnd[i,0,j,l,k]<1: continue 
+                                self.jxi[i,:,j,l,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,l,k],
+                                                                            self.jnd[i,0,j,l,k],
+                                                                            self.jnr[i,0,j,l,k],
+                                                                            self.jnr[i,0,j,l,k],
+                                                                            self.jdd[i,:,j,l,k],
+                                                                            self.jdr[i,:,j,l,k],
+                                                                            self.jdr[i,:,j,l,k],
+                                                                            self.jrr[i,:,j,l,k])
 
                 self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
                 self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
-
-                self.xi = self.xi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
-                self.varxi = self.varxi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
+                if self.calc_weighted_x:
+                    self.rmean_weighted = np.sum(self.jrm, axis=0) / self.njacktot
 
         else:
             self.jxi = np.zeros(self.dd.shape)
-            self.nd  = self.nd.reshape(-1,1,self.nmbins,self.nzbins)
-            self.nr  = self.nr.reshape(-1,1,self.nmbins,self.nzbins)
+            self.nd  = self.nd.reshape(-1,1,self.nmbins,self.ncbins,self.nzbins)
+            self.nr  = self.nr.reshape(-1,1,self.nmbins,self.ncbins,self.nzbins)
 
             self.jnd = self.jackknife(self.nd, reduce_jk=False)
             self.jnr = self.jackknife(self.nr, reduce_jk=False)
             self.jdd = self.jackknife(self.dd, reduce_jk=False)
             self.jdr = self.jackknife(self.dr, reduce_jk=False)
             self.jrr = self.jackknife(self.rr, reduce_jk=False)
+            if self.calc_weighted_x:
+                self.jrm = self.jackknife(self.rm, reduce_jk=False)
 
             for i in xrange(self.njacktot):
                 for l in xrange(self.ncbins):
                     for j in xrange(self.nmbins):
                         for k in xrange(self.nzbins):
-                            if self.jnd[i,0,l,j,k]<1: continue 
-                            self.jxi[i,:,l,j,k] = convert_3d_counts_to_cf(self.jnd[i,0,l,j,k],
-                                                                          self.jnd[i,0,l,j,k],
-                                                                          self.jnr[i,0,l,j,k],
-                                                                          self.jnr[i,0,l,j,k],
-                                                                          self.jdd[i,:,l,j,k],
-                                                                          self.jdr[i,:,l,j,k],
-                                                                          self.jdr[i,:,l,j,k],
-                                                                          self.jrr[i,:,l,j,k])
+                            if self.jnd[i,0,j,l,k]<1: continue 
+                            self.jxi[i,:,j,l,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,l,k],
+                                                                          self.jnd[i,0,j,l,k],
+                                                                          self.jnr[i,0,j,l,k],
+                                                                          self.jnr[i,0,j,l,k],
+                                                                          self.jdd[i,:,j,l,k],
+                                                                          self.jdr[i,:,j,l,k],
+                                                                          self.jdr[i,:,j,l,k],
+                                                                          self.jrr[i,:,j,l,k])
 
             self.xi    = np.sum(self.jxi, axis=0) / self.njacktot
             self.varxi = np.sum((self.jxi - self.xi)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
-            self.xi = self.xi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
-            self.varxi = self.varxi.reshape(self.nrbins, 1, self.nmbins, self.nzbins)
+            if self.calc_weighted_x:
+                self.rmean_weighted = np.sum(self.jrm, axis=0) / self.njacktot
 
     def visualize(self, plotname=None, f=None, ax=None, usecols=None,
                     usez=None, compare=False, **kwargs):
@@ -3608,9 +3712,9 @@ class XiofR(CorrelationFunction):
 
         for i, l in enumerate(usecols):
             for j, z in enumerate(usez):
-                ye = np.sqrt(self.varxi[:,0,l,z])
-                l1 = ax[j][i].plot(rmean, self.xi[:,0,l,z], **kwargs)
-                ax[j][i].fill_between(rmean, self.xi[:,0,l,z]-ye, self.xi[:,0,l,z]+ye, alpha=0.5, **kwargs)
+                ye = np.sqrt(self.varxi[:,l,0,z])
+                l1 = ax[j][i].plot(rmean, self.xi[:,l,0,z], **kwargs)
+                ax[j][i].fill_between(rmean, self.xi[:,l,0,z]-ye, self.xi[:,0,l,z]+ye, alpha=0.5, **kwargs)
 
                 ax[j][i].set_xscale('log')
                 ax[j][i].set_yscale('log')
@@ -3794,7 +3898,7 @@ class XiofRAnalyticRandoms(CorrelationFunction):
 
             sys.stdout.flush()
             ddout = xi(self.ministry.boxsize, self.nthreads,
-                       self.binfilename,
+                       self.rbins,
                        mu['px'][lidx],
                        mu['py'][lidx],
                        mu['pz'][lidx])
@@ -4137,7 +4241,7 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
                         continue
 
                     ddout =     DD(0,self.nthreads,
-                                   self.binfilename,
+                                   self.rbins,
                                    mu['px'][cidx],
                                    mu['py'][cidx],
                                    mu['pz'][cidx],
@@ -4633,7 +4737,7 @@ class XiXY(CrossCorrelationFunction):
                             rweights = self.getWeights(mu['redshift'][zlidx:zhidx][lidx], rands1['redshift'])
 
                             ddout = DD(0,self.nthreads,
-                                       self.binfilename,
+                                       self.rbins,
                                        mu['px'][zlidx:zhidx][lidx],
                                        mu['py'][zlidx:zhidx][lidx],
                                        mu['pz'][zlidx:zhidx][lidx],
@@ -4651,7 +4755,7 @@ class XiXY(CrossCorrelationFunction):
                             print('calculating data random pairs')
                             sys.stdout.flush()
                             drout = DD(0,self.nthreads,
-                                       self.binfilename,
+                                       self.rbins,
                                        mu['px'][zlidx:zhidx][lidx],
                                        mu['py'][zlidx:zhidx][lidx],
                                        mu['pz'][zlidx:zhidx][lidx],
@@ -4669,7 +4773,7 @@ class XiXY(CrossCorrelationFunction):
                             print('calculating data random pairs')
                             sys.stdout.flush()
                             drout = DD(0,self.nthreads,
-                                       self.binfilename,
+                                       self.rbins,
                                        mu['px1'][zlidx1:zhidx1][lidx1],
                                        mu['py1'][zlidx1:zhidx1][lidx1],
                                        mu['pz1'][zlidx1:zhidx1][lidx1],
@@ -4688,7 +4792,7 @@ class XiXY(CrossCorrelationFunction):
                             sys.stdout.flush()
                             if (li==self.rand_ind) & (li1==self.rand_ind1) | (not self.same_rand):
                                 rrout = DD(0,self.nthreads,
-                                           self.binfilename,
+                                           self.rbins,
                                            rands['px'],
                                            rands['py'],
                                            rands['pz'],
@@ -5059,7 +5163,7 @@ class DDCounts(CorrelationFunction):
 
             sys.stdout.flush()
             ddout = DD(1,self.nthreads,
-                         self.binfilename,
+                         self.rbins,
                          mu['px'][lidx],
                          mu['py'][lidx],
                          mu['pz'][lidx],

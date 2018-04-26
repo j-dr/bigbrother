@@ -85,7 +85,7 @@ class GalaxyCatalog(BaseCatalog):
         sorted correctly by parseFileStruct
         """
         fpix = []
-
+        print('Test galaxy')
         #BCC catalogs have pixels in filenames
         if (self.filenside is not None) & (self.filenside>=self.groupnside):
             fk = self.filestruct.keys()
@@ -118,13 +118,14 @@ class GalaxyCatalog(BaseCatalog):
                                 catalog_type=ct, nest=self.nest,
                                 polar_ang_key=self.polar_ang_key,
                                 azim_ang_key=self.azim_ang_key)
-
+            print('Gen metric groups galaxy')
             mg = self.ministry.genMetricGroups([pmetric])
             ms = mg[0][1]
             fm = mg[0][0]
 
+            print('gen mappables')
             mappables = self.ministry.genMappables(mg[0], override=True)
-
+            print('parallel: {}'.format(self.ministry.parallel))
             if self.ministry.parallel:
                 from mpi4py import MPI
 
@@ -134,6 +135,7 @@ class GalaxyCatalog(BaseCatalog):
                 print('Number of tasks: {}'.format(size))
 
                 mappables = mappables[rank::size]
+                print('{} Grouping files, num mappables: {}'.format(rank, len(mappables)))
 
             for i, mappable in enumerate(mappables):
 
@@ -245,8 +247,8 @@ class GalaxyCatalog(BaseCatalog):
                 idxi = (mapunit['appmag'][:,b]!=badval) & (np.isfinite(mapunit['appmag'][:,b])) & (~np.isnan(mapunit['appmag'][:,b]))
                 idx = idx&idxi
 
-                if self.sigma is not None:
-                    idx &= (mapunit['appmag_err'][:,b]<1/self.sigma) & np.isfinite(mapunit['appmag_err'][:,b]) & (~np.isnan(mapunit['appmag_err'][:,b]))
+            if self.sigma is not None:
+                idx &= (mapunit['appmag_err'][:,b]<1/self.sigma) & np.isfinite(mapunit['appmag_err'][:,b]) & (~np.isnan(mapunit['appmag_err'][:,b]))
 
 
         if self.appmagcut is not None:

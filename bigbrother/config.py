@@ -17,7 +17,7 @@ import bigbrother.densitymetric   as dnm
 import bigbrother.velocity        as vlm
 import bigbrother.shapemetric     as spm
 
-_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 'rbins', 'mbins1', 'zbins1']
+_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 'rbins', 'mbins1', 'zbins1', 'rand_ra_lims', 'rand_dec_lims', 'polar_ang_lims', 'azim_ang_lims', 'redshift_lims']
 
 def readCfg(filename):
 
