@@ -4,7 +4,7 @@ mpl.use('Agg')
 import matplotlib.pylab as plt
 import numpy as np
 
-from metric import Metric, jackknifeMap
+from .metric import Metric, jackknifeMap
 from .selection import Selector
 import seaborn as sns
 

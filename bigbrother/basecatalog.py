@@ -2,7 +2,7 @@ from __future__ import print_function, division
 from abc import ABCMeta, abstractmethod
 from .healpix_utils import PixMetric, SubBoxMetric
 from astropy.cosmology import FlatLambdaCDM
-import units
+from . import units
 import numpy as np
 import healpy as hp
 import fitsio

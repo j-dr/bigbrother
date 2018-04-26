@@ -7,11 +7,11 @@ from .galaxy import GalaxyCatalog, BCCCatalog, S82PhotCatalog, S82SpecCatalog, D
 from .halo import HaloCatalog, BCCHaloCatalog
 from .particle import LGadgetSnapshot
 from .healpix_utils import SubBoxMetric, PixMetric
+from . import units
 from copy import copy, deepcopy
 import numpy as np
 import healpy as hp
 import fitsio
-import units
 import time
 
 

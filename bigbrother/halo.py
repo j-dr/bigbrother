@@ -191,17 +191,17 @@ class HaloCatalog(BaseCatalog):
         Takes in a mappable object, and a
         """
 
-	mapunit = {}
-	ft      = mappable.dtype
-	fname   = mappable.name
+        mapunit = {}
+        ft      = mappable.dtype
+        fname   = mappable.name
 
-	for f in fieldmap.keys():
-	    fields = []
-	    for val in fieldmap[ft].values():
-	        if hasattr(val, '__iter__'):
-	            fields.extend(val)
-	        else:
-	            fields.extend([val])
+        for f in fieldmap.keys():
+            fields = []
+            for val in fieldmap[ft].values():
+                if hasattr(val, '__iter__'):
+                    fields.extend(val)
+                else:
+                    fields.extend([val])
 
         fields = list(np.unique(fields))
 
@@ -225,7 +225,7 @@ class HaloCatalog(BaseCatalog):
             data   = SimulationAnalysis.readHlist(fname, fields)
 
 
-	for mapkey in fieldmap[ft].keys():
+        for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
             if hasattr(fieldmap[ft][mapkey], '__iter__'):
                 dt    = mapunit[mapkey].dtype[0]
@@ -236,7 +236,7 @@ class HaloCatalog(BaseCatalog):
 
             print('{}: {}'.format(mapkey, mapunit[mapkey]))
 
-	return mapunit
+        return mapunit
 
 class BCCHaloCatalog(HaloCatalog):
     """
