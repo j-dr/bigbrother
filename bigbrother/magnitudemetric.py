@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from .metric import Metric, GMetric, jackknifeMap
 import matplotlib as mpl
 mpl.use('TkAgg')
@@ -125,7 +125,7 @@ class LuminosityFunction(MagnitudeMetric):
         mu = {}
         if self.central_only:
             delete_after_map = True
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][mapunit['central']==1]
         else:
             delete_after_map = False
@@ -466,7 +466,7 @@ class LcenMass(Metric):
         mc = mapunit['central']==1
         mc = mc.reshape(len(mapunit['central']))
 
-        for k in mapunit.keys():
+        for k in list(mapunit.keys()):
             if (k=='luminosity') & (len(mapunit[k].shape) < 2):
                 mu[k] = mapunit[k][mc].reshape(-1,1)
             else:
@@ -486,7 +486,7 @@ class LcenMass(Metric):
                 zhidx = mu['redshift'].searchsorted(self.zbins[i+1])
                 mb = np.digitize(mu['halomass'][zlidx:zhidx], bins=self.massbins)
 
-                for j in xrange(1, len(self.massbins)):
+                for j in range(1, len(self.massbins)):
                     blum = mu['luminosity'][zlidx:zhidx,:][mb==j]
                     self.bincount[self.jcount,j-1,:,i] += len(blum)
                     self.totlum[self.jcount,j-1,:,i] += np.sum(blum, axis=0)
@@ -555,10 +555,10 @@ class LcenMass(Metric):
                               for i in range(len(self.massbins)-1)])
 
         if usebands is None:
-            usebands = range(self.nbands)
+            usebands = list(range(self.nbands))
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
 
         if f is None:
@@ -737,7 +737,7 @@ class ColorDist(Metric):
         self.aschema = 'galaxyonly'
         self.unitmap = {self.mkey:'mag'}
         
-        if self.mcutkey not in self.unitmap.keys():
+        if self.mcutkey not in list(self.unitmap.keys()):
             self.unitmap[self.mcutkey] = 'mag'
 
     @jackknifeMap
@@ -853,10 +853,10 @@ class ColorDist(Metric):
                               for i in range(len(self.cbins)-1)])
 
         if usecolors is None:
-            usecolors = range(self.color_dist.shape[1])
+            usecolors = list(range(self.color_dist.shape[1]))
 
         if usezm is None:
-            usezm = range(self.color_dist.shape[3] * self.color_dist.shape[2])
+            usezm = list(range(self.color_dist.shape[3] * self.color_dist.shape[2]))
 
         if f is None:
             f, ax = plt.subplots(len(usezm), len(usecolors),
@@ -1041,7 +1041,7 @@ class ColorColor(Metric):
         self.aschema = 'galaxyonly'
         self.unitmap = {self.mkey:'mag'}
 
-        if self.mcutkey not in self.unitmap.keys():
+        if self.mcutkey not in list(self.unitmap.keys()):
             self.unitmap[self.mcutkey] = 'mag'
 
         self.cc = None
@@ -1183,10 +1183,10 @@ class ColorColor(Metric):
                               for i in range(len(self.cbins)-1)])
 
         if usecolors is None:
-            usecolors = range(self.color_color.shape[2])
+            usecolors = list(range(self.color_color.shape[2]))
 
         if usezm is None:
-            usezm = range(self.color_color.shape[4] * self.color_color.shape[3])
+            usezm = list(range(self.color_color.shape[4] * self.color_color.shape[3]))
 
         if f is None:
             f, ax = plt.subplots(len(usezm), len(usecolors),
@@ -1373,12 +1373,12 @@ class ColorMagnitude(Metric):
 
         if self.usebands is None:
             self.nbands = mapunit[self.mkey].shape[1]
-            self.usebands = range(self.nbands)
+            self.usebands = list(range(self.nbands))
 
         mu = {}
         if self.central_only:
             delete_after_map = True
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][mapunit['central']==1]
         else:
             delete_after_map = False
@@ -1390,7 +1390,7 @@ class ColorMagnitude(Metric):
             else:
                 idx = mu[self.mkey]<self.magcut
 
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][idx]
         else:
                 mu = mu
@@ -1495,7 +1495,7 @@ class ColorMagnitude(Metric):
             cc = self.color_mag
 
         if usecolors is None:
-            usecolors = range(self.color_mag.shape[2])
+            usecolors = list(range(self.color_mag.shape[2]))
 
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecolors),
@@ -1820,7 +1820,7 @@ class FRed(Metric):
         else:
             idx = (mapunit['ctcatid'])<len(self.ctcat)
 
-        for k in mapunit.keys():
+        for k in list(mapunit.keys()):
             mu[k] = mapunit[k][idx]
 
 
@@ -2391,7 +2391,7 @@ class AnalyticLuminosityFunction(LuminosityFunction):
                       and (par.shape[2]==self.nbands)):
                     p = par[i,j,:]
                 else:
-                    raise(ValueError("Shape of parameters incompatible with number of z bins"))
+                    raise ValueError
                 if form=='SchechterAmag':
                     self.luminosity_function[:,j,i] = self.schechterFunctionAmag(self.magmean, p)
                 elif form=='doubleSchecterFunctionAmag':
@@ -2405,10 +2405,10 @@ class AnalyticLuminosityFunction(LuminosityFunction):
                     try:
                         self.luminosity_function[:,j,i] = form(self.magmean, p)
                     except:
-                        raise(TypeError("Functional form is not in the correct format"))
+                        raise TypeError
 
                 else:
-                    raise(NotImplementedError("Luminosity form {0} is not implemented".format(form)))
+                    raise NotImplementedError
 
         self.y = self.luminosity_function
 

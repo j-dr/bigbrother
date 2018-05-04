@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 import matplotlib as mpl
 mpl.use('TkAgg')
 import matplotlib.pylab as plt
@@ -91,7 +91,7 @@ class DensityMagnitudePDF(Metric):
         X, Y = np.meshgrid(mdens, mmag)
 
         if usez is None:
-            usez = range(self.densmagpdf.shape[2])
+            usez = list(range(self.densmagpdf.shape[2]))
 
         nz = len(usez)
 
@@ -238,13 +238,13 @@ class ConditionalDensityPDF(Metric):
         mu = {}
 
         if self.centrals == 1:
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][mapunit['central']==1]
         elif self.centrals == 2:
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][mapunit['central']==0]
         else:
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k]
 
 
@@ -275,10 +275,10 @@ class ConditionalDensityPDF(Metric):
         mdens = (self.densbins[1:]+self.densbins[:-1])/2
 
         if usez is None:
-            usez = range(self.cdenspdf.shape[2])
+            usez = list(range(self.cdenspdf.shape[2]))
 
         if usecuts is None:
-            usecuts = range(self.cdenspdf.shape[1])
+            usecuts = list(range(self.cdenspdf.shape[1]))
 
         ncuts = len(usecuts)
         nz    = len(usez)
@@ -380,7 +380,7 @@ class AnalyticConditionalDensityPDF(ConditionalDensityPDF):
         if self.form == 'addgals':
             self.generateADDGALSCDPDF()
         else:
-            raise(ValueError("Analytic form {0} is not implemented!".format(self.form)))
+            raise ValueError
 
     def generateADDGALSCDPDF(self):
 

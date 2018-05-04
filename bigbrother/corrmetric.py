@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
@@ -1162,11 +1162,11 @@ class WxyTheta(CrossCorrelationFunction):
 
                 self.jwxytheta = np.zeros_like(self.jdd)
 
-                for i in xrange(self.njacktot):
-                    for j in xrange(self.ncbins):
-                        for k in xrange(self.nmbins):
-                            for l in xrange(self.nmbins1):
-                                for m in xrange(self.nzbins*self.nzbins1):
+                for i in range(self.njacktot):
+                    for j in range(self.ncbins):
+                        for k in range(self.nmbins):
+                            for l in range(self.nmbins1):
+                                for m in range(self.nzbins*self.nzbins1):
                                     self.jwxytheta[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                   self.jnd2[i,0,j,k,l,m],
                                                                                 self.jnr1[i,0,j,k,l,m],
@@ -1219,11 +1219,11 @@ class WxyTheta(CrossCorrelationFunction):
 
             self.jwxytheta = np.zeros_like(self.jdd)
 
-            for i in xrange(self.njacktot):
-                for j in xrange(self.ncbins):
-                    for k in xrange(self.nmbins):
-                        for l in xrange(self.nmbins1):
-                            for m in xrange(self.nzbins*self.nzbins1):
+            for i in range(self.njacktot):
+                for j in range(self.ncbins):
+                    for k in range(self.nmbins):
+                        for l in range(self.nmbins1):
+                            for m in range(self.nzbins*self.nzbins1):
                                 self.jwxytheta[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                       self.jnd2[i,0,j,k,l,m],
                                                                                       self.jnr1[i,0,j,k,l,m],
@@ -1263,13 +1263,13 @@ class WxyTheta(CrossCorrelationFunction):
                     usez=None, compare=False, usecolors=None, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if usecolors is None:
-            usecolors = range(self.ncbins)
+            usecolors = list(range(self.ncbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -1402,7 +1402,7 @@ class WTheta(CorrelationFunction):
         self.faber = faber
 
         if self.deevolve_mstar & (Q is None):
-            raise(ValueError("Must provide Q is deevolve_mstar == True"))
+            raise ValueError
         else:
             self.Q = Q
 
@@ -1740,13 +1740,13 @@ class WTheta(CorrelationFunction):
                     usez=None, compare=False, usecolors=None, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if usecolors is None:
-            usecolors = range(self.ncbins)
+            usecolors = list(range(self.ncbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -1874,7 +1874,7 @@ class WPrpLightcone(CorrelationFunction):
         self.faber = faber
 
         if self.deevolve_mstar & (Q is None):
-            raise(ValueError("Must provide Q is deevolve_mstar == True"))
+            raise ValueError
         else:
             self.Q = Q
 
@@ -1974,7 +1974,7 @@ class WPrpLightcone(CorrelationFunction):
     def map(self, mapunit):
 
         if not hascorrfunc:
-            raise(ImportError("CorrFunc is required to calculate wp(rp)"))
+            raise ImportError
 
         if (self.ncbins > 1) & (~self.pccolor):
             clr = mapunit['luminosity'][:,self.cinds[0]] - mapunit['luminosity'][:,self.cinds[1]]
@@ -2231,13 +2231,13 @@ class WPrpLightcone(CorrelationFunction):
                     usez=None, compare=False, usecolors=None, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if usecolors is None:
-            usecolors = range(self.ncbins)
+            usecolors = list(range(self.ncbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -2432,7 +2432,7 @@ class WPrpSnapshot(CorrelationFunction):
     def map(self, mapunit):
 
         if not hascorrfunc:
-            raise(ImportError("CorrFunc is required to calculate wp(rp)"))
+            raise ImportError
 
         if self.dd is None:
             self.writeCorrfuncBinFile(self.rbins)
@@ -2660,7 +2660,7 @@ class WPrpSnapshot(CorrelationFunction):
                     usez=None, compare=False, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if f is None:
             f, ax = plt.subplots(len(usecols), sharex=True,
@@ -2878,7 +2878,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
     def map(self, mapunit):
 
         if not hascorrfunc:
-            raise(ImportError("CorrFunc is required to calculate wp(rp)"))
+            raise ImportError
 
         if self.wprp is None:
             self.writeCorrfuncBinFile(self.rbins)
@@ -2969,7 +2969,7 @@ class WPrpSnapshotAnalyticRandoms(CorrelationFunction):
                     usez=None, compare=False, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if f is None:
             f, ax = plt.subplots(len(usecols), sharex=True,
@@ -3173,7 +3173,7 @@ class XiofR(CorrelationFunction):
     def map(self, mapunit):
 
         if not hascorrfunc:
-            raise(ImportError("CorrFunc is required to calculate xi(r)"))
+            raise ImportError
 
         if self.dd is None:
             self.writeCorrfuncBinFile(self.rbins)
@@ -3215,13 +3215,18 @@ class XiofR(CorrelationFunction):
         if self.ra_lims is not None:
             aidx = (self.ra_lims[0] < mu['azim_ang']) & (mu['azim_ang'] < self.ra_lims[1])
             aidx &= (self.dec_lims[0] < mu['polar_ang']) & (mu['polar_ang'] < self.dec_lims[1])
+            
+            print("aidx.shape: {}".format(aidx.shape))
+            print("mu['polar_ang'].shape: {}".format(mu['polar_ang'].shape))
+            print("mu['azim_ang'].shape: {}".format(mu['azim_ang'].shape))
 
             if not newmu:
                 mu = {}
                 for f in self.mapkeys:
                     mu[f] = mapunit[f][aidx]
             else:
-                mu[f] = mu[f][aidx]
+                for f in self.mapkeys:
+                    mu[f] = mu[f][aidx]
 
             del aidx 
 
@@ -3232,6 +3237,7 @@ class XiofR(CorrelationFunction):
             mu['redshift'] = mu['redshift'][zidx]
 
             for f in self.mapkeys:
+                if f is 'redshift': continue
                 mu[f] = mu[f][zidx]
 
                 
@@ -3635,10 +3641,10 @@ class XiofR(CorrelationFunction):
                     self.jrm = self.jackknife(self.rm, reduce_jk=False)
 
 
-                for i in xrange(self.njacktot):
-                    for l in xrange(self.ncbins):
-                        for j in xrange(self.nmbins):
-                            for k in xrange(self.nzbins):
+                for i in range(self.njacktot):
+                    for l in range(self.ncbins):
+                        for j in range(self.nmbins):
+                            for k in range(self.nzbins):
                                 if self.jnd[i,0,j,l,k]<1: continue 
                                 self.jxi[i,:,j,l,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,l,k],
                                                                             self.jnd[i,0,j,l,k],
@@ -3667,10 +3673,10 @@ class XiofR(CorrelationFunction):
             if self.calc_weighted_x:
                 self.jrm = self.jackknife(self.rm, reduce_jk=False)
 
-            for i in xrange(self.njacktot):
-                for l in xrange(self.ncbins):
-                    for j in xrange(self.nmbins):
-                        for k in xrange(self.nzbins):
+            for i in range(self.njacktot):
+                for l in range(self.ncbins):
+                    for j in range(self.nmbins):
+                        for k in range(self.nzbins):
                             if self.jnd[i,0,j,l,k]<1: continue 
                             self.jxi[i,:,j,l,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,l,k],
                                                                           self.jnd[i,0,j,l,k],
@@ -3691,9 +3697,9 @@ class XiofR(CorrelationFunction):
                     usez=None, compare=False, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -3853,7 +3859,7 @@ class XiofRAnalyticRandoms(CorrelationFunction):
     def map(self, mapunit):
 
         if not hascorrfunc:
-            raise(ImportError("CorrFunc is required to calculate xi(r)"))
+            raise ImportError
 
         if self.xi is None:
             self.writeCorrfuncBinFile(self.rbins)
@@ -3916,9 +3922,9 @@ class XiofRAnalyticRandoms(CorrelationFunction):
                     usez=None, compare=False, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -4135,7 +4141,7 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
             clr = mapunit['color']
 
         if not hascorrfunc:
-            raise(ImportError("CorrFunc is required to calculate xi(r)"))
+            raise ImportError
 
         if self.dd is None:
             self.writeCorrfuncBinFile(self.rbins)
@@ -4266,9 +4272,9 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
                     usez=None, compare=False, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -4886,11 +4892,11 @@ class XiXY(CrossCorrelationFunction):
 
                 self.jxixy = np.zeros_like(self.jdd)
 
-                for i in xrange(self.njacktot):
-                    for j in xrange(self.ncbins):
-                        for k in xrange(self.nmbins):
-                            for l in xrange(self.nmbins1):
-                                for m in xrange(self.nzbins*self.nzbins1):
+                for i in range(self.njacktot):
+                    for j in range(self.ncbins):
+                        for k in range(self.nmbins):
+                            for l in range(self.nmbins1):
+                                for m in range(self.nzbins*self.nzbins1):
                                     if (self.jnd1[i,0,j,k,l,m]<1) | (self.jnd2[i,0,j,k,l,m]<1): continue 
                                     self.jxixy[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                       self.jnd2[i,0,j,k,l,m],
@@ -4920,11 +4926,11 @@ class XiXY(CrossCorrelationFunction):
 
             self.jxixy = np.zeros_like(self.jdd)
             
-            for i in xrange(self.njacktot):
-                for j in xrange(self.ncbins):
-                    for k in xrange(self.nmbins):
-                        for l in xrange(self.nmbins1):
-                            for m in xrange(self.nzbins*self.nzbins1):
+            for i in range(self.njacktot):
+                for j in range(self.ncbins):
+                    for k in range(self.nmbins):
+                        for l in range(self.nmbins1):
+                            for m in range(self.nzbins*self.nzbins1):
                                 self.jxixy[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                   self.jnd2[i,0,j,k,l,m],
                                                                                   self.jnr1[i,0,j,k,l,m],
@@ -4944,13 +4950,13 @@ class XiXY(CrossCorrelationFunction):
                     usez=None, compare=False, usecolors=None, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if usecolors is None:
-            usecolors = range(self.ncbins)
+            usecolors = list(range(self.ncbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -5111,7 +5117,7 @@ class DDCounts(CorrelationFunction):
     def map(self, mapunit):
 
         if not hascorrfunc:
-            raise(ImportError("CorrFunc is required to calculate xi(r)"))
+            raise ImportError
 
         if self.dd is None:
             self.writeCorrfuncBinFile(self.rbins)
@@ -5221,9 +5227,9 @@ class DDCounts(CorrelationFunction):
                     usez=None, compare=False, **kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,
@@ -5570,13 +5576,13 @@ class GalaxyRadialProfileBCC(Metric):
                   ylabel=None, logx=True, logy=True, **kwargs):
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
         if usecols is None:
-            usecols = range(self.nmassbins)
+            usecols = list(range(self.nmassbins))
         if uselum is None:
-            uselum = range(self.nlumbins)
+            uselum = list(range(self.nlumbins))
         if usecolor is None:
-            usecolor = range(self.ncbins)
+            usecolor = list(range(self.ncbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), sharex=True,

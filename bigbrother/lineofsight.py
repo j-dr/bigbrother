@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
@@ -235,7 +235,7 @@ class DNDz(Metric):
             self.zmean = (self.zbins[:-1]+self.zbins[1:])/2
 
         if (usecuts is None) & (not self.nomags):
-            usecuts = range(self.nmagbins)
+            usecuts = list(range(self.nmagbins))
         elif self.nomags:
             usecuts = [0]
 
@@ -334,11 +334,11 @@ class PeakDNDz(DNDz):
 
     def __init__(self, ministry, **kwargs):
 
-        if 'zbins' not in kwargs.keys():
+        if 'zbins' not in list(kwargs.keys()):
             kwargs['zbins'] = np.linspace(ministry.minz, ministry.maxz, 60)
 
 
-        if 'magbins' not in kwargs.keys():
+        if 'magbins' not in list(kwargs.keys()):
             kwargs['magbins'] = np.linspace(19.5, 22, 30)
 
         DNDz.__init__(self, ministry, **kwargs)
@@ -429,11 +429,11 @@ class MedianDNDz(DNDz):
 
     def __init__(self, ministry, **kwargs):
 
-        if 'zbins' not in kwargs.keys():
+        if 'zbins' not in list(kwargs.keys()):
             kwargs['zbins'] = np.linspace(ministry.minz, ministry.maxz, 60)
 
 
-        if 'magbins' not in kwargs.keys():
+        if 'magbins' not in list(kwargs.keys()):
             kwargs['magbins'] = np.linspace(19.5, 22, 30)
 
         DNDz.__init__(self, ministry, **kwargs)

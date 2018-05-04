@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from .metric import GMetric, jackknifeMap
 import matplotlib.pyplot as plt
 import numpy as np

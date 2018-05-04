@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
@@ -76,7 +76,7 @@ class GalaxyCatalog(BaseCatalog):
         know how to deal with
         """
         self.filestruct = filestruct
-        self.filetypes = self.filestruct.keys()
+        self.filetypes = list(self.filestruct.keys())
 
     def getFilePixels(self, nside):
         """
@@ -88,7 +88,7 @@ class GalaxyCatalog(BaseCatalog):
         print('Test galaxy')
         #BCC catalogs have pixels in filenames
         if (self.filenside is not None) & (self.filenside>=self.groupnside):
-            fk = self.filestruct.keys()
+            fk = list(self.filestruct.keys())
 
             for f in self.filestruct[fk[0]]:
                 p = int(f.split('.')[-2])
@@ -201,7 +201,7 @@ class GalaxyCatalog(BaseCatalog):
         elif self.reader=='ascii':
             mapunit = self.readAsciiMappable(mappable, fieldmap)
         else:
-            raise(ValueError("Reader {0} is not supported for galaxy catalogs".format(self.reader)))
+            raise ValueError
 
         return mapunit
 
@@ -212,8 +212,8 @@ class GalaxyCatalog(BaseCatalog):
         fname   = mappable.name
 
         fields = []
-        for val in fieldmap[ft].values():
-            if hasattr(val, '__iter__'):
+        for val in list(fieldmap[ft].values()):
+            if not isinstance(val, str):
                 fields.extend(val)
             else:
                 fields.extend([val])
@@ -221,9 +221,9 @@ class GalaxyCatalog(BaseCatalog):
         data = np.genfromtxt(fname, usecols=fields)
         data = data.reshape((len(data), len(fields)))
 
-        for mapkey in fieldmap[ft].keys():
+        for mapkey in list(fieldmap[ft].keys()):
             mapunit[mapkey] = data[:,fields.index(fieldmap[ft][mapkey])]
-            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+            if not isinstance(fieldmap[ft][mapkey], str):
                 dt = mapunit[mapkey].dtype[0]
                 ne = len(mapunit[mapkey])
                 nf = len(fieldmap[ft][mapkey])
@@ -235,7 +235,7 @@ class GalaxyCatalog(BaseCatalog):
     def filterAppmag(self, mapunit, bands=None, badval=99., sigma=None):
         if bands is None:
             if len(mapunit['appmag'].shape)>1:
-                bands = range(mapunit['appmag'].shape[1])
+                bands = list(range(mapunit['appmag'].shape[1]))
             else:
                 bands = [0]
                 mapunit['appmag'] = np.atleast_2d(mapunit['appmag']).T
@@ -280,7 +280,7 @@ class GalaxyCatalog(BaseCatalog):
         print('filtering luminosity')
 
         if self.lumcut is not None:
-            if len(self.lumcut)!=2: raise(ValueError('lumcut must be a bin in luminosity'))
+            if len(self.lumcut)!=2: raise ValueError
             if self.lumcutind is not None:
                 idx = ((self.lumcut[0]<mapunit['luminosity'][:,self.lumcutind]) &
                        (mapunit['luminosity'][:,self.lumcutind]<=self.lumcut[1]))
@@ -477,7 +477,7 @@ class BCCCatalog(GalaxyCatalog):
                              'density':OrderedDict([('SIGMA5', ['gtruth'])])}
             self.sortbyz = True
         else:
-            if 'redshift' in self.fieldmap.keys():
+            if 'redshift' in list(self.fieldmap.keys()):
                 self.sortbyz = True
             else:
                 self.sortbyz = False
@@ -491,11 +491,11 @@ class BCCCatalog(GalaxyCatalog):
         know how to deal with
         """
         self.filestruct = filestruct
-        filetypes = self.filestruct.keys()
+        filetypes = list(self.filestruct.keys())
         self.filetypes = filetypes
 
-        if len(filestruct.keys())>1:
-            lfs = [len(filestruct[ft]) for ft in filestruct.keys()]
+        if len(list(filestruct.keys()))>1:
+            lfs = [len(filestruct[ft]) for ft in list(filestruct.keys())]
             mlfs = min(lfs)
             oft = lfs.index(mlfs)
             opix =  np.array([int(t.split('/')[-1].split('.')[-2]) for t
@@ -521,7 +521,7 @@ class BCCCatalog(GalaxyCatalog):
         Get the healpix cell value of this mappble using the fact
         that BCC files contain their healpix values
         """
-        fts = mappable.keys()
+        fts = list(mappable.keys())
         f1 = fts[0]
         pix = int(f1.split('.')[-2])
 
@@ -546,7 +546,7 @@ class S82SpecCatalog(GalaxyCatalog):
         Only have one file so this is trivial
         """
         self.filestruct = {'spec':['/nfs/slac/g/ki/ki01/mbusha/data/sdss/dr6/cooper/combined_dr6_cooper.fit']}
-        self.filetypes = self.filestruct.keys()
+        self.filetypes = list(self.filestruct.keys())
 
 class S82PhotCatalog(GalaxyCatalog):
     """
@@ -568,7 +568,7 @@ class S82PhotCatalog(GalaxyCatalog):
         Only have one file so this is trivial
         """
         self.filestruct = {'phot':['/nfs/slac/g/ki/ki01/mbusha/data/sdss/dr6/umich/DR6_Input_catalog_ellipticity_stripe82.fit']}
-        self.filetypes = self.filestruct.keys()
+        self.filetypes = list(self.filestruct.keys())
 
 
 class DESGoldCatalog(GalaxyCatalog):
@@ -628,7 +628,7 @@ class DESGoldCatalog(GalaxyCatalog):
     def parseFileStruct(self, filestruct):
 
         self.filestruct = filestruct
-        filetypes = self.filestruct.keys()
+        filetypes = list(self.filestruct.keys())
         self.filetypes = filetypes
 
         nfiles = np.array([len(self.filestruct[ft]) for ft in filetypes])
@@ -637,9 +637,9 @@ class DESGoldCatalog(GalaxyCatalog):
 
         if len(dn)!=0 and not (dn==0).all():
             print('File types do not all have the same number of files!')
-            print('Number of files per filetype : {0}'.format(zip(filetypes, nfiles)))
+            print('Number of files per filetype : {0}'.format(list(zip(filetypes, nfiles))))
 
-        if len(filestruct.keys())>1:
+        if len(list(filestruct.keys()))>1:
             opix =  np.array([int(t.split('_')[-2].split('pix')[-1]) for t
                               in self.filestruct[filetypes[midx]]])
             oidx = opix.argsort()
@@ -664,7 +664,7 @@ class DESGoldCatalog(GalaxyCatalog):
         Get the healpix cell value of this mappble using the fact
         that BCC files contain their healpix values
         """
-        fts = mappable.keys()
+        fts = list(mappable.keys())
         f1 = fts[0]
         pix = int(f1.split('_')[-2].split('pix')[-1])
 
@@ -673,7 +673,7 @@ class DESGoldCatalog(GalaxyCatalog):
 
     def unitConversion(self, mapunit):
 
-        for mapkey in mapunit.keys():
+        for mapkey in list(mapunit.keys()):
             if mapkey=='appmag':
                 mapunit[mapkey] = 30.0 - 2.5*np.log10(mapunit[mapkey])
 

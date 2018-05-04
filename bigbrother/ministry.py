@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import FlatLambdaCDM
@@ -46,7 +46,7 @@ class Mappable(object):
 
     def recursive_delete(self):
 
-        for k in self.data.keys():
+        for k in list(self.data.keys()):
             del self.data[k]
 
         if len(self.children)==0:
@@ -201,24 +201,24 @@ class Ministry:
             mk = np.unique(mk)
 
             for mapkey in mk:
-                if mapkey not in valid.keys():
+                if mapkey not in list(valid.keys()):
                     valid[mapkey] = False
 
-                if mapkey in cat.fieldmap.keys():
+                if mapkey in list(cat.fieldmap.keys()):
                     fileinfo = cat.fieldmap[mapkey]
                 else:
                     continue
 
-                for field in fileinfo.keys():
+                for field in list(fileinfo.keys()):
                     filetypes = fileinfo[field]
                     for ft in filetypes:
                         if ft in cat.filetypes:
                             #if already have one field
                             #make a list of fields
-                            if ft not in fieldmap.keys():
+                            if ft not in list(fieldmap.keys()):
                                 fieldmap[ft] = {}
-                            if mapkey in fieldmap[ft].keys():
-                                if hasattr(fieldmap[ft][mapkey],'__iter__'):
+                            if mapkey in list(fieldmap[ft].keys()):
+                                if not isinstance(fieldmap[ft][mapkey],str):
                                     fieldmap[ft][mapkey].append(field)
                                 else:
                                     fieldmap[ft][mapkey] = [fieldmap[ft][mapkey],field]
@@ -228,7 +228,7 @@ class Ministry:
                             valid[mapkey] = True
 
         notavail = []
-        for key in valid.keys():
+        for key in list(valid.keys()):
             if not valid[key]:
                 notavail.append(key)
 
@@ -307,8 +307,8 @@ class Ministry:
         #ugly loop, but small data structure so okay
         for m0 in mg0:
             for m1 in mg1:
-                for k0 in m0.unitmap.keys():
-                    for k1 in m1.unitmap.keys():
+                for k0 in list(m0.unitmap.keys()):
+                    for k1 in list(m1.unitmap.keys()):
                         if k0 == k1:
                             if m0.unitmap[k0] != m1.unitmap[k1]:
                                 return False
@@ -347,7 +347,7 @@ class Ministry:
 
         fieldmaps = [self.getMetricDependencies(m) for m in metrics]
         metrics = [[m] for m in metrics]
-        fms = zip(fieldmaps, metrics)
+        fms = list(zip(fieldmaps, metrics))
 
         if self.one_metric_group:
             fm = fms.pop()
@@ -356,7 +356,7 @@ class Ministry:
 
             return [fm]
 
-        nodes = range(len(fms))
+        nodes = list(range(len(fms)))
         snodes = set(nodes)
         graph = {f:snodes.difference(set([f])) for f in snodes}
 
@@ -388,7 +388,7 @@ class Ministry:
                     fms.append(nfm)
 
                     #reconstruct graph with merged nodes
-                    nodes = range(len(fms))
+                    nodes = list(range(len(fms)))
                     snodes = set(nodes)
                     graph = {f:snodes.difference(set([f])) for f in snodes}
                     break
@@ -428,7 +428,7 @@ class Ministry:
         ift = ft1-ft2
 
         for ft in ft2:
-            if ft not in fm1.keys():
+            if ft not in list(fm1.keys()):
                 mk1 = set([])
             else:
                 mk1 = set(fm1[ft].keys())
@@ -442,7 +442,7 @@ class Ministry:
                 except:
                     f.append(fm2[ft][k])
 
-            cfm[ft] = OrderedDict(zip(umk, f))
+            cfm[ft] = OrderedDict(list(zip(umk, f)))
 
         for ft in ift:
             cfm[ft] = fm1[ft]
@@ -466,7 +466,7 @@ class Ministry:
         """
 
         print('Generating single type mappables')
-        filetypes = fieldmap.keys()
+        filetypes = list(fieldmap.keys())
         mappables = []
 
         #need to put filetypes with redshifts in
@@ -537,7 +537,7 @@ class Ministry:
 
         print('Generating double type mappables')
 
-        filetypes = fieldmap.keys()
+        filetypes = list(fieldmap.keys())
         mappables = []
 
         cat1 = getattr(self, ct1)
@@ -586,8 +586,8 @@ class Ministry:
             gn = cat1.groupnside
 
         else:
-            fgroups1 = [np.arange(len(fs1[fs1.keys()[0]]))]
-            fgroups2 = [np.arange(len(fs2[fs2.keys()[0]]))]
+            fgroups1 = [np.arange(len(fs1[list(fs1.keys())[0]]))]
+            fgroups2 = [np.arange(len(fs2[list(fs2.keys())[0]]))]
 
             g1  = [0]
             g2  = [0]
@@ -599,7 +599,7 @@ class Ministry:
 
         for i, fg in enumerate(zip(fgroups1, fgroups2)):
             for k, ft in enumerate(filetypes):
-                if ft in fs1.keys():
+                if ft in list(fs1.keys()):
                     for fc, j in enumerate(fg[0]):
 
                         if (fc==0) & (k==0):
@@ -612,7 +612,7 @@ class Ministry:
                             last.children.append(node)
                             last = node
 
-                elif ft in fs2.keys():
+                elif ft in list(fs2.keys()):
                     for fc, j in enumerate(fg[1]):
 
                         if (fc==0) & (k==0):
@@ -625,7 +625,7 @@ class Ministry:
                             last.children.append(node)
                             last = node
                 else:
-                    raise(ValueError('Key {} is not in either filestruct'.format(ft)))
+                    raise ValueError
 
             mappables.append(root)
 
@@ -713,7 +713,7 @@ class Ministry:
                                             m[0].jtype)
 
         else:
-            raise(ValueError('{} is not a supported aschema'.format(aschema)))
+            raise ValueError
 
     def readMappable(self, mappable, fieldmap):
         print('Reading {}'.format(mappable.name))
@@ -753,8 +753,8 @@ class Ministry:
             if len(mapunit.children)>1:
                 raise ValueError("mapunit has more than one branch!")
 
-            for key in mapunit.data.keys():
-                if key in mu.keys():
+            for key in list(mapunit.data.keys()):
+                if key in list(mu.keys()):
                     if len(mu[key].shape) == 1:
                         mu[key] = np.hstack([mu[key], mapunit.data[key]])
                     else:
@@ -764,8 +764,8 @@ class Ministry:
 
             mapunit = mapunit.children[0]
 
-        for key in mapunit.data.keys():
-            if key in mu.keys():
+        for key in list(mapunit.data.keys()):
+            if key in list(mu.keys()):
                 if len(mu[key].shape) == 1:
                     mu[key] = np.hstack([mu[key], mapunit.data[key]])
                 else:
@@ -791,8 +791,8 @@ class Ministry:
             if len(mapunit.children)>1:
                 raise ValueError("mapunit has more than one branch!")
 
-            for key in mapunit.data.keys():
-                if key in mu.keys():
+            for key in list(mapunit.data.keys()):
+                if key in list(mu.keys()):
                     if len(mu[key].shape)<2:
                         mu[key] = np.atleast_2d(mu[key]).T
                         mapunit.data[key] = np.atleast_2d(mapunit.data[key]).T
@@ -812,8 +812,8 @@ class Ministry:
 
             mapunit = mapunit.children[0]
 
-        for key in mapunit.data.keys():
-            if key in mu.keys():
+        for key in list(mapunit.data.keys()):
+            if key in list(mu.keys()):
                 if len(mu[key].shape)<2:
                     mu[key] = np.atleast_2d(mu[key]).T
                     mapunit.data[key] = np.atleast_2d(mapunit.data[key]).T
@@ -853,7 +853,7 @@ class Ministry:
 
     def sortMapunitByZ(self, mapunit):
 
-        dk = mapunit.keys()
+        dk = list(mapunit.keys())
 
         if 'redshift' in dk:
             idx = mapunit['redshift'].argsort()
@@ -882,17 +882,17 @@ class Ministry:
             for i, key in enumerate([azim_ang_key, polar_ang_key]):
 
                 if self.galaxycatalog is not None:
-                    if azim_ang_key in self.galaxycatalog.unitmap.keys():
+                    if azim_ang_key in list(self.galaxycatalog.unitmap.keys()):
                         um = self.galaxycatalog.unitmap
                         nest = self.galaxycatalog.nest
 
                 if (self.halocatalog is not None):
-                    if azim_ang_key in self.halocatalog.unitmap.keys():
+                    if azim_ang_key in list(self.halocatalog.unitmap.keys()):
                         um = self.halocatalog.unitmap
                         nest = self.halocatalog.nest
 
                 if (self.particlecatalog is not None):
-                    if azim_ang_key in self.particlecatalog.unitmap.keys():
+                    if azim_ang_key in list(self.particlecatalog.unitmap.keys()):
                         um = self.particlecatalog.unitmap
                         nest = self.particlecatalog.nest
 
@@ -925,7 +925,7 @@ class Ministry:
                 elif self.maskcomp == 'neq':
                     pidx &= self.mask[pix]!=self.maskval
                 else:
-                    raise('Comparison {} not supported'.format(self.maskcomp))
+                    raise 'Comparison {} not supported'
 
             return pidx
 
@@ -961,7 +961,7 @@ class Ministry:
             elif self.maskcomp == 'neq':
                 pidx = self.mask[pix]!=self.maskval
             else:
-                raise('Comparison {} not supported'.format(self.maskcomp))
+                raise 'Comparison {} not supported'
 
 #            mu = {}
 #            for k in mapunit.keys():
@@ -977,15 +977,15 @@ class Ministry:
 
             tp = np.zeros((len(mapunit[px_key]),3))
             if self.galaxycatalog is not None:
-                if px_key in self.galaxycatalog.unitmap.keys():
+                if px_key in list(self.galaxycatalog.unitmap.keys()):
                     um = self.galaxycatalog.unitmap
 
             elif self.halocatalog is not None:
-                if px_key in self.halocatalog.unitmap.keys():
+                if px_key in list(self.halocatalog.unitmap.keys()):
                     um = self.halocatalog.unitmap
 
             elif self.particlecatalog is not None:
-                if px_key in self.particlecatalog.unitmap.keys():
+                if px_key in list(self.particlecatalog.unitmap.keys()):
                     um = self.particlecatalog.unitmap
 
             print('Masking {0} using subbox {1}'.format(mappable.name, mappable.grp))
@@ -1029,6 +1029,10 @@ class Ministry:
 
         if (self.halocatalog is not None):
             mapunit = self.halocatalog.convert(mapunit, metrics)
+
+        if (self.particlecatalog is not None):
+            mapunit = self.particlecatalog.convert(mapunit, metrics)
+
 
         return mapunit
 
@@ -1110,8 +1114,8 @@ class Ministry:
             sbz = False
             ms  = mg[1]
             fm  = mg[0]
-            for ft in fm.keys():
-                if 'redshift' in fm[ft].keys():
+            for ft in list(fm.keys()):
+                if 'redshift' in list(fm[ft].keys()):
                     sbz = True
 
             print('Getting mappables')
@@ -1154,7 +1158,7 @@ class Ministry:
                     pidx = self.maskMappable(mapunit, mappable)
 
                     if pidx is not None:
-                        for k in mapunit.keys():
+                        for k in list(mapunit.keys()):
                             mapunit[k] = mapunit[k][pidx]
 
                     mapunit = self.convert(mapunit, ms)
@@ -1176,7 +1180,7 @@ class Ministry:
 
                     if pidx is not None:
                         mu = {}
-                        for k in mapunit.keys():
+                        for k in list(mapunit.keys()):
                             if len(mapunit[k])==len(pidx):
                                 mu[k] = mapunit[k][pidx]
 
@@ -1198,7 +1202,7 @@ class Ministry:
                     #mask the first catalog
                     pidx = self.maskMappable(mapunit, mappable)
                     if pidx is not None:
-                        for k in mapunit.keys():
+                        for k in list(mapunit.keys()):
                             if len(mapunit[k])==len(pidx):
                                 mapunit[k] = mapunit[k][pidx]
 
@@ -1211,7 +1215,7 @@ class Ministry:
                                               pz_key='pz1')
                     if pidx is not None:
 
-                        for k in mapunit.keys():
+                        for k in list(mapunit.keys()):
                             if len(mapunit[k])==len(pidx):
                                 mapunit[k] = mapunit[k][pidx]
 
@@ -1222,7 +1226,7 @@ class Ministry:
                         mapunit = self.sortMapunitByZ(mapunit)
 
                 else:
-                    raise(ValueError("Don't know how to handle {} aschema".format(aschema)))
+                    raise ValueError
 
                 for m in ms:
                     print('*****{0}*****'.format(m.__class__.__name__))
@@ -1230,7 +1234,7 @@ class Ministry:
                         return mapunit
                     m.map(mapunit)
 
-                for k in mapunit.keys():
+                for k in list(mapunit.keys()):
                     del mapunit[k]
 
                 del mapunit

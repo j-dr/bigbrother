@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from collections import OrderedDict
 from glob import glob
 import numpy as np
@@ -17,7 +17,9 @@ import bigbrother.densitymetric   as dnm
 import bigbrother.velocity        as vlm
 import bigbrother.shapemetric     as spm
 
-_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 'rbins', 'mbins1', 'zbins1', 'rand_ra_lims', 'rand_dec_lims', 'polar_ang_lims', 'azim_ang_lims', 'redshift_lims']
+_eval_keys = ['zbins', 'magbins', 'lumbins', 'cbins', 'mbins', 'abins', 'magcuts', 'massbins', 'magbins','wszbins', 
+              'rbins', 'mbins1', 'zbins1', 'rand_ra_lims', 'rand_dec_lims', 'polar_ang_lims', 'azim_ang_lims', 
+              'redshift_lims', 'ra_lims', 'dec_lims']
 
 def readCfg(filename):
 
@@ -33,7 +35,7 @@ def parseFileStruct(cfs):
 
     fs = {}
 
-    for key in cfs.keys():
+    for key in list(cfs.keys()):
         files = glob(cfs[key])
         fs[key] = np.array(files)
 
@@ -50,7 +52,7 @@ def parseFieldMap(cfm):
         fields = cfm[key]
         fieldlist = []
         for f in fields:
-            k = f.keys()[0]
+            k = list(f.keys())[0]
             pair = (k, f[k])
             fieldlist.append(pair)
 
@@ -59,7 +61,7 @@ def parseFieldMap(cfm):
     return fm
 
 def replaceNoneStr(cfg):
-    for key in cfg.keys():
+    for key in list(cfg.keys()):
         if cfg[key] == 'None':
             cfg[key] = None
         elif hasattr(cfg[key], 'keys'):
@@ -72,10 +74,10 @@ def parseConfig(cfg):
     replaceNoneStr(cfg)
 
 
-    if 'Ministry' in cfg.keys():
+    if 'Ministry' in list(cfg.keys()):
         mcfg = cfg['Ministry']
 
-        if 'boxsize' not in mcfg.keys():
+        if 'boxsize' not in list(mcfg.keys()):
             mcfg['boxsize'] = None
 
         try:
@@ -92,19 +94,19 @@ def parseConfig(cfg):
             print('One of the necessary keys for Ministry is missing')
             print(e)
     else:
-        raise(ValueError('No Ministry information!'))
+        raise ValueError
 
-    if 'GalaxyCatalog' in cfg.keys():
+    if 'GalaxyCatalog' in list(cfg.keys()):
         gcfg = cfg['GalaxyCatalog']
         gct  = gcfg.pop('catalog_type', None)
         fs   = parseFileStruct(gcfg.pop('filestruct', None))
 
-        if 'fieldmap' in gcfg.keys():
+        if 'fieldmap' in list(gcfg.keys()):
             fm  = parseFieldMap(gcfg.pop('fieldmap', None))
         else:
             fm  = None
 
-        for key in gcfg.keys():
+        for key in list(gcfg.keys()):
             if key in _eval_keys:
                 gcfg[key] = eval(gcfg[key])
 
@@ -112,22 +114,22 @@ def parseConfig(cfg):
             mstry.setGalaxyCatalog(gct, fs, fieldmap=fm, **gcfg)
         else:
             if fm is None:
-                raise(ValueError("Must supply fieldmap for generic galaxy catalog"))
+                raise ValueError
 
             gc = GalaxyCatalog(mstry, fs, fieldmap=fm, **gcfg)
             mstry.galaxycatalog = gc
 
-    if 'HaloCatalog' in cfg.keys():
+    if 'HaloCatalog' in list(cfg.keys()):
         hcfg = cfg['HaloCatalog']
         hct  = hcfg.pop('catalog_type', None)
         fs   = parseFileStruct(hcfg.pop('filestruct', None))
 
-        if 'fieldmap' in hcfg.keys():
+        if 'fieldmap' in list(hcfg.keys()):
             fm  = parseFieldMap(hcfg.pop('fieldmap', None))
         else:
             fm  = None
 
-        for key in hcfg.keys():
+        for key in list(hcfg.keys()):
             if key in _eval_keys:
                 hcfg[key] = eval(hcfg[key])
 
@@ -135,22 +137,22 @@ def parseConfig(cfg):
             mstry.setHaloCatalog(hct, fs, fieldmap=fm, **hcfg)
         else:
             if fm is None:
-                raise(ValueError("Must supply fieldmap for generic galaxy catalog"))
+                raise ValueError
 
             hc = HaloCatalog(mstry, fs, fieldmap=fm, **hcfg)
             mstry.halocatalog = hc
 
-    if 'ParticleCatalog' in cfg.keys():
+    if 'ParticleCatalog' in list(cfg.keys()):
         pcfg = cfg['ParticleCatalog']
         pct  = pcfg.pop('catalog_type', None)
         fs   = parseFileStruct(pcfg.pop('filestruct', None))
 
-        if 'fieldmap' in pcfg.keys():
+        if 'fieldmap' in list(pcfg.keys()):
             fm  = parseFieldMap(pcfg.pop('fieldmap', None))
         else:
             fm  = None
 
-        for key in pcfg.keys():
+        for key in list(pcfg.keys()):
             if key in _eval_keys:
                 pcfg[key] = eval(pcfg[key])
 
@@ -158,7 +160,7 @@ def parseConfig(cfg):
             mstry.setParticleCatalog(pct, fs, fieldmap=fm, **pcfg)
         else:
             if fm is None:
-                raise(ValueError("Must supply fieldmap for generic particle catalog"))
+                raise ValueError
 
             pc = ParticleCatalog(mstry, fs, fieldmap=fm, **pcfg)
             mstry.particlecatalog = pc
@@ -185,7 +187,7 @@ def parseConfig(cfg):
                 mtr = getattr(spm, m)
 
             else:
-                raise(AttributeError('No metric {}'.format(m)))
+                raise AttributeError
 
             for k in cmetrics[m]:
                 if cmetrics[m][k] == 'None':

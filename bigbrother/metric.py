@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from abc import ABCMeta, abstractmethod
 from scipy.interpolate import InterpolatedUnivariateSpline
 try:
@@ -21,12 +21,11 @@ import warnings
 sns.set(style='ticks', palette='colorblind')
 sns.despine()
 
-class Metric(object):
+class Metric(object, metaclass=ABCMeta):
     """
     An abstract class which all other metric classes should descend from. All metrics
     must define the methods that are declared as abstractmethod here.
     """
-    __metaclass__ = ABCMeta
 
     _color_list = sns.color_palette('colorblind')
 
@@ -285,16 +284,16 @@ class GMetric(Metric):
         print('ylabel: {0}'.format(ylabel))
 
         if usecols is None:
-            usecols = range(self.nbands)
+            usecols = list(range(self.nbands))
 
         if (rusecols is None) and (ref_y is not None):
-            rusecols = range(ref_y.shape[1])
+            rusecols = list(range(ref_y.shape[1]))
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if (rusez is None) and (ref_y is not None):
-            rusez = range(ref_y.shape[2])
+            rusez = list(range(ref_y.shape[2]))
 
         nzbins = len(usez)
 

@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from collections import OrderedDict
 from .massmetric import SimpleHOD, MassFunction, OccMass
 from .healpix_utils import PixMetric
@@ -57,7 +57,7 @@ class HaloCatalog(BaseCatalog):
         know how to deal with
         """
         self.filestruct = filestruct
-        self.filetypes = self.filestruct.keys()
+        self.filetypes = list(self.filestruct.keys())
 
     def getFilePixels(self, nside):
         """
@@ -69,7 +69,7 @@ class HaloCatalog(BaseCatalog):
 
         #BCC catalogs have pixels in filenames
         if (self.filenside is not None) & (self.filenside>=self.groupnside):
-            fk = self.filestruct.keys()
+            fk = list(self.filestruct.keys())
 
             for f in self.filestruct[fk[0]]:
                 p = int(f.split('.')[-2])
@@ -165,7 +165,7 @@ class HaloCatalog(BaseCatalog):
 
         midx = mapunit['halomass']!=0.0
 
-        for mapkey in mapunit.keys():
+        for mapkey in list(mapunit.keys()):
             mapunit[mapkey] = mapunit[mapkey][midx]
             if mapkey=='halomass':
                 mapunit[mapkey] = np.log10(mapunit[mapkey][midx])
@@ -195,10 +195,10 @@ class HaloCatalog(BaseCatalog):
         ft      = mappable.dtype
         fname   = mappable.name
 
-        for f in fieldmap.keys():
+        for f in list(fieldmap.keys()):
             fields = []
-            for val in fieldmap[ft].values():
-                if hasattr(val, '__iter__'):
+            for val in list(fieldmap[ft].values()):
+                if not isinstance(val, str):
                     fields.extend(val)
                 else:
                     fields.extend([val])
@@ -214,7 +214,7 @@ class HaloCatalog(BaseCatalog):
                 filefields = filefields[1:].split(' ')
                 filefields[-1] = filefields[-1][:-1]
                 colnums    = [filefields.index(f) for f in fields]
-                cdict      = dict(zip(fields, zip(colnums,(np.float32,)*len(colnums))))
+                cdict      = dict(list(zip(fields, list(zip(colnums,(np.float32,)*len(colnums))))))
             except ValueError as e:
                 print(e)
                 print('filefields :{}'.format(filefields))
@@ -225,9 +225,9 @@ class HaloCatalog(BaseCatalog):
             data   = SimulationAnalysis.readHlist(fname, fields)
 
 
-        for mapkey in fieldmap[ft].keys():
+        for mapkey in list(fieldmap[ft].keys()):
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
-            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+            if not isinstance(fieldmap[ft][mapkey], str):
                 dt    = mapunit[mapkey].dtype[0]
                 ne    = len(mapunit[mapkey])
                 fnums = [data.dtype.names.index(f) for f in fieldmap[ft][mapkey]]
@@ -245,7 +245,7 @@ class BCCHaloCatalog(HaloCatalog):
 
     def __init__(self, ministry, filestruct, **kwargs):
 
-        if 'unitmap' not in kwargs.keys():
+        if 'unitmap' not in list(kwargs.keys()):
             kwargs['unitmap'] = {'halomass':'msunh', 'redshift':'z'}
 
         HaloCatalog.__init__(self, ministry, filestruct, **kwargs)
@@ -260,7 +260,7 @@ class BCCHaloCatalog(HaloCatalog):
                              'redshift':OrderedDict([('Z',['htruth'])])}
             self.hasz = True
         else:
-            if 'redshift' in self.fieldmap.keys():
+            if 'redshift' in list(self.fieldmap.keys()):
                 self.sortbyz = True
             else:
                 self.sortbyz = False
@@ -273,10 +273,10 @@ class BCCHaloCatalog(HaloCatalog):
         know how to deal with
         """
         self.filestruct = filestruct
-        filetypes = self.filestruct.keys()
+        filetypes = list(self.filestruct.keys())
         self.filetypes = filetypes
 
-        if len(filestruct.keys())>1:
+        if len(list(filestruct.keys()))>1:
             opix =  np.array([int(t.split('/')[-1].split('.')[-2]) for t
                               in self.filestruct[filetypes[0]]])
             oidx = opix.argsort()
@@ -298,7 +298,7 @@ class BCCHaloCatalog(HaloCatalog):
         Get the healpix cell value of this mappble using the fact
         that BCC files contain their healpix values
         """
-        fts = mappable.keys()
+        fts = list(mappable.keys())
         f1 = fts[0]
         pix = int(f1.split('.')[-2])
 

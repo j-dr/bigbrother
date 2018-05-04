@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from .metric import Metric, GMetric, jackknifeMap
 #if __name__=='__main__':
 import matplotlib as mpl
@@ -528,10 +528,10 @@ class GalHOD(MassMetric):
         mmean = (self.massbins[:-1] + self.massbins[1:]) / 2
         
         if usecols is None:
-            usecols = range(self.nmagcuts)
+            usecols = list(range(self.nmagcuts))
         
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols), 
@@ -844,10 +844,10 @@ class GalCLF(MassMetric):
         lmean = (self.magbins[:-1] + self.magbins[1:]) / 2
         
         if usecols is None:
-            usecols = range(self.nmassbins)
+            usecols = list(range(self.nmassbins))
         
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecols),
@@ -1165,10 +1165,10 @@ class GalCLFSnapshot(MassMetric):
         lmean = (self.magbins[:-1] + self.magbins[1:]) / 2
         
         if usecols is None:
-            usecols = range(self.nmassbins)
+            usecols = list(range(self.nmassbins))
         
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(self.nzbins, len(usecols),
@@ -1562,10 +1562,10 @@ class GalHODSnapshot(MassMetric):
         mmean = (self.massbins[:-1] + self.massbins[1:]) / 2
         
         if usecols is None:
-            usecols = range(self.nmagcuts)
+            usecols = list(range(self.nmagcuts))
         
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols),
@@ -1856,7 +1856,7 @@ class TinkerMassFunction(MassMetric):
                  catalog_type=['halocatalog'], tag=None, **kwargs):
 
         if not has_cosmocalc:
-            raise(ImportError("TinkerMassFunction requires cosmocalc to be installed"))
+            raise ImportError
         if massbins is None:
             massbins = np.logspace(10, 16, 40)
 
@@ -2014,7 +2014,7 @@ class Richness(MassMetric):
         self.galaxy_counts_squared = np.zeros((self.njack, len(self.massbins) - 1, 1, len(self.zbins) - 1))
         self.halo_counts           = np.zeros((self.njack, len(self.massbins) - 1, 1, len(self.zbins) - 1))
 
-        dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in mapunit.keys()]
+        dtype = [(key, mapunit[key].dtype, np.shape(mapunit[key])[1:]) for key in list(mapunit.keys())]
 
         for ziter in range(len(self.zbins)-1):
 
@@ -2036,7 +2036,7 @@ class Richness(MassMetric):
             cut_array =((mapunit['rhalo'] < self.max_rhalo) & (mapunit['luminosity'][:,2] < self.min_lum)
                 & ((mapunit['luminosity'][:,0] - mapunit['luminosity'][:,1] >= self.splitcolor)) & ((mapunit['redshift'] >= self.zbins[ziter]) & (mapunit['redshift'] < self.zbins[ziter+1])))
             data_cut = np.recarray((len(cut_array[cut_array]), ), dtype)
-            for key in mapunit.keys():
+            for key in list(mapunit.keys()):
                 data_cut[key] = mapunit[key][cut_array]
 
             data_cut.sort(order='haloid')

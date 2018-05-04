@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from collections import OrderedDict
 from .corrmetric import WPrpSnapshotAnalyticRandoms
 from .healpix_utils import PixMetric
@@ -41,13 +41,13 @@ class ParticleCatalog(BaseCatalog):
         know how to deal with
         """
         self.filestruct = filestruct
-        self.filetypes = self.filestruct.keys()
+        self.filetypes = list(self.filestruct.keys())
 
     def unitConversion(self, mapunit):
 
         midx = mapunit['halomass']!=0.0
 
-        for mapkey in mapunit.keys():
+        for mapkey in list(mapunit.keys()):
             mapunit[mapkey] = mapunit[mapkey][midx]
             if mapkey=='halomass':
                 mapunit[mapkey] = np.log10(mapunit[mapkey][midx])
@@ -79,10 +79,10 @@ class ParticleCatalog(BaseCatalog):
         ft      = mappable.dtype
         fname   = mappable.name
 
-        for f in fieldmap.keys():
+        for f in list(fieldmap.keys()):
             fields = []
-            for val in fieldmap[ft].values():
-                if hasattr(val, '__iter__'):
+            for val in list(fieldmap[ft].values()):
+                if not isinstance(val, str):
                     fields.extend(val)
                 else:
                     fields.extend([val])
@@ -109,10 +109,10 @@ class ParticleCatalog(BaseCatalog):
 
             data = data[idx]
 
-        for mapkey in fieldmap[ft].keys():
+        for mapkey in list(fieldmap[ft].keys()):
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
 
-            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+            if not isinstance(fieldmap[ft][mapkey], str):
                 dt = mapunit[mapkey].dtype[0]
                 ne = len(mapunit[mapkey])
                 nf = len(fieldmap[ft][mapkey])
@@ -129,10 +129,10 @@ class ParticleCatalog(BaseCatalog):
         ft      = mappable.dtype
         fname   = mappable.name
 
-        for f in fieldmap.keys():
+        for f in list(fieldmap.keys()):
             fields = []
-            for val in fieldmap[ft].values():
-                if hasattr(val, '__iter__'):
+            for val in list(fieldmap[ft].values()):
+                if not isinstance(val, str):
                     fields.extend(val)
                 else:
                     fields.extend([val])
@@ -141,7 +141,7 @@ class ParticleCatalog(BaseCatalog):
 
         data = self.readGadgetBlock(fname, fields, lgadget=True, downsample=self.downsample_factor)
 
-        for mapkey in fieldmap[ft].keys():
+        for mapkey in list(fieldmap[ft].keys()):
             if 'px' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,0]
             elif 'py' in mapkey:
@@ -156,7 +156,7 @@ class ParticleCatalog(BaseCatalog):
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,2]
             else:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]]
-                if hasattr(fieldmap[ft][mapkey], '__iter__'):
+                if not isinstance(fieldmap[ft][mapkey], str):
                     dt = mapunit[mapkey].dtype[0]
                     ne = len(mapunit[mapkey])
                     nf = len(fieldmap[ft][mapkey])
@@ -239,7 +239,7 @@ class ParticleCatalog(BaseCatalog):
             f.seek(4, 1)
 
             mass_npart = [0 if m else n for m, n in zip(header.mass, header.npart)]
-            if single_type not in range(6):
+            if single_type not in list(range(6)):
                 single_type = -1
 
             for i, b in enumerate(blocks_to_read):
@@ -307,7 +307,7 @@ class ParticleCatalog(BaseCatalog):
                         f.seek(sum(npart[single_type+1:])*size_per_part, 1)
                 f.seek(4, 1)
 
-        return dict(zip(fields, ret))
+        return dict(list(zip(fields, ret)))
 
 class LGadgetSnapshot(ParticleCatalog):
     """
@@ -316,7 +316,7 @@ class LGadgetSnapshot(ParticleCatalog):
 
     def __init__(self, ministry, filestruct, **kwargs):
 
-        if 'unitmap' not in kwargs.keys():
+        if 'unitmap' not in list(kwargs.keys()):
             kwargs['unitmap'] = {'px':'mpch', 'py':'mpch', 'pz':'mpch',
                                  'vx':'kms', 'vy':'kms', 'vz':'kms'}
 
@@ -344,10 +344,9 @@ class LGadgetSnapshot(ParticleCatalog):
         know how to deal with
         """
         self.filestruct = filestruct
-        filetypes = self.filestruct.keys()
+        filetypes = list(self.filestruct.keys())
         self.filetypes = filetypes
 
         if len(self.filetypes)>1:
-            raise(ValueError("""Only one type of file per particle catalog
-                              is currently supported"""))
+            raise ValueError
 

@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 from .metric import Metric, GMetric
 from scipy.stats import mode
 import matplotlib as mpl
@@ -12,7 +12,7 @@ from .metric import jackknifeMap
 
 def sortHpixFileStruct(filestruct):
 
-    if len(filestruct.keys())>1:
+    if len(list(filestruct.keys()))>1:
         opix =  np.array([int(t.split('/')[-1].split('.')[-2]) for t
                           in filestruct[filetypes[0]]])
         oidx = opix.argsort()
@@ -266,7 +266,7 @@ class HealpixMap(Metric):
             self.cutkey = None
         else:
             self.mapkeys = ['polar_ang', 'azim_ang']
-            self.cutkey = self.cuts.keys()[0]
+            self.cutkey = list(self.cuts.keys())[0]
             self.cuts = self.cuts[self.cutkeys]
             self.mapkeys.append(self.cutkey)
             self.ncuts = len(cuts[self.cutkey])

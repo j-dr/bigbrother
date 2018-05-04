@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pylab as plt
@@ -263,13 +263,13 @@ class ShearShear(CrossCorrelationFunction):
                     usez=None, compare=False, usecols1=None,**kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if usecols1 is None:
-            usecols1 = range(self.nmbins1)
+            usecols1 = list(range(self.nmbins1))
 
         if usez is None:
-            usez = range(self.nzbins)
+            usez = list(range(self.nzbins))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols)*len(usecols1), sharex=True,
@@ -718,13 +718,13 @@ class CountShear(CrossCorrelationFunction):
                     usez=None, compare=False, usecols1=None,**kwargs):
 
         if usecols is None:
-            usecols = range(self.nmbins)
+            usecols = list(range(self.nmbins))
 
         if usecols1 is None:
-            usecols1 = range(self.nmbins1)
+            usecols1 = list(range(self.nmbins1))
 
         if usez is None:
-            usez = range(self.nzbins*self.nzbins1)
+            usez = list(range(self.nzbins*self.nzbins1))
 
         if f is None:
             f, ax = plt.subplots(len(usez), len(usecols)*len(usecols1), sharex=True,

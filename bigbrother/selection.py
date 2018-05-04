@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from itertools import product
@@ -203,11 +203,11 @@ class Selector:
         if self.selections is None:
             self.selections = self.parseSelectionDict()
 
-        self.sshape = np.array([len(self.selections[k]) for k in self.selections.keys()])
-        self.scount = np.array([len(self.selections[k])-1 for k in self.selections.keys()])
-        self.idxarray = np.zeros((len(mapunit[mapunit.keys()[0]]), len(self.sshape)), dtype=bool)
+        self.sshape = np.array([len(self.selections[k]) for k in list(self.selections.keys())])
+        self.scount = np.array([len(self.selections[k])-1 for k in list(self.selections.keys())])
+        self.idxarray = np.zeros((len(mapunit[list(mapunit.keys())[0]]), len(self.sshape)), dtype=bool)
 
-        iselection = self.selections.values()
+        iselection = list(self.selections.values())
         #use itertools to make loop from input selection datatype
 
         for sel in product(*iselection):

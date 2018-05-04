@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 from abc import ABCMeta, abstractmethod
 from .healpix_utils import PixMetric, SubBoxMetric
 from astropy.cosmology import FlatLambdaCDM
@@ -90,7 +90,7 @@ class BaseCatalog:
         elif reader is None:
             self.reader = 'fits'
         else:
-            raise(ValueError("Invalid reader type {0} specified".format(reader)))
+            raise ValueError
 
         self.addFilterKeysToNecessaries()
 
@@ -111,7 +111,7 @@ class BaseCatalog:
         print('Test')
         #BCC catalogs have pixels in filenames
         if (self.filenside is not None) & (self.filenside>=self.groupnside):
-            fk = self.filestruct.keys()
+            fk = list(self.filestruct.keys())
 
             for f in self.filestruct[fk[0]]:
                 p = int(f.split('.')[-2])
@@ -242,14 +242,15 @@ class BaseCatalog:
         ft      = mappable.dtype
         fname   = mappable.name
 
-        for f in fieldmap.keys():
+        for f in list(fieldmap.keys()):
             fields = []
-            for val in fieldmap[ft].values():
-                if hasattr(val, '__iter__'):
+            for val in list(fieldmap[ft].values()):
+                if not isinstance(val, str):
                     fields.extend(val)
                 else:
                     fields.extend([val])
 
+        fields = np.unique(np.array(fields))
         data = fitsio.read(fname, columns=fields)
 
         if hasattr(self, 'downsample_factor'):
@@ -257,9 +258,9 @@ class BaseCatalog:
                 idx  = np.random.choice(np.arange(len(data)), size=len(data)//self.downsample_factor)
                 data = data[idx]
 
-        for mapkey in fieldmap[ft].keys():
+        for mapkey in list(fieldmap[ft].keys()):
 
-            if hasattr(fieldmap[ft][mapkey], '__iter__'):
+            if not isinstance(fieldmap[ft][mapkey], str):
                 idx = np.array([data.dtype.names.index(fieldmap[ft][mapkey][i]) 
                                 for i in range(len(fieldmap[ft][mapkey]))])
                 dt = data[fieldmap[ft][mapkey]].dtype[0]
@@ -340,7 +341,7 @@ class BaseCatalog:
 
 
         if mappable.jtype == 'healpix':
-            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+            tp = np.zeros((len(mapunit[list(mapunit.keys())[0]]),2))
 
             print('Masking {0} using healpix {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
@@ -375,17 +376,17 @@ class BaseCatalog:
                 elif self.maskcomp == 'neq':
                     pidx &= self.mask[pix]!=self.maskval
                 else:
-                    raise('Comparison {} not supported'.format(self.maskcomp))
+                    raise 'Comparison {} not supported'
 
             mu = {}
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][pidx]
 
             mapunit = mu
             return mapunit
 
         elif mappable.jtype == 'angular-generic':
-            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),2))
+            tp = np.zeros((len(mapunit[list(mapunit.keys())[0]]),2))
 
             print('Masking {0} using angular-generic {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['azim_ang', 'polar_ang']):
@@ -416,17 +417,17 @@ class BaseCatalog:
             elif self.maskcomp == 'neq':
                 pidx = self.mask[pix]!=self.maskval
             else:
-                raise('Comparison {} not supported'.format(self.maskcomp))
+                raise 'Comparison {} not supported'
 
             mu = {}
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][pidx]
 
             mapunit = mu
             return mapunit
 
         elif mappable.jtype == 'subbox':
-            tp = np.zeros((len(mapunit[mapunit.keys()[0]]),3))
+            tp = np.zeros((len(mapunit[list(mapunit.keys())[0]]),3))
 
             print('Masking {0} using subbox {1}'.format(mappable.name, mappable.grp))
             for i, key in enumerate(['x', 'y', 'z']):
@@ -447,7 +448,7 @@ class BaseCatalog:
             pidx = bidx==mappable.grp
 
             mu = {}
-            for k in mapunit.keys():
+            for k in list(mapunit.keys()):
                 mu[k] = mapunit[k][pidx]
 
             mapunit = mu
@@ -484,8 +485,8 @@ class BaseCatalog:
             for key in m.unitmap:
 
                 if key in beenconverted: continue
-                if key not in self.fieldmap.keys(): continue
-                if key not in mapunit.keys(): continue
+                if key not in list(self.fieldmap.keys()): continue
+                if key not in list(mapunit.keys()): continue
 
                 try:
                     if self.unitmap[key]==m.unitmap[key]:
@@ -527,7 +528,7 @@ class BaseCatalog:
         for i, key in enumerate(self.filters):
             filt = getattr(self, 'filter{0}'.format(key))
 
-            if key.lower() not in mapunit.keys():
+            if key.lower() not in list(mapunit.keys()):
                 continue
 #                raise(ValueError("Trying to filter on {}, but it is not in the mapunit!".format(key)))
 
@@ -538,8 +539,8 @@ class BaseCatalog:
                 idx = idx&idxi
 
         if idx is not None:
-            for key in mapunit.keys():
-                if key in fieldmap.keys():
+            for key in list(mapunit.keys()):
+                if key in list(fieldmap.keys()):
                     mapunit[key] = mapunit[key][idx]
 
         return mapunit
