@@ -75,21 +75,21 @@ class ParticleCatalog(BaseCatalog):
         """
         nativefields = ['px', 'py', 'pz', 'vx', 'vy', 'vz', 'redshift', 'pid']
 
-	mapunit = {}
-	ft      = mappable.dtype
-	fname   = mappable.name
+        mapunit = {}
+        ft      = mappable.dtype
+        fname   = mappable.name
 
-	for f in fieldmap.keys():
-	    fields = []
-	    for val in fieldmap[ft].values():
-	        if hasattr(val, '__iter__'):
-	            fields.extend(val)
-	        else:
-	            fields.extend([val])
+        for f in fieldmap.keys():
+            fields = []
+            for val in fieldmap[ft].values():
+                if hasattr(val, '__iter__'):
+                    fields.extend(val)
+                else:
+                    fields.extend([val])
 
         fields = list(np.unique(fields))
         
-	data  = np.genfromtxt(fname, names=nativefields)
+        data  = np.genfromtxt(fname, names=nativefields)
         npart = len(data)
 
         if self.downsample_factor:
@@ -109,7 +109,7 @@ class ParticleCatalog(BaseCatalog):
 
             data = data[idx]
 
-	for mapkey in fieldmap[ft].keys():
+        for mapkey in fieldmap[ft].keys():
             mapunit[mapkey] = data[fieldmap[ft][mapkey]]
 
             if hasattr(fieldmap[ft][mapkey], '__iter__'):
@@ -118,30 +118,30 @@ class ParticleCatalog(BaseCatalog):
                 nf = len(fieldmap[ft][mapkey])
                 mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
             
-	return mapunit
+        return mapunit
 
     def readLGadgetMappable(self, mappable, fieldmap):
         """
         Takes in a mappable object, and a fieldmap and spits out a mappable
         """
 
-	mapunit = {}
-	ft      = mappable.dtype
-	fname   = mappable.name
+        mapunit = {}
+        ft      = mappable.dtype
+        fname   = mappable.name
 
-	for f in fieldmap.keys():
-	    fields = []
-	    for val in fieldmap[ft].values():
-	        if hasattr(val, '__iter__'):
-	            fields.extend(val)
-	        else:
-	            fields.extend([val])
+        for f in fieldmap.keys():
+            fields = []
+            for val in fieldmap[ft].values():
+                if hasattr(val, '__iter__'):
+                    fields.extend(val)
+                else:
+                    fields.extend([val])
 
         fields = list(np.unique(fields))
 
-	data = self.readGadgetBlock(fname, fields, lgadget=True, downsample=self.downsample_factor)
+        data = self.readGadgetBlock(fname, fields, lgadget=True, downsample=self.downsample_factor)
 
-	for mapkey in fieldmap[ft].keys():
+        for mapkey in fieldmap[ft].keys():
             if 'px' in mapkey:
                 mapunit[mapkey] = data[fieldmap[ft][mapkey]][:,0]
             elif 'py' in mapkey:
@@ -162,7 +162,7 @@ class ParticleCatalog(BaseCatalog):
                     nf = len(fieldmap[ft][mapkey])
                     mapunit[mapkey] = mapunit[mapkey].view(dt).reshape((ne,nf))
             
-	return mapunit
+        return mapunit
 
 
     def readGadgetBlock(self, filename, fields, print_header=False, single_type=-1, 
