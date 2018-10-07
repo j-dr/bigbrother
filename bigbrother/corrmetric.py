@@ -268,11 +268,10 @@ class CorrelationFunction(Metric):
             gr['redshift'] = rr
 
         return gr
-
-    def getCartesianRandoms(self, x, y, z, rand_fact=10, sample=0):
+    def getCartesianRandoms(self, x, y, z, sample=0):
 
         if self.randname is None:
-            gr = self.generateCartesianRandoms(x,y,z,rand_fact=rand_fact)
+            gr = self.generateCartesianRandoms(x,y,z,rand_fact=self.rand_factor)
             return gr
 
         elif sample==0:
@@ -308,7 +307,7 @@ class CorrelationFunction(Metric):
 
         gr = gr[(rmin<rr) & (rr<=rmax)]
 
-        if len(gr)<(len(x)*rand_fact):
+        if len(gr)<(len(x)*self.rand_factor):
             print('Not enough randoms in this bin! Not computing CF')
             return None
 
@@ -328,7 +327,7 @@ class CorrelationFunction(Metric):
         if weight_field:
             rands['weight'] = gr[weight_field]
 
-        rands = rands[np.random.choice(np.arange(len(rands)), size=len(x)*rand_fact)]
+        rands = rands[np.random.choice(np.arange(len(rands)), size=len(x)*self.rand_factor)]
 
         return rands
 
