@@ -1069,11 +1069,11 @@ class GalCLFSnapshot(MassMetric):
         mass_host = mapunit['halomass']
 
         iidx = mapunit['haloid'].argsort()
-        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
-        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
+#        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
+#        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
 #        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
-
-        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
+        mass_host = mapunit['halomass']
+#        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
 #        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
 #        mass_host[sat&(~incat)] = -1
 
@@ -1419,13 +1419,13 @@ class GalHODSnapshot(MassMetric):
 
         mass_host = mapunit['halomass']
 
-        iidx = mapunit['haloid'].argsort()
-        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
-        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
+#        iidx = mapunit['haloid'].argsort()
+#        incat = np.in1d(mapunit['upid'], mapunit['haloid'])
+#        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat&incat])
 
 #        pidx = mapunit['haloid'][iidx].searchsorted(mapunit['upid'][sat])
 
-        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
+#        mass_host[sat&incat] = mapunit['halomass'][iidx[pidx]]
 #        mass_host[sat] = mapunit['halomass'][iidx[pidx]]
 #        mass_host[sat&(~incat)] = -1
 

@@ -37,13 +37,13 @@ class CorrelationFunction(Metric):
                    upper_limit=False, appmag=False,
                    rand_azim_ang_field='RA', rand_polar_ang_field='DEC',
                    rand_px_field='PX', rand_py_field='PY', rand_pz_field='PZ',
-                   weight_field=None, redshift_field=None, 
-                   clustercatalog=None, nthreads=1, 
-                   weights=False, no_mkey=False, 
-                   rand_nside=None, rand_nest=True, 
+                   weight_field=None, redshift_field=None,
+                   clustercatalog=None, nthreads=1,
+                   weights=False, no_mkey=False,
+                   rand_nside=None, rand_nest=True,
                    rr_rand_factor=1.0, rand_ra_lims=None,
                    rand_dec_lims=None, ra_lims=None,
-                   dec_lims=None, calc_weighted_x = False, 
+                   dec_lims=None, calc_weighted_x = False,
                    **kwargs):
         """
         Generic correlation function.
@@ -124,7 +124,7 @@ class CorrelationFunction(Metric):
         self.rand_factor = rand_factor
         self.rr_rand_factor = rr_rand_factor
         self.calc_weighted_x = calc_weighted_x
-        
+
         if nrbins is None:
             self.nrbins = 15
         else:
@@ -147,7 +147,7 @@ class CorrelationFunction(Metric):
                 if not hasattr(self, 'clustercatalog'):
                     self.mkey = 'halomass'
                 elif not self.clustercatalog:
-                    self.mkey = 'halomass'   
+                    self.mkey = 'halomass'
                 else:
                     self.mkey = 'richness'
             else:
@@ -195,11 +195,11 @@ class CorrelationFunction(Metric):
 
     def generateCartesianRandoms(self, x, y, z, rand_fact=10):
         rsize = len(x)*rand_fact
-        
+
         if self.rand_nside:
             rdtype = np.dtype([('px', np.float32), ('py', np.float32),
                                ('pz', np.float32), ('redshift', np.float32)])
-           
+
         else:
             rdtype = np.dtype([('px', np.float32), ('py', np.float32),
                                ('pz', np.float32)])
@@ -222,7 +222,7 @@ class CorrelationFunction(Metric):
             print('Nest ordering : {}'.format(self.rand_nest))
             r  = np.sqrt(x**2 + y**2 + z**2)
             rr = np.random.choice(r, size=rsize)
-            
+
             pix  = hp.vec2pix(self.rand_nside, x, y, z, nest=self.rand_nest)
             pix  = np.unique(pix)
             hmap = np.zeros(12*self.rand_nside**2)
@@ -231,7 +231,7 @@ class CorrelationFunction(Metric):
 
             if self.rand_nest:
                 hmap      = hu.DensityMap('nest', hmap)
-            else: 
+            else:
                 hmap      = hu.DensityMap('ring', hmap)
 
             theta, phi = hmap.genrand(rsize, system='ang')
@@ -258,7 +258,7 @@ class CorrelationFunction(Metric):
 
                 del dec, idx
                 print(gr.shape)
-                
+
             pos        = hp.ang2vec(theta, phi)
             pos       *= rr.reshape(-1,1)
 
@@ -268,7 +268,7 @@ class CorrelationFunction(Metric):
             gr['redshift'] = rr
 
         return gr
-            
+
     def getCartesianRandoms(self, x, y, z, rand_fact=10, sample=0):
 
         if self.randname is None:
@@ -324,12 +324,12 @@ class CorrelationFunction(Metric):
         rands['px'] = gr[px_field]
         rands['py'] = gr[py_field]
         rands['pz'] = gr[pz_field]
-        
+
         if weight_field:
             rands['weight'] = gr[weight_field]
 
         rands = rands[np.random.choice(np.arange(len(rands)), size=len(x)*rand_fact)]
-            
+
         return rands
 
 
@@ -345,10 +345,10 @@ class CorrelationFunction(Metric):
         """
 
         dt = aza.dtype
-        
+
         if self.rand_nside is None:
             nside = 128
-        else: 
+        else:
             nside = self.rand_nside
 
         if z is not None:
@@ -368,7 +368,7 @@ class CorrelationFunction(Metric):
             pmap       = hu.DensityMap('nest', pmap)
         else:
             pmap       = hu.DensityMap('ring', pmap)
-        
+
         grand = np.zeros(len(aza)*rand_factor, dtype=rdtype)
         grand['azim_ang'], grand['polar_ang'] = pmap.genrand(len(aza)*rand_factor, system='eq')
 
@@ -404,10 +404,10 @@ class CorrelationFunction(Metric):
 
         ngal = len(aza)
         if self.rand_nside:
-            cpix = hp.ang2pix(self.rand_nside, (90 - pla) * np.pi / 180., aza * np.pi / 180, 
+            cpix = hp.ang2pix(self.rand_nside, (90 - pla) * np.pi / 180., aza * np.pi / 180,
                               nest=self.rand_nest)
             cpix = np.unique(cpix)
-            
+
         print('Reading randoms from file: {0}'.format(fname))
 
         nfields = 2
@@ -434,19 +434,19 @@ class CorrelationFunction(Metric):
             if redshift_field:
                 if zmin is None:
                     zmin = np.min(z)
-                
+
                 if zmax is None:
                     zmax = np.max(z)
 
                 idx = (zmin<r[:,redshift_field]) & (r[:,redshift_field]<=zmax)
                 r = r[idx]
-                
+
             if self.rand_nside:
-                pix = hp.ang2pix(self.rand_nside, (90 - r[:,0]) * np.pi / 180., 
+                pix = hp.ang2pix(self.rand_nside, (90 - r[:,0]) * np.pi / 180.,
                                   r[:,1] * np.pi / 180, nest=self.rand_nest)
                 idx = np.in1d(pix, cpix)
                 r   = r[idx]
-                
+
 
             idx = np.random.choice(np.arange(len(r)), size=ngal*rand_factor,
                                     replace=False)
@@ -475,15 +475,15 @@ class CorrelationFunction(Metric):
             if redshift_field:
                 if zmin is None:
                     zmin = np.min(z)
-                
+
                 if zmax is None:
                     zmax = np.max(z)
 
                 idx = (zmin<r[redshift_field]) & (r[redshift_field]<=zmax)
                 r = r[idx]
-                
+
             if self.rand_nside:
-                pix = hp.ang2pix(self.rand_nside, (90 - r[polar_ang_field]) * np.pi / 180., 
+                pix = hp.ang2pix(self.rand_nside, (90 - r[polar_ang_field]) * np.pi / 180.,
                                   r[azim_ang_field] * np.pi / 180, nest=self.rand_nest)
                 idx = np.in1d(pix, cpix)
                 r   = r[idx]
@@ -505,7 +505,7 @@ class CorrelationFunction(Metric):
             if redshift_field:
                 rand['redshift']  = r[redshift_field][idx]
 
-        if (z is not None) & (redshift_field is not None):
+        if (z is not None) & (redshift_field is None):
             rand['redshift'] = np.random.choice(z, size=nrand)
 
         return rand
@@ -529,7 +529,7 @@ class CorrelationFunction(Metric):
         d_a = self.ministry.cosmo.comoving_distance(z).value * self.ministry.h
 
         return np.arctan( rbins / d_a )* 180 / np.pi
-        
+
 
     def writeCorrfuncBinFile(self, binedges,
       binfilename='bb_corrfunc_rbins.txt'):
@@ -580,7 +580,7 @@ class CrossCorrelationFunction(CorrelationFunction):
         self.inv_m1 = inv_m1
         self.upper_limit1 = upper_limit1
         self.no_mkey1 = no_mkey1
-        
+
         if zbins1 is None:
             self.zbins1 = self.zbins
             self.same_zbins = True
@@ -696,12 +696,12 @@ class WxyTheta(CrossCorrelationFunction):
                 self.nabins = len(abins)-1
 
         else:
-            
+
             if rbins is None:
                 self.rbins = np.logspace(-1, 1.3, 16)
             else:
                 self.rbins = rbins
-                
+
             self.nabins = len(self.rbins)-1
             self.abins  = np.zeros((self.nrbins+1,self.nzbins1))
 
@@ -854,7 +854,7 @@ class WxyTheta(CrossCorrelationFunction):
             zlidx = z.searchsorted(self.zbins[i])
             zhidx = z.searchsorted(self.zbins[i+1])
 
-            
+
             for i1 in range(self.nzbins1):
                 if self.same_zbins:
                     zlidx1 = z1.searchsorted(self.zbins[i])
@@ -865,14 +865,14 @@ class WxyTheta(CrossCorrelationFunction):
 
                 if self.compute_sigma_g:
                     if self.same_zbins:
-                        zm = (self.zbins[i] + self.zbins[i+1]) / 2 
+                        zm = (self.zbins[i] + self.zbins[i+1]) / 2
                     else:
-                        zm = (self.zbins1[i] + self.zbins1[i+1]) / 2 
+                        zm = (self.zbins1[i] + self.zbins1[i+1]) / 2
 
                     self.abins[:,i] = self.computeAngularBinsFromRadii(self.rbins, zm)
                     self.writeCorrfuncBinFile(self.abins[:,i], binfilename='angular_bins_{}'.format(i))
 
-                
+
                 if (zlidx==zhidx):
                     print("No galaxies in redshift bin {0} to {1}".format(self.zbins[i], self.zbins[i+1]))
                     print('z: {}'.format(z))
@@ -921,9 +921,9 @@ class WxyTheta(CrossCorrelationFunction):
                             self.rand_ind+=1
                             continue
 
-                        rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], 
-                                                mu['polar_ang'][zlidx:zhidx][lidx], 
-                                                z[zlidx:zhidx][lidx], 
+                        rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx],
+                                                mu['polar_ang'][zlidx:zhidx][lidx],
+                                                z[zlidx:zhidx][lidx],
                                                 zmin=self.zbins[i], zmax=self.zbins[i+1])
 
                     for li1, j1 in enumerate(self.minds1):
@@ -951,7 +951,7 @@ class WxyTheta(CrossCorrelationFunction):
                                                      mu['polar_ang1'][zlidx1:zhidx1][lidx1],
                                                      z1[zlidx1:zhidx1][lidx1], sample=1,
                                                      zmin=self.zbins1[i1], zmax=self.zbins1[i1+1])
-                            
+
                         for k in range(self.ncbins):
                             if self.ncbins == 1:
                                 cidx = lidx
@@ -1067,7 +1067,7 @@ class WxyTheta(CrossCorrelationFunction):
                                                               weights1=np.ones(len(rands)),
                                                               RA2=rands1['azim_ang'],
                                                               DEC2=rands1['polar_ang'],
-                                                              weights2=rands1['weight'],                                                       
+                                                              weights2=rands1['weight'],
                                                               weight_type='pair_product')
 
                                 else:
@@ -1162,11 +1162,11 @@ class WxyTheta(CrossCorrelationFunction):
 
                 self.jwxytheta = np.zeros_like(self.jdd)
 
-                for i in xrange(self.njacktot):
-                    for j in xrange(self.ncbins):
-                        for k in xrange(self.nmbins):
-                            for l in xrange(self.nmbins1):
-                                for m in xrange(self.nzbins*self.nzbins1):
+                for i in range(self.njacktot):
+                    for j in range(self.ncbins):
+                        for k in range(self.nmbins):
+                            for l in range(self.nmbins1):
+                                for m in range(self.nzbins*self.nzbins1):
                                     self.jwxytheta[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                   self.jnd2[i,0,j,k,l,m],
                                                                                 self.jnr1[i,0,j,k,l,m],
@@ -1175,17 +1175,17 @@ class WxyTheta(CrossCorrelationFunction):
                                                                                 self.jdr[i,:,j,k,l,m],
                                                                                 self.jrd[i,:,j,k,l,m],
                                                                                 self.jrr[i,:,j,k,l,m])
-                
+
                 self.wxytheta = np.sum(self.jwxytheta, axis=0) / self.njacktot
 
                 self.varwxytheta = np.sum((self.jwxytheta - self.wxytheta)**2, axis=0) * (self.njacktot - 1) / self.njacktot
-                
+
                 print('sizes of jnd1, jdd, wxytheta: {}, {}, {}'.format(self.jnd1.shape, self.jdd.shape, self.wxytheta.shape))
                 if self.compute_sigma_g:
 
-                    self.zmid = (self.zbins1[1:] + self.zbins1[:-1]) / 2            
+                    self.zmid = (self.zbins1[1:] + self.zbins1[:-1]) / 2
                     W = self.jrr*(self.jnd1/self.jnr1*self.jnd2/self.jnr2)
-            
+
                     if self.jtype is not None:
                         area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(-1,1)
                     else:
@@ -1198,7 +1198,7 @@ class WxyTheta(CrossCorrelationFunction):
                         self.jave_gdens  = self.jnd1 / area_mpch.reshape(self.njacktot, 1, 1, 1, 1, self.nzbins1)
                         jdens            = np.sum(self.jave_gdens * self.jnd2 / np.sum(self.jnd2, axis=5), axis=5)
                         self.jsigma_g    = np.sum(self.jwxytheta * W, axis=-1) / np.sum(W, axis=-1) * jdens
-                
+
                         self.sigma_g     = np.sum(self.jsigma_g, axis=0) / self.njacktot
                         self.varsigma_g = np.sum((self.jsigma_g - self.sigma_g)**2, axis=0) * (self.njacktot - 1) / self.njacktot
                     except:
@@ -1219,11 +1219,11 @@ class WxyTheta(CrossCorrelationFunction):
 
             self.jwxytheta = np.zeros_like(self.jdd)
 
-            for i in xrange(self.njacktot):
-                for j in xrange(self.ncbins):
-                    for k in xrange(self.nmbins):
-                        for l in xrange(self.nmbins1):
-                            for m in xrange(self.nzbins*self.nzbins1):
+            for i in range(self.njacktot):
+                for j in range(self.ncbins):
+                    for k in range(self.nmbins):
+                        for l in range(self.nmbins1):
+                            for m in range(self.nzbins*self.nzbins1):
                                 self.jwxytheta[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                       self.jnd2[i,0,j,k,l,m],
                                                                                       self.jnr1[i,0,j,k,l,m],
@@ -1239,9 +1239,9 @@ class WxyTheta(CrossCorrelationFunction):
 
             if self.compute_sigma_g:
 
-                self.zmid = (self.zbins1[1:] + self.zbins1[:-1]) / 2            
+                self.zmid = (self.zbins1[1:] + self.zbins1[:-1]) / 2
                 W = self.jrr*(self.jnd1/self.jnr1*self.jnd2/self.jnr2)
-            
+
                 if self.jtype is not None:
                     area = self.ministry.galaxycatalog.getArea(jackknife=True).reshape(-1,1)
                 else:
@@ -1253,7 +1253,7 @@ class WxyTheta(CrossCorrelationFunction):
                 self.jave_gdens  = self.jnd1 / area_mpch.reshape(self.njacktot, 1, 1, 1, 1, self.nzbins1)
                 jdens            = np.sum(self.jave_gdens * self.jnd2 / np.sum(self.jnd2, axis=5), axis=5)
                 self.jsigma_g    = np.sum(self.jwxytheta * W, axis=-1) / np.sum(W, axis=-1) * jdens
-                
+
                 self.sigma_g     = np.sum(self.jsigma_g, axis=0) / self.njacktot
                 self.varsigma_g = np.sum((self.jsigma_g - self.sigma_g)**2, axis=0) * (self.njacktot - 1) / self.njacktot
 
@@ -1557,7 +1557,7 @@ class WTheta(CorrelationFunction):
                         self.rand_ind+=1
                         continue
 
-                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], 
+                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx],
                                             mu['polar_ang'][zlidx:zhidx][lidx],z[zlidx:zhidx][lidx],
                                             zmin=self.zbins[i], zmax=self.zbins[i+1])
 
@@ -1629,7 +1629,7 @@ class WTheta(CorrelationFunction):
                                                   weights2=rands['weight'])
 
                         self.dr[self.jcount,:,k,j,i] = drresults['npairs'] * drresults['weightavg']
-                        
+
                     else:
                         drresults = DDtheta_mocks(0, self.nthreads, self.binfilename,
                                                   mu['azim_ang'][zlidx:zhidx][cidx],
@@ -2066,8 +2066,8 @@ class WPrpLightcone(CorrelationFunction):
                         self.rand_ind+=1
                         continue
 
-                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx], 
-                                            mu['polar_ang'][zlidx:zhidx][lidx], 
+                    rands = self.getRandoms(mu['azim_ang'][zlidx:zhidx][lidx],
+                                            mu['polar_ang'][zlidx:zhidx][lidx],
                                             z=cz[zlidx:zhidx][lidx],
                                             zmin=self.zbins[i]*self.c,
                                             zmax=self.zbins[i+1]*self.c)
@@ -3073,9 +3073,9 @@ class XiofR(CorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   lightcone=True, catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  centrals_only=False, losbins='redshift', 
+                  centrals_only=False, losbins='redshift',
                   cbins=None, splitcolor=None, bimodal_ccut=False,
-                  percentile_ccut=None, pccolor=False, cinds=None, 
+                  percentile_ccut=None, pccolor=False, cinds=None,
                   **kwargs):
 
         """
@@ -3190,7 +3190,7 @@ class XiofR(CorrelationFunction):
 
         elif self.pccolor:
             clr = mapunit['color']
-        
+
         print('mapunit shape: {}'.format(mapunit['px'].shape))
         if (mapunit['px'].dtype == '>f4') | (mapunit['px'].dtype == '>f8') | (mapunit['px'].dtype == np.float64):
             newmu = True
@@ -3223,7 +3223,7 @@ class XiofR(CorrelationFunction):
             else:
                 mu[f] = mu[f][aidx]
 
-            del aidx 
+            del aidx
 
 
         if self.losbins=='radius':
@@ -3234,7 +3234,7 @@ class XiofR(CorrelationFunction):
             for f in self.mapkeys:
                 mu[f] = mu[f][zidx]
 
-                
+
 
 
         if self.lightcone:
@@ -3274,9 +3274,9 @@ class XiofR(CorrelationFunction):
                                 lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) & (mu[self.mkey][zlidx:zhidx] < self.mbins[j+1])
                         else:
                             if self.mcutind is not None:
-                                lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind]) 
+                                lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx,self.mcutind])
                             else:
-                                lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx]) 
+                                lidx = (self.mbins[j] <= mu[self.mkey][zlidx:zhidx])
                     else:
                         lidx = np.ones(zhidx-zlidx, dtype=np.bool)
 
@@ -3308,7 +3308,7 @@ class XiofR(CorrelationFunction):
                         if rands is None:
                             continue
 
-                        
+
                         self.nd[self.jcount,j,k,i] = len(mu['pz'][zlidx:zhidx][cidx])
                         self.nr[self.jcount,j,k,i] = len(rands)
 
@@ -3329,9 +3329,9 @@ class XiofR(CorrelationFunction):
                                    output_ravg=self.calc_weighted_x)
 
                         ddout = np.array(ddout)
-                        
+
                         self.dd[self.jcount,:,j,k,i] = ddout['npairs']
-                        
+
                         if self.calc_weighted_x:
                             self.rm[self.jcount,:,j,k,i] = ddout['ravg']
 
@@ -3371,10 +3371,10 @@ class XiofR(CorrelationFunction):
 
                         print('calculating random random pairs')
                         sys.stdout.flush()
-                    
+
                         if self.rr_rand_factor<1:
-                            idx = np.random.choice(np.arange(len(rands)), 
-                                                   size=self.rr_rand_factor*len(rands), 
+                            idx = np.random.choice(np.arange(len(rands)),
+                                                   size=self.rr_rand_factor*len(rands),
                                                    replace=False)
                             r = rands[idx]
                         else:
@@ -3405,7 +3405,7 @@ class XiofR(CorrelationFunction):
                                            r['pz'],
                                            periodic=False)
 #                                           output_ravg=self.calc_weighted_x)
-                            
+
                                 rrout = np.array(rrout)
 
                         self.rr[self.jcount,:,j,k,i] = rrout['npairs']
@@ -3426,9 +3426,9 @@ class XiofR(CorrelationFunction):
                             lidx = (self.mbins[j] <= mu[self.mkey]) & (mu[self.mkey] < self.mbins[j+1])
                     else:
                         if self.mcutind is not None:
-                            lidx = (self.mbins[j] <= mu[self.mkey][:,self.mcutind]) 
+                            lidx = (self.mbins[j] <= mu[self.mkey][:,self.mcutind])
                         else:
-                            lidx = (self.mbins[j] <= mu[self.mkey]) 
+                            lidx = (self.mbins[j] <= mu[self.mkey])
                 else:
                     lidx = np.ones(len(mu['px']), dtype=np.bool)
 
@@ -3519,19 +3519,19 @@ class XiofR(CorrelationFunction):
 
 #                        if self.calc_weighted_x:
 #                            self.rm[self.jcount,:,j,k,i,1] = drout['ravg']
-                    
+
                         print('calculating random random pairs')
                         sys.stdout.flush()
 
                         if self.rr_rand_factor<1:
-                            idx = np.random.choice(np.arange(len(rands)), 
-                                                   size=self.rr_rand_factor*len(rands), 
+                            idx = np.random.choice(np.arange(len(rands)),
+                                                   size=self.rr_rand_factor*len(rands),
                                                    replace=False)
                             r = rands[idx]
                         else:
                             r = rands
 
-                            
+
                         if (lj==0) | (not self.same_rand):
                             if 'weight' in rands.dtype.names:
                                 rrout = DD(1,self.nthreads,
@@ -3630,16 +3630,16 @@ class XiofR(CorrelationFunction):
                 self.jdd = self.jackknife(self.dd, reduce_jk=False)
                 self.jdr = self.jackknife(self.dr, reduce_jk=False)
                 self.jrr = self.jackknife(self.rr, reduce_jk=False)
-                
+
                 if self.calc_weighted_x:
                     self.jrm = self.jackknife(self.rm, reduce_jk=False)
 
 
-                for i in xrange(self.njacktot):
-                    for l in xrange(self.ncbins):
-                        for j in xrange(self.nmbins):
-                            for k in xrange(self.nzbins):
-                                if self.jnd[i,0,j,l,k]<1: continue 
+                for i in range(self.njacktot):
+                    for l in range(self.ncbins):
+                        for j in range(self.nmbins):
+                            for k in range(self.nzbins):
+                                if self.jnd[i,0,j,l,k]<1: continue
                                 self.jxi[i,:,j,l,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,l,k],
                                                                             self.jnd[i,0,j,l,k],
                                                                             self.jnr[i,0,j,l,k],
@@ -3667,11 +3667,11 @@ class XiofR(CorrelationFunction):
             if self.calc_weighted_x:
                 self.jrm = self.jackknife(self.rm, reduce_jk=False)
 
-            for i in xrange(self.njacktot):
-                for l in xrange(self.ncbins):
-                    for j in xrange(self.nmbins):
-                        for k in xrange(self.nzbins):
-                            if self.jnd[i,0,j,l,k]<1: continue 
+            for i in range(self.njacktot):
+                for l in range(self.ncbins):
+                    for j in range(self.nmbins):
+                        for k in range(self.nzbins):
+                            if self.jnd[i,0,j,l,k]<1: continue
                             self.jxi[i,:,j,l,k] = convert_3d_counts_to_cf(self.jnd[i,0,j,l,k],
                                                                           self.jnd[i,0,j,l,k],
                                                                           self.jnr[i,0,j,l,k],
@@ -4021,7 +4021,7 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   catalog_type=None, tag=None,
                   mcutind=None, same_rand=False, inv_m=True,
-                  centrals_only=False, centrals_only1=False, 
+                  centrals_only=False, centrals_only1=False,
                   rsd=False, rsd1=False, pccolor=False,
                   cbins=None, **kwargs):
 
@@ -4055,12 +4055,12 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
 
-        self.mapkeys = ['px', 'py', 'pz', 
+        self.mapkeys = ['px', 'py', 'pz',
                         'px1', 'py1', 'pz1']
 
         if self.mkey is not None:
             self.mapkeys.append(self.mkey)
-        
+
         if self.mkey1 is not None:
             self.mapkeys.append(self.mkey1)
 
@@ -4082,7 +4082,7 @@ class XixyAnalyticRandoms(CrossCorrelationFunction):
 
         self.centrals_only  = centrals_only
         self.centrals_only1 = centrals_only1
-        
+
         self.cbins = cbins
 
         if self.cbins is None:
@@ -4371,9 +4371,9 @@ class XiXY(CrossCorrelationFunction):
     def __init__(self, ministry, mbins=None, zbins=None, rbins=None,
                   minr=None, maxr=None, logbins=True, nrbins=None,
                   catalog_type=None, tag=None,
-                  mcutind=None, same_rand=False, 
+                  mcutind=None, same_rand=False,
                   same_rand1=False, inv_m=True,
-                  centrals_only=False, centrals_only1=False, 
+                  centrals_only=False, centrals_only1=False,
                   rsd=False, rsd1=False, pccolor=False,
                   cbins=None, losbins='redshift', cosmology_flag=None,
                   colorcat=None, splitcolor=None, bimodal_ccut=False,
@@ -4409,20 +4409,20 @@ class XiXY(CrossCorrelationFunction):
             self.maxr = rbins[1]
             self.nrbins = len(rbins)-1
 
-        self.mapkeys = ['px', 'py', 'pz', 
+        self.mapkeys = ['px', 'py', 'pz',
                         'px1', 'py1', 'pz1']
 
 
         if self.mkey is not None:
             self.mapkeys.append(self.mkey)
-        
+
         if self.mkey1 is not None:
             self.mapkeys.append(self.mkey1)
 
         self.unitmap = {'px':'mpch', 'py':'mpch', 'pz':'mpch',
                         'px1':'mpch', 'py1':'mpch', 'pz1':'mpch'}
-                 
-        self.losbins = losbins 
+
+        self.losbins = losbins
 
         if losbins=='redshift':
             self.mapkeys.extend(['redshift', 'redshift1'])
@@ -4446,7 +4446,7 @@ class XiXY(CrossCorrelationFunction):
         self.centrals_only1 = centrals_only1
 
         self.same_rand1 = same_rand1
-        
+
         self.cbins = cbins
         self.colorcat = colorcat
         self.splitcolor = splitcolor
@@ -4507,7 +4507,7 @@ class XiXY(CrossCorrelationFunction):
         self.rr = None
 
     def getWeights(self, z0, z1):
-        
+
         zmin = np.min(z1)
         zmax = np.max(z1)
         zbins = np.linspace(zmin, zmax, 100)
@@ -4519,13 +4519,13 @@ class XiXY(CrossCorrelationFunction):
         bin_weights[~np.isfinite(bin_weights)] = 1.0
 
         idx = np.digitize(z1, zbins)
-        
+
         weights = np.ones_like(z1)
         weights[(idx>0)&(idx<len(zbins))] = bin_weights[idx[(idx>0)&(idx<len(zbins))]-1]
 
         return weights
 
-        
+
 
     @jackknifeMap
     def map(self, mapunit):
@@ -4669,8 +4669,8 @@ class XiXY(CrossCorrelationFunction):
                             self.rand_ind+=1
                             continue
 
-                        rands = self.getCartesianRandoms(mu['px'][zlidx:zhidx][lidx], 
-                                                         mu['py'][zlidx:zhidx][lidx], 
+                        rands = self.getCartesianRandoms(mu['px'][zlidx:zhidx][lidx],
+                                                         mu['py'][zlidx:zhidx][lidx],
                                                          mu['pz'][zlidx:zhidx][lidx])
 
                     for li1, j1 in enumerate(self.minds1):
@@ -4697,10 +4697,10 @@ class XiXY(CrossCorrelationFunction):
                                 self.rand_ind1+=1
                                 continue
 
-                            rands1 = self.getCartesianRandoms(mu['px1'][zlidx1:zhidx1][lidx1], 
-                                                              mu['py1'][zlidx1:zhidx1][lidx1], 
+                            rands1 = self.getCartesianRandoms(mu['px1'][zlidx1:zhidx1][lidx1],
+                                                              mu['py1'][zlidx1:zhidx1][lidx1],
                                                               mu['pz1'][zlidx1:zhidx1][lidx1])
-                            
+
                         for k in range(self.ncbins):
                             if self.ncbins == 1:
                                 cidx = lidx
@@ -4886,12 +4886,12 @@ class XiXY(CrossCorrelationFunction):
 
                 self.jxixy = np.zeros_like(self.jdd)
 
-                for i in xrange(self.njacktot):
-                    for j in xrange(self.ncbins):
-                        for k in xrange(self.nmbins):
-                            for l in xrange(self.nmbins1):
-                                for m in xrange(self.nzbins*self.nzbins1):
-                                    if (self.jnd1[i,0,j,k,l,m]<1) | (self.jnd2[i,0,j,k,l,m]<1): continue 
+                for i in range(self.njacktot):
+                    for j in range(self.ncbins):
+                        for k in range(self.nmbins):
+                            for l in range(self.nmbins1):
+                                for m in range(self.nzbins*self.nzbins1):
+                                    if (self.jnd1[i,0,j,k,l,m]<1) | (self.jnd2[i,0,j,k,l,m]<1): continue
                                     self.jxixy[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                       self.jnd2[i,0,j,k,l,m],
                                                                                       self.jnr1[i,0,j,k,l,m],
@@ -4900,11 +4900,11 @@ class XiXY(CrossCorrelationFunction):
                                                                                       self.jdr[i,:,j,k,l,m],
                                                                                       self.jrd[i,:,j,k,l,m],
                                                                                       self.jrr[i,:,j,k,l,m])
-                
+
                 self.xixy = np.sum(self.jxixy, axis=0) / self.njacktot
 
                 self.varxixy = np.sum((self.jxixy - self.xixy)**2, axis=0) * (self.njacktot - 1) / self.njacktot
-                
+
                 print('sizes of jnd1, jdd, wxytheta: {}, {}, {}'.format(self.jnd1.shape, self.jdd.shape, self.xixy.shape))
 
         else:
@@ -4919,12 +4919,12 @@ class XiXY(CrossCorrelationFunction):
             self.jrr = self.jackknife(self.rr, reduce_jk=False)
 
             self.jxixy = np.zeros_like(self.jdd)
-            
-            for i in xrange(self.njacktot):
-                for j in xrange(self.ncbins):
-                    for k in xrange(self.nmbins):
-                        for l in xrange(self.nmbins1):
-                            for m in xrange(self.nzbins*self.nzbins1):
+
+            for i in range(self.njacktot):
+                for j in range(self.ncbins):
+                    for k in range(self.nmbins):
+                        for l in range(self.nmbins1):
+                            for m in range(self.nzbins*self.nzbins1):
                                 self.jxixy[i,:,j,k,l,m] = convert_3d_counts_to_cf(self.jnd1[i,0,j,k,l,m],
                                                                                   self.jnd2[i,0,j,k,l,m],
                                                                                   self.jnr1[i,0,j,k,l,m],
@@ -4933,7 +4933,7 @@ class XiXY(CrossCorrelationFunction):
                                                                                   self.jdr[i,:,j,k,l,m],
                                                                                   self.jrd[i,:,j,k,l,m],
                                                                                   self.jrr[i,:,j,k,l,m])
-                
+
             self.xixy = np.sum(self.jxixy, axis=0) / self.njacktot
 
             self.varxixy = np.sum((self.jxixy - self.xixy)**2, axis=0) * (self.njacktot - 1) / self.njacktot
